@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Rounded screen frame -->
+    <path
+        android:pathData="M32,30 h44 a8,8 0 0 1 8,8 v32 a8,8 0 0 1 -8,8 h-44 a8,8 0 0 1 -8,-8 v-32 a8,8 0 0 1 8,-8 z"
+        android:strokeColor="#FF5EE1FF"
+        android:strokeWidth="3" />
+
+    <!-- Play glyph -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M48,40 L48,68 L72,54 Z" />
+
+    <!-- Progress pip, hints at "playback" -->
+    <path
+        android:pathData="M32,74 h18"
+        android:strokeColor="#FFFFC46B"
+        android:strokeLineCap="round"
+        android:strokeWidth="3" />
+
+</vector>

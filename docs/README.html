@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VDO Player — manual</title>
+<meta name="description" content="Full manual for VDO Player: features, install, gestures, permissions, logging and troubleshooting." />
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <img src="assets/app-icon.svg" alt="" />
+      VDO Player
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Download</a>
+      <a href="README.html" aria-current="page">Manual</a>
+      <a href="RESEARCH.html">Research</a>
+      <a href="CHANGELOG.html">Changelog</a>
+      <a href="https://github.com/NarDecH/Android_VDO_Player">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <img class="icon" src="assets/app-icon.svg" alt="" />
+    <h1>Manual</h1>
+    <p class="tagline">Everything the app does, how to install it, and what to send when something breaks.</p>
+    <p class="status-line">The plain Markdown version, kept in sync, is
+      <a href="README.md">docs/README.md</a>.</p>
+  </section>
+
+  <article class="prose">
+
+    <h2 id="what-it-does">What it does</h2>
+    <p>
+      VDO Player is a <strong>local file</strong> video player for Android. It reads the videos
+      already on the device, plays them with the phone's hardware decoders first and bundled FFmpeg
+      decoders as a fallback, and keeps a detailed log for when a file still will not play. There is
+      no account, no streaming, and no <code>INTERNET</code> permission.
+    </p>
+
+    <h3>Library</h3>
+    <ul>
+      <li>MediaStore scan that refreshes live while the app is open</li>
+      <li>Thumbnails decoded from the video frames themselves</li>
+      <li>Search across titles and folders, folder filter chips</li>
+      <li>Sort by date, name, duration or size · grid (1–4 columns) or list</li>
+      <li>Long press for details: folder, resolution, duration, size, MIME type, relative path, URI</li>
+    </ul>
+
+    <h3>Playback</h3>
+    <ul>
+      <li>Media3 ExoPlayer with hardware decoders</li>
+      <li>FFmpeg software decoders through NextLib, priority selectable: hardware first, FFmpeg
+        first, or hardware only</li>
+      <li>Playlists following the filtered library order, with next/previous</li>
+      <li>Resume per video, remembered across restarts</li>
+      <li>Background audio with a media notification; playback survives leaving the app</li>
+      <li>Speed from 0.25× to 3×, plus a 3× long-press boost</li>
+    </ul>
+
+    <h3>Player screen</h3>
+    <table>
+      <thead><tr><th>Gesture or control</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td>Tap</td><td>Show/hide the controls overlay</td></tr>
+        <tr><td>Double tap left / right</td><td>Seek back / forward by the step configured in Settings</td></tr>
+        <tr><td>Swipe horizontally</td><td>Scrub with a time preview on screen</td></tr>
+        <tr><td>Swipe vertically, left half</td><td>Brightness for the player window only</td></tr>
+        <tr><td>Swipe vertically, right half</td><td>Media volume</td></tr>
+        <tr><td>Long press</td><td>Play at 3× while held</td></tr>
+        <tr><td>Lock</td><td>Hide every control until unlocked</td></tr>
+        <tr><td>Info (top right)</td><td>Stream details for the current file, plus “copy full diagnostics”</td></tr>
+        <tr><td>PiP</td><td>Continue in a floating window, using the video's real aspect ratio</td></tr>
+        <tr><td>Subtitles</td><td>Toggle text tracks on, or pick an <code>.srt</code>/<code>.vtt</code>/<code>.ass</code> file</td></tr>
+      </tbody>
+    </table>
+    <p>Aspect modes (fit, zoom/crop, stretch, match width) live behind the aspect button; screen
+      rotation has its own button and an auto-rotate setting.</p>
+
+    <figure class="shot" style="text-align:center">
+      <img src="assets/screen-player.svg" alt="Player screen mockup" style="max-width:300px" />
+      <figcaption>Player screen: title, controls, buffered indicator and the seek HUD.</figcaption>
+    </figure>
+
+    <h2 id="installing">Installing</h2>
+    <ol>
+      <li>Open the <a href="index.html">download page</a> (it reads the GitHub API for the newest
+        release) or go to the <a href="https://github.com/NarDecH/Android_VDO_Player/releases/latest">releases page</a>.</li>
+      <li>Pick the build for the device:
+        <table>
+          <thead><tr><th>File</th><th>Architecture</th><th>Approx. size</th><th>When</th></tr></thead>
+          <tbody>
+            <tr><td><code>app-arm64-v8a-release.apk</code></td><td>64-bit ARM</td><td>24 MB</td><td>Almost every phone since 2016</td></tr>
+            <tr><td><code>app-armeabi-v7a-release.apk</code></td><td>32-bit ARM</td><td>23 MB</td><td>Older or entry-level devices</td></tr>
+            <tr><td><code>app-x86_64-release.apk</code></td><td>x86_64</td><td>28 MB</td><td>Emulators, x86 tablets</td></tr>
+            <tr><td><code>app-universal-release.apk</code></td><td>all</td><td>51 MB</td><td>When unsure</td></tr>
+          </tbody>
+        </table>
+      </li>
+      <li>Allow installation from this source when Android asks, then open the file.</li>
+      <li>Grant video access on first launch — without it the library stays empty rather than crashing.</li>
+    </ol>
+
+    <h2 id="permissions-and-privacy">Permissions and privacy</h2>
+    <table>
+      <thead><tr><th>Permission</th><th>Why it is needed</th></tr></thead>
+      <tbody>
+        <tr><td><code>READ_MEDIA_VIDEO</code> (13+) / <code>READ_EXTERNAL_STORAGE</code> (≤12)</td><td>List the videos on the device</td></tr>
+        <tr><td><code>POST_NOTIFICATIONS</code> (13+)</td><td>Show the playback notification</td></tr>
+        <tr><td><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_MEDIA_PLAYBACK</code></td><td>Keep audio playing with the screen off</td></tr>
+        <tr><td><code>WAKE_LOCK</code></td><td>Stop the CPU sleeping mid-playback</td></tr>
+        <tr><td><code>WRITE_EXTERNAL_STORAGE</code> (≤9 only)</td><td>Legacy path for saving an export to Downloads</td></tr>
+      </tbody>
+    </table>
+    <p>There is no <code>INTERNET</code> permission. Logs live in the app's private external directory
+      and are excluded from cloud backup; sharing is always an action you take.</p>
+
+    <h2 id="diagnostics-and-logs">Diagnostics and logs</h2>
+    <div class="grid">
+      <div class="card"><h3>LogBus</h3><p>2000-entry ring buffer, versioned snapshots, logcat mirror,
+        8 tags (<code>APP UI PLAYER MEDIA DECODER STORAGE EXPORT CRASH</code>) and 6 levels.</p></div>
+      <div class="card"><h3>LogFileWriter</h3><p>Asynchronous rotating files: 2 MB each, ten kept,
+        oldest pruned, in <code>Android/data/com.nardech.vdoplayer/files/logs/</code>.</p></div>
+      <div class="card"><h3>CrashGuard</h3><p>Uncaught exceptions are logged with a device summary and
+        flushed to disk before the process exits.</p></div>
+      <div class="card"><h3>LogShare</h3><p>Export <code>.txt</code> (readable report) or
+        <code>.zip</code> (session log + diagnostics + raw files), then share or save.</p></div>
+    </div>
+
+    <figure class="shot" style="text-align:center">
+      <img src="assets/screen-logs.svg" alt="Logs screen mockup" style="max-width:300px" />
+      <figcaption>Logs screen: filters, freeze the live tail, copy, clear, share, save.</figcaption>
+    </figure>
+
+    <h3>Sending a good bug report</h3>
+    <ol>
+      <li>Reproduce the problem once so the failure is at the end of the buffer.</li>
+      <li>Open <strong>Logs</strong> → <strong>Share</strong>. The zip is the most informative default.</li>
+      <li>In the player, use the info panel's <strong>Copy full diagnostics</strong> for the exact
+        streams of the file that failed.</li>
+    </ol>
+
+    <h2 id="troubleshooting">Troubleshooting</h2>
+    <table>
+      <thead><tr><th>Symptom</th><th>What to try</th></tr></thead>
+      <tbody>
+        <tr><td>Empty library</td><td>Grant video access in system Settings → Apps → VDO Player → Permissions</td></tr>
+        <tr><td>“This file could not be played”</td><td>Set decoder priority to <em>Prefer FFmpeg</em>; then export a log — the error entry names the failing codec</td></tr>
+        <tr><td>Video plays, no audio</td><td>Usually an unsupported audio codec (DTS/TrueHD/AC-3 variants). Prefer FFmpeg, then check the Audio line in the info panel</td></tr>
+        <tr><td>No subtitles</td><td>Use the subtitle button to pick the file; embedded tracks appear automatically</td></tr>
+        <tr><td>Choppy playback</td><td>Prefer hardware decoding, or use a lower resolution source — FFmpeg decoding is CPU work</td></tr>
+        <tr><td>Battery drain while idle</td><td>Check the notification is gone; background playback may still be enabled</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="building-from-source">Building from source</h2>
+    <pre><code>export ANDROID_HOME=/path/to/Android/Sdk
+./gradlew :app:assembleDebug     # debug APK
+./gradlew :app:assembleRelease   # per-ABI + universal release APKs</code></pre>
+    <p>Requires JDK 17, Android SDK platform 37 and build-tools 37.0.0. Release signing reads
+      <code>keystore.properties</code>; without it, release builds fall back to the debug key so they
+      still compile. See <a href="../AGENT.md">AGENT.md</a> for the build traps that cost time
+      (notably <code>sdk.dir</code> escaping on Windows).</p>
+
+    <h2 id="licence">Licence</h2>
+    <p>GPL-3.0-or-later. The FFmpeg decoder library (NextLib) is GPL-3.0, which makes the combined
+      application GPL-3.0. Details in <a href="RESEARCH.html#licensing">the research notes</a>.</p>
+
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>VDO Player — <a href="https://github.com/NarDecH/Android_VDO_Player">NarDecH/Android_VDO_Player</a></span>
+    <span><a href="README.md">Markdown source</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

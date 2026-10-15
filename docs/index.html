@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VDO Player — download the latest APK</title>
+<meta name="description" content="VDO Player: an Android video player for local files with FFmpeg fallback decoders and detailed, exportable logs. Download the newest signed APK." />
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <img src="assets/app-icon.svg" alt="" />
+      VDO Player
+    </a>
+    <nav class="site-nav">
+      <a href="index.html" aria-current="page">Download</a>
+      <a href="README.html">Manual</a>
+      <a href="RESEARCH.html">Research</a>
+      <a href="CHANGELOG.html">Changelog</a>
+      <a href="https://github.com/NarDecH/Android_VDO_Player">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+  <section class="hero wrap">
+    <img class="icon" src="assets/app-icon.svg" alt="VDO Player app icon" />
+    <h1>Play <span class="gradient-text">anything</span> on your phone.<br />Then prove why it failed.</h1>
+    <p class="tagline">
+      An Android player for the videos already on your device: hardware decoding when it works,
+      bundled FFmpeg decoders when it does not, and a log you can send in one tap when a file
+      still refuses to play.
+    </p>
+
+    <div class="chips">
+      <span class="chip"><strong>Android 8.0+</strong> · API 26</span>
+      <span class="chip"><strong>No internet permission</strong> · nothing is uploaded</span>
+      <span class="chip"><strong>FFmpeg fallback</strong> · AC-3, DTS, TrueHD, VP9, AV1</span>
+      <span class="chip"><strong>GPL-3.0</strong> · source available</span>
+    </div>
+
+    <div class="actions">
+      <a class="btn btn-primary" href="#download">Get the latest APK</a>
+      <a class="btn" href="README.html">Read the manual</a>
+      <a class="btn btn-ghost" href="https://github.com/NarDecH/Android_VDO_Player">Source code</a>
+    </div>
+
+    <div class="badge-row">
+      <img src="https://img.shields.io/github/v/release/NarDecH/Android_VDO_Player?sort=semver" alt="Latest release" />
+      <img src="https://img.shields.io/github/downloads/NarDecH/Android_VDO_Player/total" alt="Total downloads" />
+      <img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="GPL-3.0" />
+    </div>
+  </section>
+
+  <section id="download" class="wrap">
+    <h2>Download</h2>
+    <p class="lead">
+      This page asks the GitHub API for the newest release each time it loads, so the buttons below
+      always point at the current build.
+    </p>
+
+    <div class="callout">
+      <strong>Install:</strong> download the APK on your phone, allow installation from this source
+      when Android asks, then open the file. Upgrades install over the old version — every release
+      from this repository is signed with the same project key.
+    </div>
+
+    <p class="status-line" id="release-status">Asking the GitHub API for the latest release…</p>
+
+    <div id="release-box" hidden>
+      <div class="release-head">
+        <div>
+          <div class="release-tag" id="release-tag">—</div>
+          <div class="release-meta" id="release-meta"></div>
+        </div>
+        <a class="btn btn-ghost" id="all-releases" href="https://github.com/NarDecH/Android_VDO_Player/releases">All releases</a>
+      </div>
+      <div class="asset-list" id="asset-list"></div>
+      <pre class="checksum" id="release-notes" hidden></pre>
+    </div>
+
+    <div class="callout warn" id="release-fallback" hidden>
+      <strong>Automatic lookup unavailable.</strong>
+      <span data-detail></span>
+      Use the <a href="https://github.com/NarDecH/Android_VDO_Player/releases/latest">releases page</a>
+      instead — the newest APKs are always attached there.
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Why this player exists</h2>
+    <p class="lead">
+      Three things break video playback on real phones: a codec the chip does not have, an app with
+      no diagnostics, and a player that hides the trade-off between battery and compatibility. This
+      project attacks all three.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="kicker">Coverage</div>
+        <h3>Two decoder paths</h3>
+        <p>Media3/ExoPlayer runs the phone's hardware decoders first. When a file needs something the
+          SoC cannot do, bundled FFmpeg decoders (NextLib) take over. Priority is a setting, not a
+          secret.</p>
+      </div>
+      <div class="card">
+        <div class="kicker">Diagnostics</div>
+        <h3>Logs built for bugs</h3>
+        <p>Rotating log files, crash capture with stack traces, device and MediaCodec inventory, and
+          export as <code>.txt</code> or <code>.zip</code> — share it or save it to Downloads.</p>
+      </div>
+      <div class="card">
+        <div class="kicker">Privacy</div>
+        <h3>No internet permission</h3>
+        <p>The manifest has no <code>INTERNET</code> permission. Your videos and logs cannot leave the
+          device except through the share sheet you trigger.</p>
+      </div>
+      <div class="card">
+        <div class="kicker">Controls</div>
+        <h3>Common gestures</h3>
+        <p>Swipe for brightness and volume, double tap to seek, long press for 3× speed, control lock,
+          aspect modes, subtitles from disk, picture-in-picture.</p>
+      </div>
+      <div class="card">
+        <div class="kicker">Library</div>
+        <h3>Finds your files</h3>
+        <p>MediaStore scan with live refresh, thumbnails rendered from the video, search, folder
+          chips, seven sort orders, grid or list.</p>
+      </div>
+      <div class="card">
+        <div class="kicker">Transparency</div>
+        <h3>Shows the streams</h3>
+        <p>While watching, the info panel names the exact video, audio and subtitle formats that were
+          selected, plus a full diagnostics copy button.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Screens</h2>
+    <p class="lead">These are vector mockups of the shipped layouts, not device captures.</p>
+    <div class="shots">
+      <figure class="shot">
+        <img src="assets/screen-library.svg" alt="Library screen with search, folder chips and a thumbnail grid" />
+        <figcaption>Library — search, folder chips, thumbnails, duration badges</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screen-player.svg" alt="Player screen with controls, progress bar and a seek heads-up display" />
+        <figcaption>Player — controls, buffered time, seek feedback, per-file stream info</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screen-logs.svg" alt="Logs screen with level filters, export buttons and coloured log lines" />
+        <figcaption>Logs — level and tag filters, live tail, export and share</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Send a bug report that actually helps</h2>
+    <ol>
+      <li>Reproduce the problem once, so the failure sits at the end of the log buffer.</li>
+      <li>Open the <strong>Logs</strong> tab and tap <strong>Share</strong> (the zip carries the most context).</li>
+      <li>Attach it to an issue along with the container and codec of the file, if you know them —
+        the player's info panel shows both.</li>
+    </ol>
+    <div class="callout">
+      Exports contain file names, URIs, sizes, codec identifiers and the app's own events. They never
+      contain the video itself.
+      <a href="README.html#diagnostics-and-logs">How the logging pipeline works →</a>
+    </div>
+  </section>
+
+  <section class="wrap">
+    <h2>Requirements &amp; build info</h2>
+    <table>
+      <tr><th>Minimum Android</th><td>8.0 (API 26)</td></tr>
+      <tr><th>Built against</th><td>compileSdk / targetSdk 37, JDK 17, AGP 9.4.1, Gradle 9.8.1</td></tr>
+      <tr><th>Playback</th><td>Media3 1.11.1 (ExoPlayer) with NextLib FFmpeg renderers 1.11.1-0.16.0</td></tr>
+      <tr><th>UI</th><td>Jetpack Compose (BOM 2026.09.00), Material 3, dynamic colour</td></tr>
+      <tr><th>Licence</th><td>GPL-3.0-or-later (the FFmpeg decoder library is GPL-3.0)</td></tr>
+    </table>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>VDO Player — built and released from
+      <a href="https://github.com/NarDecH/Android_VDO_Player">NarDecH/Android_VDO_Player</a></span>
+    <span class="status-line" id="footer-status">download page · reads the GitHub release API</span>
+  </div>
+</footer>
+
+<script src="assets/download.js"></script>
+</body>
+</html>

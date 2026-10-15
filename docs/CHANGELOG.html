@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VDO Player — changelog</title>
+<meta name="description" content="Release history for VDO Player, in Keep a Changelog form." />
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <img src="assets/app-icon.svg" alt="" />
+      VDO Player
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Download</a>
+      <a href="README.html">Manual</a>
+      <a href="RESEARCH.html">Research</a>
+      <a href="CHANGELOG.html" aria-current="page">Changelog</a>
+      <a href="https://github.com/NarDecH/Android_VDO_Player">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Changelog</h1>
+    <p class="tagline">Keep a Changelog format, semantic versioning. Markdown source:
+      <a href="CHANGELOG.md">docs/CHANGELOG.md</a>.</p>
+  </section>
+
+  <article class="prose">
+
+    <h2 id="v1-0-0">1.0.0 — 2026-10-15</h2>
+    <p>First public release. Everything below is new.</p>
+
+    <h3>Library</h3>
+    <ul>
+      <li><span class="tag added">added</span> MediaStore scan with a <code>ContentObserver</code>, so the list updates while the app is open</li>
+      <li><span class="tag added">added</span> Thumbnails decoded from the video frames themselves (Coil 3 + <code>coil-video</code>)</li>
+      <li><span class="tag added">added</span> Search by title or folder, folder filter chips, seven sort orders</li>
+      <li><span class="tag added">added</span> Grid layout with 1–4 columns and a single-column list layout</li>
+      <li><span class="tag added">added</span> Long-press details: folder, resolution, duration, size, MIME type, relative path, URI</li>
+    </ul>
+
+    <h3>Playback</h3>
+    <ul>
+      <li><span class="tag added">added</span> ExoPlayer hosted in a <code>MediaSessionService</code>, driven through a <code>MediaController</code></li>
+      <li><span class="tag added">added</span> FFmpeg software decoders via <code>nextlib-media3ext</code>, three priority modes</li>
+      <li><span class="tag added">added</span> Playlists from the filtered library view with previous/next</li>
+      <li><span class="tag added">added</span> Per-video resume positions, throttled to one write every 5 seconds</li>
+      <li><span class="tag added">added</span> Background audio with a media notification that returns to the player</li>
+      <li><span class="tag added">added</span> 0.25×–3× speed, plus a 3× long-press boost</li>
+      <li><span class="tag added">added</span> Aspect modes, control lock, rotation, picture-in-picture with the real aspect ratio</li>
+      <li><span class="tag added">added</span> Side-loading of <code>.srt</code>, <code>.vtt</code> and <code>.ass</code> subtitles, and a subtitle toggle</li>
+      <li><span class="tag added">added</span> Gesture layer: brightness, volume, scrub, double-tap seek, all with on-screen feedback</li>
+    </ul>
+
+    <h3>Diagnostics</h3>
+    <ul>
+      <li><span class="tag added">added</span> <code>LogBus</code> — 2000-entry ring buffer, versioned snapshots, logcat mirroring, 8 tags, 6 levels</li>
+      <li><span class="tag added">added</span> <code>LogFileWriter</code> — asynchronous rotating files, 2 MB × 10</li>
+      <li><span class="tag added">added</span> <code>CrashGuard</code> — uncaught exceptions logged with a device summary and flushed before exit</li>
+      <li><span class="tag added">added</span> <code>Diagnostics</code> — device, OS, ABI, display, memory, storage, player state, active tracks, MediaCodec inventory</li>
+      <li><span class="tag added">added</span> <code>LogShare</code> — <code>.txt</code>/<code>.zip</code> exports, share sheet delivery, save to Downloads</li>
+      <li><span class="tag added">added</span> Logs screen: level/tag/text filters, freeze the live tail, copy, clear, share, save</li>
+    </ul>
+
+    <h3>App</h3>
+    <ul>
+      <li><span class="tag added">added</span> Material 3 with dynamic colour, light/dark/system themes</li>
+      <li><span class="tag added">added</span> Settings for appearance, playback and diagnostics</li>
+      <li><span class="tag added">added</span> Recent tab with per-entry progress, remove and clear-all</li>
+      <li><span class="tag added">added</span> Handles <code>ACTION_VIEW</code> and <code>ACTION_SEND</code> for <code>video/*</code> and <code>audio/*</code></li>
+      <li><span class="tag added">added</span> Adaptive launcher icon with a monochrome variant for themed icons</li>
+    </ul>
+
+    <h3>Distribution</h3>
+    <ul>
+      <li><span class="tag added">added</span> Per-ABI release APKs plus a universal APK, signed with the project key</li>
+      <li><span class="tag added">added</span> This GitHub Pages site, resolving the newest release through the GitHub API</li>
+      <li><span class="tag added">added</span> Markdown and HTML documentation</li>
+    </ul>
+
+    <h3>Known limitations</h3>
+    <ul>
+      <li><span class="tag limit">limit</span> No device-level smoke test ran: playback correctness is asserted from API contracts and build artefacts, not a recorded device run</li>
+      <li><span class="tag limit">limit</span> Documentation screenshots are vector mockups of the shipped layouts</li>
+      <li><span class="tag limit">limit</span> Minification is disabled for release builds, so APKs are larger than necessary</li>
+      <li><span class="tag limit">limit</span> Some <code>Player</code> commands are not available to a <code>MediaController</code>; refusals are logged and automatic selection is kept</li>
+      <li><span class="tag limit">limit</span> Before Android 10, exports are saved to the app's private external directory (the public Downloads path needs a runtime storage permission there)</li>
+    </ul>
+
+    <h3>Security</h3>
+    <ul>
+      <li><span class="tag added">added</span> Release keystore and <code>keystore.properties</code> are excluded from version control; releases are signed locally</li>
+      <li><span class="tag added">added</span> The app requests no <code>INTERNET</code> permission</li>
+    </ul>
+
+    <hr />
+
+    <h2 id="unreleased">Unreleased — planned</h2>
+    <ul>
+      <li><span class="tag changed">planned</span> CI workflow that builds and signs a draft release from a version tag</li>
+      <li><span class="tag changed">planned</span> Runtime decoder switching (hardware ⇄ FFmpeg) without restarting playback, via NextLib's <code>DecoderManager</code></li>
+      <li><span class="tag changed">planned</span> Subtitle auto-discovery next to the video file</li>
+      <li><span class="tag changed">planned</span> Audio track picker UI (the engine already exposes the tracks)</li>
+      <li><span class="tag changed">planned</span> Thai UI translation via <code>values-th/strings.xml</code></li>
+    </ul>
+
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>VDO Player — <a href="https://github.com/NarDecH/Android_VDO_Player">NarDecH/Android_VDO_Player</a></span>
+    <span><a href="CHANGELOG.md">Markdown source</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Playback positions and settings are cheap to recreate; keep backups small. -->
+    <exclude
+        domain="external"
+        path="logs" />
+</full-backup-content>

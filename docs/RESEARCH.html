@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>VDO Player — research notes</title>
+<meta name="description" content="Why VDO Player uses Media3 with NextLib FFmpeg decoders: the decoder landscape, pinned versions with sources, licensing and measured APK sizes." />
+<link rel="icon" href="assets/app-icon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="index.html">
+      <img src="assets/app-icon.svg" alt="" />
+      VDO Player
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">Download</a>
+      <a href="README.html">Manual</a>
+      <a href="RESEARCH.html" aria-current="page">Research</a>
+      <a href="CHANGELOG.html">Changelog</a>
+      <a href="https://github.com/NarDecH/Android_VDO_Player">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Research notes</h1>
+    <p class="tagline">
+      The decisions behind the build, the versions that were verified against Google Maven and Maven
+      Central, and the numbers measured on the build machine.
+    </p>
+    <p class="status-line">Full text: <a href="RESEARCH.md">docs/RESEARCH.md</a></p>
+  </section>
+
+  <article class="prose">
+
+    <h2 id="decoder">1 · Decoder strategy</h2>
+    <p>Phones ship hardware decoders for mainstream formats only. The failures users actually hit:</p>
+    <ul>
+      <li>MKV with AC-3/DTS audio → video with no sound</li>
+      <li>VP9/AV1 on chips that predate them → refuses to start</li>
+      <li>HEVC 10-bit and odd profiles on older SoCs → decoding error</li>
+    </ul>
+    <p>Three options were evaluated for a Media3 app.</p>
+
+    <table>
+      <thead><tr><th>Option</th><th>What it offers</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Official Media3 FFmpeg extension</td>
+          <td>Not published to Google Maven. You check out Media3, build FFmpeg with the NDK and depend
+            on the module locally; it provides an <em>audio</em> renderer.</td>
+          <td>Rejected — would vendor a native toolchain into this repository.</td>
+        </tr>
+        <tr>
+          <td>NextLib <code>io.github.anilbeesetti:nextlib-media3ext</code></td>
+          <td>Drop-in <code>RenderersFactory</code> with FFmpeg + dav1d video decoders. Video: H.264,
+            HEVC, VP8, VP9, AV1. Audio: Vorbis, Opus, FLAC, ALAC, PCM, MP3, AMR, AAC, AC-3, E-AC-3,
+            DCA, MLP, TrueHD. ABIs: <code>armeabi-v7a</code>, <code>arm64-v8a</code>, <code>x86</code>, <code>x86_64</code>.</td>
+          <td><strong>Chosen</strong> — two lines to integrate, matched to Media3 1.11.1, published to
+            Maven Central. Licence GPL-3.0.</td>
+        </tr>
+        <tr>
+          <td>LibVLC <code>org.videolan.android:libvlc-all:3.7.7</code></td>
+          <td>Separate engine with the broadest coverage, HDR and passthrough support.</td>
+          <td>Rejected for 1.0.0 — rewrites playback and UI bindings, adds another large native
+            payload. Kept as the fallback plan.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The chosen renderer priority is exposed to the user: <em>Hardware first</em>
+      (<code>EXTENSION_RENDERER_MODE_ON</code>, the default), <em>Prefer FFmpeg</em>
+      (<code>…_PREFER</code>), <em>Hardware only</em> (<code>…_OFF</code>). Hardware decoding is kept
+      in front because it uses less power; FFmpeg only takes over what the platform cannot handle.</p>
+
+    <h2 id="versions">2 · Version matrix</h2>
+    <table>
+      <thead><tr><th>Component</th><th>Version</th><th>Reason</th></tr></thead>
+      <tbody>
+        <tr><td>Android Gradle Plugin</td><td>9.4.1</td><td>Latest 9.4 patch; 9.5.0 was alpha at build time</td></tr>
+        <tr><td>Gradle</td><td>9.8.1</td><td>Current stable; AGP 9.4.x requires ≥ 9.6</td></tr>
+        <tr><td>Kotlin</td><td>2.4.21</td><td>Latest stable in the 2.4 line</td></tr>
+        <tr><td>Compose BOM</td><td>2026.09.00</td><td>Latest stable; resolves Compose 1.12.1</td></tr>
+        <tr><td>Media3</td><td>1.11.1</td><td>Latest stable and the version NextLib builds against</td></tr>
+        <tr><td>NextLib</td><td>1.11.1-0.16.0</td><td>Newest published, matched to Media3 1.11.1</td></tr>
+        <tr><td>Activity Compose / Core KTX / Lifecycle</td><td>1.13.0 / 1.19.1 / 2.11.0</td><td>Latest stable in each line</td></tr>
+        <tr><td>DataStore Preferences</td><td>1.2.1</td><td>Latest stable (1.3.0 was still RC)</td></tr>
+        <tr><td>Coil</td><td>3.6.3</td><td><code>coil-video</code> provides the frame decoder for thumbnails</td></tr>
+        <tr><td>JDK</td><td>17</td><td>AGP 9.4 minimum and default</td></tr>
+        <tr><td>compileSdk / targetSdk</td><td>37 (Android 17)</td><td>Current platform; Play requires ≥ 36 for new apps since 31 Aug 2026</td></tr>
+        <tr><td>minSdk</td><td>26 (Android 8.0)</td><td>Adaptive icons without bitmap fallbacks, PiP, and <code>java.time</code> without desugaring</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="agp9">3 · Build system: AGP 9 and built-in Kotlin</h2>
+    <p>AGP 9 ships built-in Kotlin support. Applying <code>org.jetbrains.kotlin.android</code> now
+      fails outright, and <code>android { kotlinOptions { … } }</code> is replaced by
+      <code>kotlin { compilerOptions { … } }</code> — which is where the Media3
+      <code>-opt-in=…UnstableApi</code> flag lives. The Compose compiler plugin
+      (<code>org.jetbrains.kotlin.plugin.compose</code>) is still required and must match the pinned
+      Kotlin version.</p>
+
+    <h3>Windows traps found while building</h3>
+    <table>
+      <thead><tr><th>Symptom</th><th>Cause</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>IOException: The filename, directory name, or volume label syntax is incorrect</code> in <code>SdkLocator.validateSdkPath</code></td>
+          <td>escaped backslashes in <code>local.properties</code></td>
+          <td>write <code>sdk.dir</code> with forward slashes</td>
+        </tr>
+        <tr><td><code>keytool: Password is not ASCII</code></td><td>base64 password kept a stray <code>\r</code></td><td>generate with <code>openssl rand -hex 16</code></td></tr>
+        <tr><td><code>Configuring project ':app' without an existing directory</code></td><td>Gradle 9 refuses includes for missing directories</td><td>create the module directory before running any task</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="architecture">4 · Playback architecture</h2>
+    <ul>
+      <li><code>PlaybackService : MediaSessionService</code> owns the single <code>ExoPlayer</code>, which
+        is what makes background audio, the media notification and media-button handling work.</li>
+      <li>The UI uses a <code>MediaController</code> and pulls state on a 500 ms ticker plus player
+        events — one code path, no callbacks against a released player.</li>
+      <li>Track steering goes through <code>TrackSelectionParameters</code>; commands the session refuses
+        are caught, logged and ignored rather than crashing playback.</li>
+      <li>The decoder preference is mirrored into <code>SharedPreferences</code> because a
+        <code>MediaSessionService</code> cannot read DataStore synchronously at startup.</li>
+    </ul>
+
+    <h2 id="size">5 · Packaging and measured size</h2>
+    <table>
+      <thead><tr><th>Artefact</th><th>Size (measured)</th></tr></thead>
+      <tbody>
+        <tr><td><code>app-arm64-v8a-release.apk</code></td><td>24 MB</td></tr>
+        <tr><td><code>app-armeabi-v7a-release.apk</code></td><td>23 MB</td></tr>
+        <tr><td><code>app-x86_64-release.apk</code></td><td>28 MB</td></tr>
+        <tr><td><code>app-universal-release.apk</code></td><td>51 MB</td></tr>
+      </tbody>
+    </table>
+    <p>Native libraries inside the APK include <code>libavcodec.so</code> (5.6 MB for arm64),
+      <code>libavutil.so</code>, <code>libswscale.so</code>, <code>libswresample.so</code> and
+      <code>libmedia3ext.so</code> per ABI. That is why ABI splits are enabled with a universal APK
+      kept as a safety net.</p>
+    <p>Minification is deliberately off in 1.0.0: no device participated in verification, so the
+      predictable build wins over a smaller one. <code>proguard-rules.pro</code> documents what to
+      restore if that changes.</p>
+
+    <h2 id="licensing">6 · Licensing</h2>
+    <table>
+      <thead><tr><th>Dependency</th><th>Licence</th><th>Consequence</th></tr></thead>
+      <tbody>
+        <tr><td>NextLib media3ext</td><td><strong>GPL-3.0</strong></td><td>Makes the combined application GPL-3.0</td></tr>
+        <tr><td>AndroidX Media3 / ExoPlayer</td><td>Apache-2.0</td><td>Compatible with GPL-3.0</td></tr>
+        <tr><td>Compose, Activity, Lifecycle, DataStore</td><td>Apache-2.0</td><td>Compatible</td></tr>
+        <tr><td>Coil 3</td><td>Apache-2.0</td><td>Compatible</td></tr>
+      </tbody>
+    </table>
+    <p>VDO Player therefore ships under GPL-3.0-or-later with the full licence text in
+      <code>LICENSE</code>. Sticking to Apache-2.0 would mean building the official Media3 FFmpeg
+      extension yourself or moving to another decoder stack.</p>
+
+    <h2 id="screenshots">7 · Why the screenshots are vector mockups</h2>
+    <p>No Android device or emulator took part in building this release, so the documentation shows
+      mockups that reproduce the shipped layouts instead of claiming to be device captures.</p>
+
+    <h2 id="rejected">8 · Rejected alternatives</h2>
+    <table>
+      <thead><tr><th>Considered</th><th>Why not</th></tr></thead>
+      <tbody>
+        <tr><td>Official Media3 FFmpeg extension</td><td>Requires vendoring FFmpeg and NDK builds</td></tr>
+        <tr><td>Jellyfin FFmpeg AAR</td><td>Pinned to Media3 1.9.0, third-party artefact</td></tr>
+        <tr><td>LibVLC engine</td><td>Different playback stack, second native payload</td></tr>
+        <tr><td><code>MediaPlayer</code>/<code>VideoView</code></td><td>No playlist, weak track handling, no session story</td></tr>
+        <tr><td>A single “software decoding” switch</td><td>Hides a real CPU/battery trade-off; three explicit modes are clearer</td></tr>
+        <tr><td>Room for playback history</td><td>A DataStore JSON blob is cheaper at this scale</td></tr>
+        <tr><td><code>INTERNET</code> permission</td><td>Not needed for local files; omitting it makes “no uploads” structural</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="sources">9 · Sources</h2>
+    <ol>
+      <li><a href="https://developer.android.com/build/releases/agp-9-4-0-release-notes">AGP 9.4 release notes</a></li>
+      <li><a href="https://developer.android.com/build/releases/about-agp">AGP and Gradle compatibility</a></li>
+      <li><a href="https://developer.android.com/build/migrate-to-built-in-kotlin">Migrate to built-in Kotlin</a></li>
+      <li><a href="https://kotlinlang.org/docs/compose-compiler-migration-guide.html">Compose compiler migration guide</a></li>
+      <li><a href="https://developer.android.com/develop/ui/compose/setup-compose-dependencies-and-compiler">Set up the Compose Compiler Gradle plugin</a></li>
+      <li><a href="https://developer.android.com/develop/ui/compose/bom">Compose BOM</a></li>
+      <li><a href="https://developer.android.com/jetpack/androidx/releases/media3">Media3 releases</a></li>
+      <li><a href="https://developer.android.com/about/versions/17/setup-sdk">Android 17 SDK setup</a></li>
+      <li><a href="https://developer.android.com/google/play/requirements/target-sdk">Play target API requirements</a></li>
+      <li><a href="https://github.com/anilbeesetti/nextlib">NextLib</a> and its
+        <a href="https://central.sonatype.com/artifact/io.github.anilbeesetti/nextlib-media3ext">Maven Central entry</a></li>
+      <li><a href="https://github.com/androidx/media/blob/release/libraries/decoder_ffmpeg/README.md">Media decoder_ffmpeg README</a></li>
+      <li><a href="https://central.sonatype.com/artifact/org.jellyfin.media3/media3-ffmpeg-decoder">Jellyfin Media3 FFmpeg AAR</a></li>
+      <li><a href="https://central.sonatype.com/artifact/org.videolan.android/libvlc-all/3.7.7">libVLC for Android 3.7.7</a></li>
+      <li><a href="https://developer.android.com/ndk/guides/abis">Android NDK ABI guidance</a></li>
+      <li><a href="https://www.gnu.org/licenses/gpl-3.0.txt">GNU GPL-3.0 text</a></li>
+    </ol>
+
+  </article>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>VDO Player — <a href="https://github.com/NarDecH/Android_VDO_Player">NarDecH/Android_VDO_Player</a></span>
+    <span><a href="RESEARCH.md">Markdown source</a></span>
+  </div>
+</footer>
+
+</body>
+</html>

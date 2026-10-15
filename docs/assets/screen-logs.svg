@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 620" width="320" height="620" role="img" aria-label="VDO Player logs screen with filtering and export actions">
+  <defs>
+    <linearGradient id="lgPhone" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#12141B"/>
+      <stop offset="100%" stop-color="#0C0E13"/>
+    </linearGradient>
+  </defs>
+
+  <rect x="4" y="4" width="312" height="612" rx="30" fill="url(#lgPhone)" stroke="#2A2D36" stroke-width="2"/>
+
+  <text x="22" y="34" fill="#E7E8EE" font-family="Inter,Segoe UI,sans-serif" font-size="11">9:46</text>
+  <rect x="252" y="24" width="24" height="11" rx="3" fill="none" stroke="#6C7280"/>
+  <rect x="256" y="27" width="11" height="5" rx="2" fill="#8FD48F"/>
+
+  <text x="22" y="60" fill="#FFFFFF" font-family="Inter,Segoe UI,sans-serif" font-size="18" font-weight="600">Logs</text>
+  <text x="22" y="76" fill="#8D9099" font-family="Inter,Segoe UI,sans-serif" font-size="9.5">level DEBUG · zip export · live</text>
+
+  <rect x="22" y="86" width="234" height="30" rx="15" fill="#1D2029" stroke="#31353F"/>
+  <circle cx="40" cy="101" r="5.5" fill="none" stroke="#8D9099" stroke-width="1.6"/>
+  <line x1="44" y1="105" x2="48" y2="109" stroke="#8D9099" stroke-width="1.6"/>
+  <text x="56" y="105" fill="#6C7280" font-family="Inter,Segoe UI,sans-serif" font-size="10">Filter log text</text>
+  <rect x="264" y="86" width="30" height="30" rx="15" fill="#3A2E14"/>
+  <path d="M279 96 a7 7 0 1 1 -6.4 4.2" fill="none" stroke="#FFC46B" stroke-width="1.8"/>
+  <path d="M272 96 l2 5 l5 -2 z" fill="#FFC46B"/>
+
+  <g font-family="Inter,Segoe UI,sans-serif" font-size="9">
+    <rect x="22" y="126" width="58" height="22" rx="11" fill="#3459C6"/>
+    <text x="30" y="141" fill="#EAF0FF">DEBUG</text>
+    <rect x="86" y="126" width="48" height="22" rx="11" fill="#1D2029" stroke="#31353F"/>
+    <text x="96" y="141" fill="#B7BAC3">WARN</text>
+    <rect x="140" y="126" width="52" height="22" rx="11" fill="#1D2029" stroke="#31353F"/>
+    <text x="150" y="141" fill="#B7BAC3">ERROR</text>
+    <rect x="198" y="126" width="46" height="22" rx="11" fill="#1D2029" stroke="#31353F"/>
+    <text x="208" y="141" fill="#B7BAC3">All</text>
+  </g>
+
+  <g font-family="Inter,Segoe UI,sans-serif" font-size="9.5">
+    <rect x="22" y="158" width="62" height="24" rx="12" fill="#1D2029" stroke="#31353F"/>
+    <text x="36" y="174" fill="#AEC6FF">Share</text>
+    <rect x="90" y="158" width="56" height="24" rx="12" fill="#1D2029" stroke="#31353F"/>
+    <text x="104" y="174" fill="#AEC6FF">Save</text>
+    <rect x="152" y="158" width="56" height="24" rx="12" fill="#1D2029" stroke="#31353F"/>
+    <text x="166" y="174" fill="#AEC6FF">Copy</text>
+    <rect x="214" y="158" width="58" height="24" rx="12" fill="#1D2029" stroke="#31353F"/>
+    <text x="226" y="174" fill="#AEC6FF">Clear</text>
+  </g>
+
+  <text x="22" y="200" fill="#8D9099" font-family="Inter,Segoe UI,sans-serif" font-size="9">412 of 2,000 lines · live tail</text>
+
+  <g font-family="JetBrains Mono,Consolas,monospace" font-size="8" >
+    <rect x="22" y="210" width="276" height="34" rx="8" fill="#1A1D25"/>
+    <text x="30" y="222" fill="#2E9E6B">INFO   PLAYER 09:44:12.884</text>
+    <text x="30" y="236" fill="#D7D9E0">Playing 'Trip to Chiang Mai' (index 0 of 12)</text>
+
+    <rect x="22" y="250" width="276" height="34" rx="8" fill="#1A1D25"/>
+    <text x="30" y="262" fill="#4A90D9">DEBUG  DECODER 09:44:12.901</text>
+    <text x="30" y="276" fill="#D7D9E0">Video size 1920x1080 pixelRatio=1.0</text>
+
+    <rect x="22" y="290" width="276" height="46" rx="8" fill="#1A1D25"/>
+    <text x="30" y="302" fill="#2E9E6B">INFO   DECODER 09:44:12.930</text>
+    <text x="30" y="316" fill="#D7D9E0">video: video/avc 1920x1080, 29.97 fps</text>
+    <text x="30" y="328" fill="#D7D9E0">audio: audio/ac3 6 ch, 48000 Hz</text>
+
+    <rect x="22" y="342" width="276" height="34" rx="8" fill="#241E14"/>
+    <text x="30" y="354" fill="#D08B00">WARN   DECODER 09:44:13.120</text>
+    <text x="30" y="368" fill="#F0DFC0">AC-3 not supported by hardware, falling back</text>
+
+    <rect x="22" y="382" width="276" height="46" rx="8" fill="#2A1A1A"/>
+    <text x="30" y="394" fill="#D24545">ERROR  PLAYER 09:44:31.442</text>
+    <text x="30" y="408" fill="#F3CFCF">Playback error ERROR_CODE_DECODING_FAILED</text>
+    <text x="30" y="420" fill="#C99A9A">    at androidx.media3.exoplayer...</text>
+
+    <rect x="22" y="434" width="276" height="34" rx="8" fill="#1A1D25" opacity="0.75"/>
+    <text x="30" y="446" fill="#2E9E6B">INFO   STORAGE 09:44:35.010</text>
+    <text x="30" y="460" fill="#D7D9E0">Saved export to Downloads: logs-20261015.zip</text>
+  </g>
+
+  <rect x="22" y="482" width="276" height="52" rx="12" fill="#182233"/>
+  <text x="34" y="500" fill="#AEC6FF" font-family="Inter,Segoe UI,sans-serif" font-size="9.5" font-weight="600">Export contents</text>
+  <text x="34" y="514" fill="#B7BAC3" font-family="Inter,Segoe UI,sans-serif" font-size="8.5">session.log · diagnostics.txt · device + MediaCodec list</text>
+  <text x="34" y="526" fill="#B7BAC3" font-family="Inter,Segoe UI,sans-serif" font-size="8.5">rotated vdo-*.log files — share or save, never uploaded</text>
+
+  <line x1="4" y1="546" x2="316" y2="546" stroke="#22252D"/>
+  <g opacity="0.8" font-family="Inter,Segoe UI,sans-serif" font-size="9">
+    <circle cx="118" cy="578" r="9" fill="none" stroke="#8D9099" stroke-width="2"/>
+    <text x="104" y="600" fill="#8D9099">Recent</text>
+    <rect x="176" y="571" width="18" height="14" rx="4" fill="none" stroke="#AEC6FF" stroke-width="2"/>
+    <line x1="180" y1="576" x2="190" y2="576" stroke="#AEC6FF" stroke-width="1.4"/>
+    <text x="172" y="600" fill="#AEC6FF">Logs</text>
+    <circle cx="266" cy="578" r="9" fill="none" stroke="#8D9099" stroke-width="2"/>
+    <circle cx="266" cy="578" r="3" fill="#8D9099"/>
+    <text x="252" y="600" fill="#8D9099">Settings</text>
+  </g>
+</svg>

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Log files written to the app specific external directory. -->
+    <external-files-path
+        name="logs"
+        path="logs/" />
+    <!-- Anything the user exports, e.g. zipped diagnostics. -->
+    <external-cache-path
+        name="exported"
+        path="exports/" />
+    <cache-path
+        name="cache"
+        path="." />
+</paths>

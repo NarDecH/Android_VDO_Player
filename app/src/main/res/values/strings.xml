@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VDO Player</string>
+
+    <string name="notification_channel_playback">Playback</string>
+    <string name="notification_channel_name">Now playing</string>
+
+    <string name="permission_media_title">Video access needed</string>
+    <string name="permission_media_rationale">VDO Player reads the videos already on this device. Nothing is uploaded anywhere.</string>
+    <string name="permission_media_grant">Grant access</string>
+
+    <string name="share_logs_chooser">Share diagnostics</string>
+    <string name="open_settings">Open app settings</string>
+</resources>
