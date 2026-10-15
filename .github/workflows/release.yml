@@ -30,8 +30,12 @@ jobs:
   build-and-release:
     runs-on: ubuntu-latest
     steps:
+      # On a tag push this is the tag itself; on a manual run it is the tag named
+      # in the input, so a dispatch can never build untagged code from main.
       - name: Check out the tagged revision
         uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
 
       - name: Set up JDK 17
         uses: actions/setup-java@v6
@@ -42,7 +46,7 @@ jobs:
       - name: Set up the Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platforms;android-37 build-tools;37.0.0'
+          packages: 'platforms;android-37.0 build-tools;37.0.0'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
