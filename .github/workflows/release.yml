@@ -1,0 +1,104 @@
+name: Release
+
+# Cuts a GitHub release from a version tag: builds the per-ABI APKs, signs them
+# with the repository's release key, and attaches them to the release.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   KEYSTORE_BASE64    base64 of vdo-release.jks, e.g. `base64 -w0 vdo-release.jks`
+#   KEYSTORE_PASSWORD  store password (PKCS12 needs store == key password)
+#   KEY_ALIAS          key alias, e.g. vdoplayer
+#   KEY_PASSWORD       key password
+#
+# Without those secrets the workflow still builds and verifies, but the APKs are
+# debug signed — which cannot upgrade an install signed with the release key, so a
+# release published that way is only useful for testing.
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag to release, e.g. v1.0.1'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the tagged revision
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37 build-tools;37.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Secrets are passed through the environment instead of being interpolated
+      # into the script text, so a quote in a password cannot break the shell.
+      - name: Restore the release keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 -d > vdo-release.jks
+            {
+              printf 'storeFile=vdo-release.jks\n'
+              printf 'storePassword=%s\n' "$KEYSTORE_PASSWORD"
+              printf 'keyAlias=%s\n' "$KEY_ALIAS"
+              printf 'keyPassword=%s\n' "$KEY_PASSWORD"
+            } > keystore.properties
+            echo "Release signing configured from repository secrets."
+          else
+            echo "::warning::KEYSTORE_BASE64 is not set — release APKs will be debug signed."
+          fi
+
+      - name: Build release APKs
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
+      - name: Verify the APK signatures
+        run: |
+          set -e
+          for apk in app/build/outputs/apk/release/*.apk; do
+            echo "--- $apk"
+            "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk"
+          done
+
+      - name: Checksums
+        run: |
+          cd app/build/outputs/apk/release
+          {
+            echo '### SHA-256'
+            echo '```'
+            sha256sum ./*.apk
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: VDO Player ${{ github.event.inputs.tag || github.ref_name }}
+          draft: true
+          generate_release_notes: true
+          files: app/build/outputs/apk/release/*.apk
+
+      - name: Clean up signing material
+        if: always()
+        run: rm -f keystore.properties vdo-release.jks
