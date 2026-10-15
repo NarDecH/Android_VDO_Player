@@ -29,8 +29,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nardech.vdoplayer.AppContainer
+import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.HistoryEntry
 import com.nardech.vdoplayer.data.VideoItem
@@ -45,11 +47,11 @@ import com.nardech.vdoplayer.ui.settings.SettingsScreen
 import com.nardech.vdoplayer.util.IntentHelpers
 import kotlinx.coroutines.launch
 
-enum class AppTab(val label: String, val icon: ImageVector) {
-    LIBRARY("Library", Icons.Filled.VideoLibrary),
-    RECENT("Recent", Icons.Filled.History),
-    LOGS("Logs", Icons.Filled.BugReport),
-    SETTINGS("Settings", Icons.Filled.Settings),
+enum class AppTab(val labelRes: Int, val icon: ImageVector) {
+    LIBRARY(R.string.tab_library, Icons.Filled.VideoLibrary),
+    RECENT(R.string.tab_recent, Icons.Filled.History),
+    LOGS(R.string.tab_logs, Icons.Filled.BugReport),
+    SETTINGS(R.string.tab_settings, Icons.Filled.Settings),
 }
 
 @Composable
@@ -137,8 +139,8 @@ fun AppRoot(
                             NavigationBarItem(
                                 selected = tab == entry,
                                 onClick = { tab = entry },
-                                icon = { Icon(entry.icon, contentDescription = entry.label) },
-                                label = { Text(entry.label) },
+                                icon = { Icon(entry.icon, contentDescription = stringResource(entry.labelRes)) },
+                                label = { Text(stringResource(entry.labelRes)) },
                             )
                         }
                     }

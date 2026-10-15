@@ -50,11 +50,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.nardech.vdoplayer.AppContainer
+import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogEntry
@@ -92,6 +95,7 @@ fun LogsScreen(
                     entry.tag.name.contains(query, ignoreCase = true))
         }
     }
+    val copiedMessage = pluralStringResource(R.plurals.logs_copied, visible.size, visible.size)
 
     // Live tail: keep the newest line in view unless the user froze the list.
     LaunchedEffect(visible.size, frozen) {
@@ -117,12 +121,15 @@ fun LogsScreen(
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
-                placeholder = { Text("Filter log text") },
+                placeholder = { Text(stringResource(R.string.logs_filter_placeholder)) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Clear filter")
+                            Icon(
+                                Icons.Filled.Clear,
+                                contentDescription = stringResource(R.string.logs_clear_filter),
+                            )
                         }
                     }
                 },
@@ -135,8 +142,14 @@ fun LogsScreen(
             }) {
                 Icon(
                     Icons.Filled.Refresh,
-                    contentDescription = if (frozen) "Resume live tail" else "Freeze list",
-                    tint = if (frozen) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary,
+                    contentDescription = stringResource(
+                        if (frozen) R.string.logs_resume_live else R.string.logs_freeze,
+                    ),
+                    tint = if (frozen) {
+                        MaterialTheme.colorScheme.secondary
+                    } else {
+                        MaterialTheme.colorScheme.primary
+                    },
                 )
             }
         }
@@ -159,7 +172,7 @@ fun LogsScreen(
             FilterChip(
                 selected = selectedTag == null,
                 onClick = { selectedTag = null },
-                label = { Text("All tags") },
+                label = { Text(stringResource(R.string.logs_all_tags)) },
             )
             LogTag.entries.forEach { tag ->
                 FilterChip(
@@ -192,7 +205,7 @@ fun LogsScreen(
                 }
             }) {
                 Icon(Icons.Filled.Share, contentDescription = null)
-                Text("Share")
+                Text(stringResource(R.string.logs_share))
             }
             TextButton(onClick = {
                 scope.launch {
@@ -208,14 +221,14 @@ fun LogsScreen(
                 }
             }) {
                 Icon(Icons.Filled.Download, contentDescription = null)
-                Text("Save")
+                Text(stringResource(R.string.logs_save))
             }
             TextButton(onClick = {
                 copyVisible(context, visible)
-                scope.launch { snackbarHost.showSnackbar("${visible.size} log lines copied") }
+                scope.launch { snackbarHost.showSnackbar(copiedMessage) }
             }) {
                 Icon(Icons.Filled.ContentCopy, contentDescription = null)
-                Text("Copy")
+                Text(stringResource(R.string.logs_copy))
             }
             TextButton(onClick = {
                 LogBus.clear()
@@ -223,19 +236,23 @@ fun LogsScreen(
                 frozen = false
             }) {
                 Icon(Icons.Filled.Delete, contentDescription = null)
-                Text("Clear")
+                Text(stringResource(R.string.logs_clear))
             }
         }
 
+        val summary = pluralStringResource(
+            R.plurals.logs_summary,
+            allEntries.size,
+            visible.size,
+            allEntries.size,
+            settings.logLevel.name,
+            settings.logExportFormat.name,
+        ) + stringResource(
+            if (frozen) R.string.logs_summary_frozen else R.string.logs_summary_live,
+        )
+
         Text(
-            text = buildString {
-                append("${visible.size} of ${allEntries.size} lines")
-                append(" · file level ${settings.logLevel.name}")
-                append(" · ")
-                append(LogExportFormat.entries.firstOrNull { it == settings.logExportFormat }?.extension?.uppercase() ?: "ZIP")
-                append(" export")
-                append(if (frozen) " · list frozen" else " · live")
-            },
+            text = summary,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp),
@@ -249,10 +266,13 @@ fun LogsScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("No log lines match", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = stringResource(R.string.logs_empty_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Lower the level filter or clear the search box.",
+                    text = stringResource(R.string.logs_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -350,30 +370,39 @@ private suspend fun exportLogs(
         if (share) {
             val intent = LogShare.shareIntent(context, result, format)
             context.startActivity(
-                Intent.createChooser(intent, "Share VDO Player diagnostics").apply {
+                Intent.createChooser(
+                    intent,
+                    context.getString(R.string.logs_share_chooser),
+                ).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 },
             )
-            snackbarHost.showSnackbar("Sharing ${result.file.name} — ${result.summary}")
+            snackbarHost.showSnackbar(
+                context.getString(R.string.logs_sharing, result.file.name, result.summary),
+            )
         } else {
             val uri = LogShare.saveToDownloads(context, result, format)
             snackbarHost.showSnackbar(
                 if (uri != null) {
-                    "Saved ${result.file.name} to Downloads"
+                    context.getString(R.string.logs_saved, result.file.name)
                 } else {
-                    "Could not write to Downloads, use Share instead"
+                    context.getString(R.string.logs_save_failed)
                 },
             )
         }
     }.onFailure {
         LogBus.e(LogTag.EXPORT, "Log export failed", it)
-        snackbarHost.showSnackbar("Export failed: ${it.message}")
+        snackbarHost.showSnackbar(
+            context.getString(R.string.logs_export_failed, it.message ?: "unknown"),
+        )
     }
 }
 
 private fun copyVisible(context: Context, entries: List<LogEntry>) {
     val text = entries.joinToString("\n") { it.toLine() }
     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-    clipboard.setPrimaryClip(ClipData.newPlainText("VDO Player logs", text))
+    clipboard.setPrimaryClip(
+        ClipData.newPlainText(context.getString(R.string.clipboard_logs), text),
+    )
     LogBus.i(LogTag.EXPORT, "Copied ${entries.size} log lines to the clipboard")
 }

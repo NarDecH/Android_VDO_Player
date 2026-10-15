@@ -36,6 +36,15 @@
 
   <article class="prose">
 
+    <h2 id="v1-0-1">1.0.1 — 2026-10-15</h2>
+    <ul>
+      <li><span class="tag added">added</span> Thai (<code>th</code>) translation of the whole interface — heads-up display, track info panel and export snackbars included</li>
+      <li><span class="tag added">added</span> <code>locales_config.xml</code> and <code>android:localeConfig</code>, so Android 13+ lists English and Thai under <em>App languages</em></li>
+      <li><span class="tag added">added</span> Every user-visible string moved out of the composables into resources; enum display names resolve through <code>ui/Labels.kt</code></li>
+      <li><span class="tag added">added</span> The playback notification channel is named by the app, so it follows the selected language</li>
+      <li><span class="tag added">added</span> The three count strings became <code>&lt;plurals&gt;</code>, so English reads “1 video” and “1 log line”</li>
+    </ul>
+
     <h2 id="v1-0-0">1.0.0 — 2026-10-15</h2>
     <p>First public release. Everything below is new.</p>
 
@@ -110,7 +119,6 @@
       <li><span class="tag changed">planned</span> Runtime decoder switching (hardware ⇄ FFmpeg) without restarting playback, via NextLib's <code>DecoderManager</code></li>
       <li><span class="tag changed">planned</span> Subtitle auto-discovery next to the video file</li>
       <li><span class="tag changed">planned</span> Audio track picker UI (the engine already exposes the tracks)</li>
-      <li><span class="tag changed">planned</span> Thai UI translation via <code>values-th/strings.xml</code></li>
     </ul>
 
   </article>

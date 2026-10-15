@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -59,18 +58,23 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil3.compose.AsyncImage
 import com.nardech.vdoplayer.AppContainer
+import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.VdoPlayerApp
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.SortOrder
 import com.nardech.vdoplayer.data.VideoItem
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
+import com.nardech.vdoplayer.ui.folderLabel
+import com.nardech.vdoplayer.ui.sortOrderLabel
 import com.nardech.vdoplayer.util.Formatters
 
 @Composable
@@ -139,24 +143,28 @@ fun LibraryScreen(
                 modifier = Modifier.weight(1f),
                 singleLine = true,
                 shape = RoundedCornerShape(16.dp),
-                placeholder = { Text("Search videos") },
+                placeholder = { Text(stringResource(R.string.library_search_placeholder)) },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 trailingIcon = {
                     if (query.isNotEmpty()) {
                         IconButton(onClick = { query = "" }) {
-                            Icon(Icons.Filled.Clear, contentDescription = "Clear search")
+                            Icon(
+                                Icons.Filled.Clear,
+                                contentDescription = stringResource(R.string.library_clear_search),
+                            )
                         }
                     }
                 },
             )
-            SortMenu(
-                current = sortOrder,
-                onPick = { sortOrder = it },
-            )
+            SortMenu(current = sortOrder, onPick = { sortOrder = it })
             IconButton(onClick = { gridMode = !gridMode }) {
                 Icon(
-                    if (gridMode) Icons.AutoMirrored.Filled.ViewList else Icons.Filled.GridView,
-                    contentDescription = "Toggle layout",
+                    if (gridMode) {
+                        Icons.AutoMirrored.Filled.ViewList
+                    } else {
+                        Icons.Filled.GridView
+                    },
+                    contentDescription = stringResource(R.string.library_toggle_layout),
                 )
             }
         }
@@ -171,7 +179,7 @@ fun LibraryScreen(
                     FilterChip(
                         selected = folderFilter == null,
                         onClick = { folderFilter = null },
-                        label = { Text("All (${videos.size})") },
+                        label = { Text(stringResource(R.string.library_folder_all, videos.size)) },
                     )
                 }
                 items(folders.size) { index ->
@@ -181,59 +189,56 @@ fun LibraryScreen(
                         onClick = {
                             folderFilter = if (folderFilter == folder) null else folder
                         },
-                        label = { Text(folder) },
+                        label = { Text(folderLabel(folder)) },
                     )
                 }
             }
         }
 
         if (visible.isEmpty()) {
-            EmptyState(
-                loading = videos.isEmpty(),
-                modifier = Modifier.fillMaxSize(),
-            )
-        } else {
-            if (gridMode) {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(settings.gridColumns.coerceIn(1, 4)),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    itemsIndexed(
-                        items = visible,
-                        key = { _, item -> item.id },
-                    ) { index, item ->
-                        VideoCard(
-                            item = item,
-                            onClick = { onPlay(visible, index, item) },
-                            onLongClick = {
-                                detailsFor = item
-                                LogBus.d(LogTag.UI, "Showing details for '${item.title}'")
-                            },
-                        )
-                    }
+            EmptyState(loading = videos.isEmpty(), modifier = Modifier.fillMaxSize())
+        } else if (gridMode) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(settings.gridColumns.coerceIn(1, 4)),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                itemsIndexed(items = visible, key = { _, item -> item.id }) { index, item ->
+                    VideoCard(
+                        item = item,
+                        onClick = { onPlay(visible, index, item) },
+                        onLongClick = {
+                            detailsFor = item
+                            LogBus.d(LogTag.UI, "Showing details for '${item.title}'")
+                        },
+                    )
                 }
-            } else {
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(1),
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    itemsIndexed(items = visible, key = { _, item -> item.id }) { index, item ->
-                        VideoRow(
-                            item = item,
-                            onClick = { onPlay(visible, index, item) },
-                            onLongClick = { detailsFor = item },
-                        )
-                    }
+            }
+        } else {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(1),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                itemsIndexed(items = visible, key = { _, item -> item.id }) { index, item ->
+                    VideoRow(
+                        item = item,
+                        onClick = { onPlay(visible, index, item) },
+                        onLongClick = { detailsFor = item },
+                    )
                 }
             }
         }
 
         if (videos.isNotEmpty()) {
             Text(
-                text = "${visible.size} of ${videos.size} videos · library updates automatically",
+                text = pluralStringResource(
+                    R.plurals.library_count,
+                    videos.size,
+                    visible.size,
+                    videos.size,
+                ),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
@@ -251,12 +256,15 @@ private fun SortMenu(current: SortOrder, onPick: (SortOrder) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { open = true }) {
-            Icon(Icons.AutoMirrored.Filled.Sort, contentDescription = "Sort order")
+            Icon(
+                Icons.AutoMirrored.Filled.Sort,
+                contentDescription = stringResource(R.string.library_sort),
+            )
         }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
             SortOrder.entries.forEach { order ->
                 DropdownMenuItem(
-                    text = { Text(order.label) },
+                    text = { Text(sortOrderLabel(order)) },
                     onClick = {
                         onPick(order)
                         open = false
@@ -319,7 +327,11 @@ private fun VideoCard(
             )
             Spacer(Modifier.height(2.dp))
             Text(
-                text = "${item.resolutionLabel} · ${Formatters.size(item.sizeBytes)}",
+                text = stringResource(
+                    R.string.library_meta,
+                    item.resolutionLabel,
+                    Formatters.size(item.sizeBytes),
+                ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -334,6 +346,7 @@ private fun VideoRow(
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
+    val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -360,12 +373,20 @@ private fun VideoRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = "${Formatters.duration(item.durationMs)} · ${item.resolutionLabel} · ${Formatters.size(item.sizeBytes)}",
+                    text = stringResource(
+                        R.string.library_meta,
+                        Formatters.duration(item.durationMs),
+                        "${item.resolutionLabel} · ${Formatters.size(item.sizeBytes)}",
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "${item.folder} · ${Formatters.relativeTime(item.dateAddedSeconds)}",
+                    text = stringResource(
+                        R.string.library_meta,
+                        folderLabel(item.folder),
+                        Formatters.relativeTime(context, item.dateAddedSeconds),
+                    ),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
@@ -387,18 +408,18 @@ private fun PermissionGate(contentPadding: PaddingValues, onRequest: () -> Unit)
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Video access needed",
+            text = stringResource(R.string.permission_title),
             style = MaterialTheme.typography.headlineSmall,
         )
         Spacer(Modifier.height(8.dp))
         Text(
-            text = "VDO Player reads the videos already on this device. Nothing leaves your phone unless you export a log yourself.",
+            text = stringResource(R.string.permission_body),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(20.dp))
         TextButton(onClick = onRequest) {
-            Text("Grant access")
+            Text(stringResource(R.string.permission_grant))
         }
     }
 }
@@ -411,16 +432,16 @@ private fun EmptyState(loading: Boolean, modifier: Modifier = Modifier) {
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = if (loading) "Scanning your device…" else "No videos matched",
+            text = stringResource(
+                if (loading) R.string.library_scanning else R.string.library_empty,
+            ),
             style = MaterialTheme.typography.titleMedium,
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = if (loading) {
-                "Looking through the device media library."
-            } else {
-                "Try a different folder filter or clear the search box."
-            },
+            text = stringResource(
+                if (loading) R.string.library_scanning_hint else R.string.library_empty_hint,
+            ),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -429,20 +450,31 @@ private fun EmptyState(loading: Boolean, modifier: Modifier = Modifier) {
 
 @Composable
 private fun VideoDetailsDialog(item: VideoItem, onDismiss: () -> Unit) {
+    val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.details_close)) }
+        },
         title = { Text(item.title) },
         text = {
             Column {
-                DetailRow("Folder", item.folder)
-                DetailRow("Resolution", item.resolutionLabel)
-                DetailRow("Duration", Formatters.duration(item.durationMs))
-                DetailRow("Size", Formatters.size(item.sizeBytes))
-                DetailRow("Type", item.mimeType ?: "unknown")
-                DetailRow("Added", Formatters.relativeTime(item.dateAddedSeconds))
-                item.relativePath?.let { DetailRow("Path", it) }
-                DetailRow("URI", item.uri.toString())
+                DetailRow(stringResource(R.string.details_folder), folderLabel(item.folder))
+                DetailRow(stringResource(R.string.details_resolution), item.resolutionLabel)
+                DetailRow(stringResource(R.string.details_duration), Formatters.duration(item.durationMs))
+                DetailRow(stringResource(R.string.details_size), Formatters.size(item.sizeBytes))
+                DetailRow(
+                    stringResource(R.string.details_type),
+                    item.mimeType ?: stringResource(R.string.player_unknown),
+                )
+                DetailRow(
+                    stringResource(R.string.details_added),
+                    Formatters.relativeTime(context, item.dateAddedSeconds),
+                )
+                item.relativePath?.let {
+                    DetailRow(stringResource(R.string.details_path), it)
+                }
+                DetailRow(stringResource(R.string.details_uri), item.uri.toString())
             }
         },
     )
@@ -450,17 +482,18 @@ private fun VideoDetailsDialog(item: VideoItem, onDismiss: () -> Unit) {
 
 @Composable
 private fun DetailRow(label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+    ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             modifier = Modifier.width(88.dp),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
-            text = value,
-            style = MaterialTheme.typography.bodySmall,
-        )
+        Text(text = value, style = MaterialTheme.typography.bodySmall)
     }
 }
 

@@ -28,9 +28,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nardech.vdoplayer.AppContainer
+import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.HistoryEntry
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
@@ -45,6 +48,7 @@ fun RecentScreen(
     onPlay: (HistoryEntry) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -58,7 +62,7 @@ fun RecentScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Continue watching",
+                text = stringResource(R.string.recent_title),
                 style = MaterialTheme.typography.titleLarge,
                 modifier = Modifier.weight(1f),
             )
@@ -67,7 +71,10 @@ fun RecentScreen(
                     LogBus.i(LogTag.STORAGE, "Clearing playback history from the UI")
                     scope.launch { container.history.clear() }
                 }) {
-                    Icon(Icons.Filled.DeleteSweep, contentDescription = "Clear history")
+                    Icon(
+                        Icons.Filled.DeleteSweep,
+                        contentDescription = stringResource(R.string.recent_clear),
+                    )
                 }
             }
         }
@@ -80,10 +87,13 @@ fun RecentScreen(
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text("Nothing played yet", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = stringResource(R.string.recent_empty_title),
+                    style = MaterialTheme.typography.titleMedium,
+                )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Videos you open show up here with the position you stopped at.",
+                    text = stringResource(R.string.recent_empty_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -104,7 +114,22 @@ fun RecentScreen(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.padding(14.dp).weight(1f)) {
+                        val positionText = if (entry.durationMs > 0L) {
+                            stringResource(
+                                R.string.recent_position,
+                                Formatters.duration(entry.positionMs),
+                                Formatters.duration(entry.durationMs),
+                            )
+                        } else {
+                            Formatters.duration(entry.positionMs)
+                        }
+                        val ageText = Formatters.relativeTime(context, entry.updatedAt / 1000)
+
+                        Column(
+                            modifier = Modifier
+                                .padding(14.dp)
+                                .weight(1f),
+                        ) {
                             Text(
                                 text = entry.title,
                                 style = MaterialTheme.typography.titleSmall,
@@ -112,15 +137,7 @@ fun RecentScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                text = buildString {
-                                    append(Formatters.duration(entry.positionMs))
-                                    if (entry.durationMs > 0L) {
-                                        append(" of ")
-                                        append(Formatters.duration(entry.durationMs))
-                                    }
-                                    append(" · ")
-                                    append(Formatters.relativeTime(entry.updatedAt / 1000))
-                                },
+                                text = "$positionText · $ageText",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -132,13 +149,16 @@ fun RecentScreen(
                         }
                         TextButton(onClick = { onPlay(entry) }) {
                             Icon(Icons.Filled.PlayArrow, contentDescription = null)
-                            Text("Resume")
+                            Text(stringResource(R.string.recent_resume))
                         }
                         IconButton(onClick = {
                             LogBus.d(LogTag.STORAGE, "Removing history entry ${entry.uri}")
                             scope.launch { container.history.remove(entry.uri) }
                         }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Remove")
+                            Icon(
+                                Icons.Filled.Delete,
+                                contentDescription = stringResource(R.string.recent_remove),
+                            )
                         }
                     }
                 }

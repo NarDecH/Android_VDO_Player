@@ -62,6 +62,14 @@ diagnosability.
 - Screen rotation button plus optional auto-rotate
 - Picture-in-picture (Android 8+) with the video's real aspect ratio
 - Mixing: shows the exact selected video/audio/subtitle formats for the file
+
+**Languages**
+
+- English (default) and Thai translations of the entire interface
+- Android 13+ lists both in **Settings → System → App languages**, so the app can
+  be switched to Thai without changing the phone's system language
+- Log lines, the exported diagnostics report and clipboard labels stay English;
+  they are meant to be pasted into a bug report
 - Side-load `.srt`, `.vtt` or `.ass` subtitles from storage
 
 **Diagnostics**
@@ -220,6 +228,11 @@ The file and the keystore are never committed; without them, release builds fall
 back to the debug key so the build still completes.
 
 ## Common questions
+
+**How do I switch the app to Thai?** On Android 13 or newer, open
+**Settings → System → App languages → VDO Player** and pick ไทย. The app itself
+has no language switch on purpose: that screen is where Android keeps per-app
+languages, and it survives reinstalls.
 
 **Does it play files from other apps?** Yes — "Open with" and share-for-video
 intents are handled by the same player; the file is queued and played

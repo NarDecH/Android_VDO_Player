@@ -22,16 +22,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.nardech.vdoplayer.AppContainer
+import com.nardech.vdoplayer.BuildConfig
+import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.data.SortOrder
 import com.nardech.vdoplayer.data.ThemeMode
+import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogExportFormat
 import com.nardech.vdoplayer.logging.LogLevel
-import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
+import com.nardech.vdoplayer.ui.decoderPreferenceLabel
+import com.nardech.vdoplayer.ui.sortOrderLabel
+import com.nardech.vdoplayer.ui.themeModeLabel
 import com.nardech.vdoplayer.util.Formatters
 import kotlinx.coroutines.launch
 
@@ -44,6 +50,10 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val repository = container.settings
 
+    val themeLabels = ThemeMode.entries.map { themeModeLabel(it) }
+    val sortLabels = SortOrder.entries.map { sortOrderLabel(it) }
+    val decoderLabels = DecoderPreference.entries.map { decoderPreferenceLabel(it) }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -52,28 +62,28 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
-            SettingsCard("Appearance") {
+            SettingsCard(stringResource(R.string.settings_appearance)) {
                 ChipRow(
-                    title = "Theme",
-                    options = ThemeMode.entries.map { it.name.lowercase().replaceFirstChar { c -> c.uppercase() } },
+                    title = stringResource(R.string.settings_theme),
+                    options = themeLabels,
                     selectedIndex = ThemeMode.entries.indexOf(settings.themeMode),
                     onPick = { scope.launch { repository.setThemeMode(ThemeMode.entries[it]) } },
                 )
                 SwitchRow(
-                    title = "Material You colours",
-                    subtitle = "Follow the system wallpaper palette on Android 12+",
+                    title = stringResource(R.string.settings_dynamic_color),
+                    subtitle = stringResource(R.string.settings_dynamic_color_sub),
                     checked = settings.dynamicColor,
                     onChange = { scope.launch { repository.setDynamicColor(it) } },
                 )
                 ChipRow(
-                    title = "Library columns",
+                    title = stringResource(R.string.settings_columns),
                     options = listOf("1", "2", "3", "4"),
                     selectedIndex = (settings.gridColumns - 1).coerceIn(0, 3),
                     onPick = { scope.launch { repository.setGridColumns(it + 1) } },
                 )
                 ChipRow(
-                    title = "Default sort",
-                    options = SortOrder.entries.map { it.label },
+                    title = stringResource(R.string.settings_default_sort),
+                    options = sortLabels,
                     selectedIndex = SortOrder.entries.indexOf(settings.sortOrder),
                     onPick = { scope.launch { repository.setSortOrder(SortOrder.entries[it]) } },
                 )
@@ -81,20 +91,20 @@ fun SettingsScreen(
         }
 
         item {
-            SettingsCard("Playback") {
+            SettingsCard(stringResource(R.string.settings_playback)) {
                 Text(
-                    text = "Decoder priority",
+                    text = stringResource(R.string.settings_decoder),
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Text(
-                    text = "FFmpeg software decoders play more formats, but use more battery than the phone's hardware decoder.",
+                    text = stringResource(R.string.settings_decoder_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Spacer(Modifier.height(6.dp))
                 ChipRow(
                     title = "",
-                    options = DecoderPreference.entries.map { it.label },
+                    options = decoderLabels,
                     selectedIndex = DecoderPreference.entries.indexOf(settings.decoderPreference),
                     onPick = {
                         val picked = DecoderPreference.entries[it]
@@ -103,7 +113,7 @@ fun SettingsScreen(
                     },
                 )
                 SliderRow(
-                    title = "Default speed",
+                    title = stringResource(R.string.settings_default_speed),
                     value = settings.defaultSpeed,
                     valueRange = 0.5f..2f,
                     steps = 5,
@@ -111,7 +121,7 @@ fun SettingsScreen(
                     onChange = { scope.launch { repository.setDefaultSpeed(it) } },
                 )
                 ChipRow(
-                    title = "Double tap seek",
+                    title = stringResource(R.string.settings_seek_step),
                     options = listOf("5s", "10s", "15s", "30s"),
                     selectedIndex = when (settings.seekStepMs) {
                         5_000L -> 0
@@ -125,41 +135,41 @@ fun SettingsScreen(
                     },
                 )
                 SwitchRow(
-                    title = "Resume where I stopped",
-                    subtitle = "Remembers the position for every video",
+                    title = stringResource(R.string.settings_resume),
+                    subtitle = stringResource(R.string.settings_resume_sub),
                     checked = settings.resumePlayback,
                     onChange = { scope.launch { repository.setResumePlayback(it) } },
                 )
                 SwitchRow(
-                    title = "Gesture controls",
-                    subtitle = "Swipe for brightness, volume and seek",
+                    title = stringResource(R.string.settings_gestures),
+                    subtitle = stringResource(R.string.settings_gestures_sub),
                     checked = settings.gesturesEnabled,
                     onChange = { scope.launch { repository.setGestures(it) } },
                 )
                 SwitchRow(
-                    title = "Keep screen on while playing",
+                    title = stringResource(R.string.settings_keep_screen_on),
                     checked = settings.keepScreenOn,
                     onChange = { scope.launch { repository.setKeepScreenOn(it) } },
                 )
                 SwitchRow(
-                    title = "Auto rotate",
+                    title = stringResource(R.string.settings_auto_rotate),
                     checked = settings.autoRotate,
                     onChange = { scope.launch { repository.setAutoRotate(it) } },
                 )
                 SwitchRow(
-                    title = "Remember screen brightness",
-                    subtitle = "Off restores the system brightness when you leave the player",
+                    title = stringResource(R.string.settings_remember_brightness),
+                    subtitle = stringResource(R.string.settings_remember_brightness_sub),
                     checked = settings.rememberBrightness,
                     onChange = { scope.launch { repository.setRememberBrightness(it) } },
                 )
                 SwitchRow(
-                    title = "Play next video automatically",
+                    title = stringResource(R.string.settings_autoplay_next),
                     checked = settings.autoPlayNext,
                     onChange = { scope.launch { repository.setAutoPlayNext(it) } },
                 )
                 SwitchRow(
-                    title = "Keep playing in the background",
-                    subtitle = "Audio continues with the screen off, through the media notification",
+                    title = stringResource(R.string.settings_background),
+                    subtitle = stringResource(R.string.settings_background_sub),
                     checked = settings.backgroundPlayback,
                     onChange = { scope.launch { repository.setBackgroundPlayback(it) } },
                 )
@@ -167,9 +177,9 @@ fun SettingsScreen(
         }
 
         item {
-            SettingsCard("Diagnostics and logs") {
+            SettingsCard(stringResource(R.string.settings_diagnostics)) {
                 ChipRow(
-                    title = "Log level written to file",
+                    title = stringResource(R.string.settings_log_level),
                     options = LogLevel.entries.map { it.name },
                     selectedIndex = LogLevel.entries.indexOf(settings.logLevel),
                     onPick = {
@@ -180,19 +190,23 @@ fun SettingsScreen(
                     },
                 )
                 ChipRow(
-                    title = "Export format",
+                    title = stringResource(R.string.settings_export_format),
                     options = LogExportFormat.entries.map { it.name },
                     selectedIndex = LogExportFormat.entries.indexOf(settings.logExportFormat),
-                    onPick = { scope.launch { repository.setLogExportFormat(LogExportFormat.entries[it]) } },
+                    onPick = {
+                        scope.launch {
+                            repository.setLogExportFormat(LogExportFormat.entries[it])
+                        }
+                    },
                 )
                 SwitchRow(
-                    title = "Include device and codec report",
-                    subtitle = "Adds model, Android version and the MediaCodec list to every export",
+                    title = stringResource(R.string.settings_include_diagnostics),
+                    subtitle = stringResource(R.string.settings_include_diagnostics_sub),
                     checked = settings.includeDiagnosticsInExport,
                     onChange = { scope.launch { repository.setIncludeDiagnostics(it) } },
                 )
                 Text(
-                    text = "Log files live in the app private folder and are only shared when you export them.",
+                    text = stringResource(R.string.settings_logs_note),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -200,19 +214,23 @@ fun SettingsScreen(
         }
 
         item {
-            SettingsCard("About") {
+            SettingsCard(stringResource(R.string.settings_about)) {
                 Text(
-                    text = "VDO Player plays the videos already on this phone, with FFmpeg fallback decoders for the formats the hardware cannot handle.",
+                    text = stringResource(R.string.settings_about_body),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Spacer(Modifier.height(6.dp))
                 Text(
-                    text = "Version ${com.nardech.vdoplayer.BuildConfig.VERSION_NAME} (${com.nardech.vdoplayer.BuildConfig.VERSION_CODE})",
+                    text = stringResource(
+                        R.string.settings_version,
+                        BuildConfig.VERSION_NAME,
+                        BuildConfig.VERSION_CODE,
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    text = "Software decoders: FFmpeg via NextLib (GPL-3.0). This app is released under the same licence.",
+                    text = stringResource(R.string.settings_license_note),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -298,7 +316,11 @@ private fun SliderRow(
 ) {
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = title, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelMedium,

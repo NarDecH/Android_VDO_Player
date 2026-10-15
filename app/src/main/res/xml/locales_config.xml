@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Per-app language picker (Android 13+). English stays the default; Thai is the
+  translation that ships in values-th.
+-->
+<locale-config xmlns:android="http://schemas.android.com/apk/res/android">
+    <locale android:name="en" />
+    <locale android:name="th" />
+</locale-config>

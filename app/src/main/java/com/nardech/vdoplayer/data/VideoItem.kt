@@ -26,6 +26,12 @@ data class VideoItem(
         get() = height > width
 
     companion object {
+        /**
+         * Folder key for URIs that did not come from MediaStore, e.g. "open with"
+         * intents. The UI translates this key through `folderLabel()`.
+         */
+        const val EXTERNAL_FOLDER = "External"
+
         /** Used for URIs that did not come from MediaStore, e.g. "open with" intents. */
         fun fromUri(uri: Uri, title: String? = null): VideoItem = VideoItem(
             id = uri.hashCode().toLong(),
@@ -37,21 +43,24 @@ data class VideoItem(
             width = 0,
             height = 0,
             mimeType = null,
-            folder = "External",
+            folder = EXTERNAL_FOLDER,
             relativePath = null,
         )
     }
 }
 
-/** Sorting options for the library grid. */
-enum class SortOrder(val label: String) {
-    DATE_NEWEST("Newest first"),
-    DATE_OLDEST("Oldest first"),
-    NAME_ASC("Name A→Z"),
-    NAME_DESC("Name Z→A"),
-    DURATION_DESC("Longest first"),
-    DURATION_ASC("Shortest first"),
-    SIZE_DESC("Largest first"),
+/**
+ * Sorting options for the library grid. Display names live in string resources
+ * (`sort_*`) and are resolved by `com.nardech.vdoplayer.ui.sortOrderLabel`.
+ */
+enum class SortOrder {
+    DATE_NEWEST,
+    DATE_OLDEST,
+    NAME_ASC,
+    NAME_DESC,
+    DURATION_DESC,
+    DURATION_ASC,
+    SIZE_DESC,
     ;
 
     fun apply(items: List<VideoItem>): List<VideoItem> = when (this) {

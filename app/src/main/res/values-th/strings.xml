@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VDO Player</string>
+
+    <string name="notification_channel_name">กำลังเล่นอยู่</string>
+
+    <!-- Bottom navigation -->
+    <string name="tab_library">คลังวิดีโอ</string>
+    <string name="tab_recent">ดูล่าสุด</string>
+    <string name="tab_logs">บันทึก</string>
+    <string name="tab_settings">ตั้งค่า</string>
+
+    <!-- Library -->
+    <string name="library_search_placeholder">ค้นหาวิดีโอ</string>
+    <string name="library_clear_search">ล้างคำค้น</string>
+    <string name="library_sort">เรียงลำดับ</string>
+    <string name="library_toggle_layout">สลับรูปแบบการแสดง</string>
+    <string name="library_folder_all">ทั้งหมด (%1$d)</string>
+    <string name="folder_external">ไฟล์ภายนอก</string>
+    <!-- Thai has no plural inflection: a single `other` form is correct here. -->
+    <plurals name="library_count">
+        <item quantity="other">%1$d จาก %2$d วิดีโอ · อัปเดตรายการอัตโนมัติ</item>
+    </plurals>
+    <string name="library_meta">%1$s · %2$s</string>
+    <string name="library_scanning">กำลังสแกนอุปกรณ์…</string>
+    <string name="library_scanning_hint">กำลังค้นหาวิดีโอในคลังสื่อของเครื่อง</string>
+    <string name="library_empty">ไม่พบวิดีโอที่ตรงเงื่อนไข</string>
+    <string name="library_empty_hint">ลองเปลี่ยนตัวกรองโฟลเดอร์ หรือล้างคำค้นดู</string>
+
+    <!-- Permission gate -->
+    <string name="permission_title">ต้องได้รับสิทธิ์เข้าถึงวิดีโอ</string>
+    <string name="permission_body">VDO Player อ่านวิดีโอที่มีอยู่ในเครื่องนี้เท่านั้น ไม่มีข้อมูลออกจากเครื่อง ยกเว้นเมื่อคุณสั่งส่ง log เอง</string>
+    <string name="permission_grant">อนุญาตการเข้าถึง</string>
+
+    <!-- Video details dialog -->
+    <string name="details_folder">โฟลเดอร์</string>
+    <string name="details_resolution">ความละเอียด</string>
+    <string name="details_duration">ความยาว</string>
+    <string name="details_size">ขนาด</string>
+    <string name="details_type">ชนิดไฟล์</string>
+    <string name="details_added">เพิ่มเมื่อ</string>
+    <string name="details_path">ที่เก็บไฟล์</string>
+    <string name="details_uri">URI</string>
+    <string name="details_close">ปิด</string>
+
+    <!-- Sort orders -->
+    <string name="sort_date_newest">ใหม่สุดก่อน</string>
+    <string name="sort_date_oldest">เก่าสุดก่อน</string>
+    <string name="sort_name_asc">ชื่อ A→Z</string>
+    <string name="sort_name_desc">ชื่อ Z→A</string>
+    <string name="sort_duration_desc">ยาวสุดก่อน</string>
+    <string name="sort_duration_asc">สั้นสุดก่อน</string>
+    <string name="sort_size_desc">ไฟล์ใหญ่สุดก่อน</string>
+
+    <!-- Player -->
+    <string name="player_close">ปิดหน้าจอเล่น</string>
+    <string name="player_info">ข้อมูลสตรีม</string>
+    <string name="player_pip">ย่อเป็นภาพซ้อน</string>
+    <string name="player_lock">ล็อกปุ่มควบคุม</string>
+    <string name="player_unlock">ปลดล็อกปุ่มควบคุม</string>
+    <string name="player_previous">ก่อนหน้า</string>
+    <string name="player_next">ถัดไป</string>
+    <string name="player_play">เล่น</string>
+    <string name="player_pause">หยุดชั่วคราว</string>
+    <string name="player_subtitles">คำบรรยาย</string>
+    <string name="player_speed">ความเร็ว %1$s</string>
+    <string name="player_aspect">อัตราส่วนภาพ</string>
+    <string name="player_rotate">หมุนจอ</string>
+    <string name="player_unknown_duration">ไม่ทราบ</string>
+    <string name="player_buffered">บัฟเฟอร์เพิ่ม %1$s</string>
+    <string name="player_error_title">เล่นไฟล์นี้ไม่ได้</string>
+    <string name="player_error_retry">ลองใหม่</string>
+    <string name="player_streams_title">สตรีมที่ใช้งาน</string>
+    <string name="player_stream_video">วิดีโอ</string>
+    <string name="player_stream_audio">เสียง</string>
+    <string name="player_stream_subtitles">คำบรรยาย</string>
+    <string name="player_stream_frame_size">ขนาดเฟรม</string>
+    <string name="player_stream_audio_tracks">แทร็กเสียง</string>
+    <string name="player_stream_subtitles_loaded">คำบรรยายที่โหลดไว้</string>
+    <string name="player_waiting_tracks">รอข้อมูลสตรีม</string>
+    <string name="player_none_selected">ยังไม่ได้เลือก</string>
+    <string name="player_unknown">ไม่ทราบ</string>
+    <string name="player_copy_diagnostics">คัดลอกข้อมูลวินิจฉัยทั้งหมด</string>
+    <string name="player_queued_counter">%1$d/%2$d</string>
+
+    <string name="dialog_speed_title">ความเร็วในการเล่น</string>
+    <string name="dialog_aspect_title">อัตราส่วนภาพ</string>
+    <string name="dialog_cancel">ยกเลิก</string>
+
+    <string name="aspect_fit">พอดีกับจอ</string>
+    <string name="aspect_zoom">ซูมเต็มจอ (ตัดขอบ)</string>
+    <string name="aspect_stretch">ยืดเต็มจอ</string>
+    <string name="aspect_width">พอดีความกว้าง</string>
+
+    <string name="hud_brightness">ความสว่าง</string>
+    <string name="hud_volume">ระดับเสียง</string>
+    <string name="hud_double_tap_seek">เลื่อนเมื่อแตะสองครั้ง</string>
+    <string name="hud_hold_speed">กดค้างเพื่อเร่งความเร็ว</string>
+    <string name="hud_seek_forward">+%1$d วิ</string>
+    <string name="hud_seek_backward">-%1$d วิ</string>
+
+    <string name="dialog_selected">✓  %1$s</string>
+
+    <string name="clipboard_diagnostics">ข้อมูลวินิจฉัยของ VDO Player</string>
+    <string name="clipboard_logs">log ของ VDO Player</string>
+
+    <!-- Recent -->
+    <string name="recent_title">ดูต่อจากที่หยุดไว้</string>
+    <string name="recent_clear">ล้างประวัติ</string>
+    <string name="recent_empty_title">ยังไม่มีประวัติการเล่น</string>
+    <string name="recent_empty_hint">วิดีโอที่คุณเปิดจะมาอยู่ที่นี่ พร้อมตำแหน่งที่หยุดไว้</string>
+    <string name="recent_resume">เล่นต่อ</string>
+    <string name="recent_remove">ลบออก</string>
+    <string name="recent_position">%1$s จาก %2$s</string>
+
+    <!-- Logs -->
+    <string name="logs_filter_placeholder">กรองข้อความใน log</string>
+    <string name="logs_clear_filter">ล้างตัวกรอง</string>
+    <string name="logs_freeze">หยุดอัปเดตรายการ</string>
+    <string name="logs_resume_live">กลับไปต่อท้ายสด</string>
+    <string name="logs_all_tags">ทุกหมวด</string>
+    <string name="logs_share">ส่ง</string>
+    <string name="logs_save">บันทึก</string>
+    <string name="logs_copy">คัดลอก</string>
+    <string name="logs_clear">ล้าง</string>
+    <plurals name="logs_summary">
+        <item quantity="other">%1$d จาก %2$d บรรทัด · ระดับไฟล์ %3$s · ส่งออกแบบ %4$s</item>
+    </plurals>
+    <string name="logs_summary_frozen"> · หยุดอัปเดตอยู่</string>
+    <string name="logs_summary_live"> · อัปเดตสด</string>
+    <string name="logs_empty_title">ไม่พบบรรทัดที่ตรงเงื่อนไข</string>
+    <string name="logs_empty_hint">ลองลดระดับตัวกรอง หรือล้างคำค้นดู</string>
+    <plurals name="logs_copied">
+        <item quantity="other">คัดลอกแล้ว %1$d บรรทัด</item>
+    </plurals>
+    <string name="logs_share_chooser">ส่งข้อมูลวินิจฉัยของ VDO Player</string>
+    <string name="logs_sharing">กำลังส่ง %1$s — %2$s</string>
+    <string name="logs_saved">บันทึก %1$s ไปที่ Downloads แล้ว</string>
+    <string name="logs_save_failed">เขียนไปยัง Downloads ไม่ได้ ลองใช้ปุ่มส่งแทน</string>
+    <string name="logs_export_failed">ส่งออกไม่สำเร็จ: %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_appearance">รูปลักษณ์</string>
+    <string name="settings_theme">ธีม</string>
+    <string name="settings_dynamic_color">สีตาม Material You</string>
+    <string name="settings_dynamic_color_sub">ใช้ชุดสีจากวอลเปเปอร์ระบบ (Android 12 ขึ้นไป)</string>
+    <string name="settings_columns">จำนวนคอลัมน์ในคลัง</string>
+    <string name="settings_default_sort">การเรียงลำดับเริ่มต้น</string>
+    <string name="settings_playback">การเล่น</string>
+    <string name="settings_decoder">ลำดับความสำคัญของตัวถอดรหัส</string>
+    <string name="settings_decoder_hint">ตัวถอดรหัส FFmpeg เล่นได้หลายรูปแบบกว่า แต่กินแบตเตอรี่มากกว่าฮาร์ดแวร์ในเครื่อง</string>
+    <string name="settings_default_speed">ความเร็วเริ่มต้น</string>
+    <string name="settings_seek_step">ระยะเลื่อนเมื่อแตะสองครั้ง</string>
+    <string name="settings_resume">เล่นต่อจากจุดที่หยุดไว้</string>
+    <string name="settings_resume_sub">จำตำแหน่งล่าสุดของทุกวิดีโอ</string>
+    <string name="settings_gestures">ควบคุมด้วยท่าทาง</string>
+    <string name="settings_gestures_sub">ปัดเพื่อปรับความสว่าง เสียง และเลื่อนเวลา</string>
+    <string name="settings_keep_screen_on">เปิดจอค้างไว้ขณะเล่น</string>
+    <string name="settings_auto_rotate">หมุนจออัตโนมัติ</string>
+    <string name="settings_remember_brightness">จำค่าความสว่างหน้าจอ</string>
+    <string name="settings_remember_brightness_sub">ถ้าปิดไว้ จะคืนค่าความสว่างของระบบเมื่อออกจากหน้าจอเล่น</string>
+    <string name="settings_autoplay_next">เล่นวิดีโอถัดไปอัตโนมัติ</string>
+    <string name="settings_background">เล่นต่อในเบื้องหลัง</string>
+    <string name="settings_background_sub">เสียงเล่นต่อแม้ปิดจอ ผ่านการแจ้งเตือนมีเดีย</string>
+    <string name="settings_diagnostics">ข้อมูลวินิจฉัยและ log</string>
+    <string name="settings_log_level">ระดับ log ที่บันทึกลงไฟล์</string>
+    <string name="settings_export_format">รูปแบบไฟล์ที่ส่งออก</string>
+    <string name="settings_include_diagnostics">แนบรายงานอุปกรณ์และ codec</string>
+    <string name="settings_include_diagnostics_sub">เพิ่มรุ่นเครื่อง เวอร์ชัน Android และรายการ MediaCodec ในทุกไฟล์ที่ส่งออก</string>
+    <string name="settings_logs_note">ไฟล์ log เก็บอยู่ในโฟลเดอร์ส่วนตัวของแอป และจะถูกส่งออกเมื่อคุณสั่งเท่านั้น</string>
+    <string name="settings_about">เกี่ยวกับแอป</string>
+    <string name="settings_about_body">VDO Player เล่นวิดีโอที่มีอยู่ในเครื่องนี้ พร้อมตัวถอดรหัส FFmpeg สำรองสำหรับรูปแบบที่ฮาร์ดแวร์เล่นไม่ได้</string>
+    <string name="settings_version">เวอร์ชัน %1$s (%2$d)</string>
+    <string name="settings_license_note">ตัวถอดรหัสซอฟต์แวร์: FFmpeg ผ่าน NextLib (GPL-3.0) แอปนี้จึงใช้สัญญาอนุญาตเดียวกัน</string>
+
+    <string name="theme_system">ตามระบบ</string>
+    <string name="theme_light">สว่าง</string>
+    <string name="theme_dark">มืด</string>
+
+    <string name="decoder_platform_first">ใช้ฮาร์ดแวร์ก่อน, FFmpeg สำรอง</string>
+    <string name="decoder_ffmpeg_first">เน้น FFmpeg (เข้ากันได้มากสุด)</string>
+    <string name="decoder_platform_only">ฮาร์ดแวร์เท่านั้น</string>
+
+    <!-- Relative times -->
+    <string name="time_just_now">เมื่อสักครู่</string>
+    <string name="time_minutes_ago">%1$d นาทีที่แล้ว</string>
+    <string name="time_hours_ago">%1$d ชั่วโมงที่แล้ว</string>
+    <string name="time_days_ago">%1$d วันที่แล้ว</string>
+</resources>

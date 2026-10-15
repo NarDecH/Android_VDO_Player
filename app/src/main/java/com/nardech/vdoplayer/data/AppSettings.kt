@@ -17,11 +17,15 @@ import kotlinx.coroutines.flow.map
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
-/** Maps onto the NextLib / Media3 extension renderer priority. */
-enum class DecoderPreference(val label: String, val extensionMode: Int) {
-    PLATFORM_FIRST("Hardware first, FFmpeg fallback", 1),
-    FFMPEG_FIRST("Prefer FFmpeg (most compatible)", 2),
-    PLATFORM_ONLY("Hardware only", 0),
+/**
+ * Maps onto the NextLib / Media3 extension renderer priority. Display names live
+ * in string resources (`decoder_*`) and are resolved by
+ * `com.nardech.vdoplayer.ui.decoderPreferenceLabel`.
+ */
+enum class DecoderPreference(val extensionMode: Int) {
+    PLATFORM_FIRST(1),
+    FFMPEG_FIRST(2),
+    PLATFORM_ONLY(0),
 }
 
 data class AppSettings(

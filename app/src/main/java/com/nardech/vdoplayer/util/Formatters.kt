@@ -1,5 +1,9 @@
 package com.nardech.vdoplayer.util
 
+import android.content.Context
+import com.nardech.vdoplayer.R
+import java.time.Instant
+import java.time.ZoneId
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 
@@ -41,16 +45,20 @@ object Formatters {
             String.format(Locale.US, "%.2fx", speed)
         }
 
-    fun relativeTime(epochSeconds: Long): String {
-        val now = System.currentTimeMillis() / 1000
-        val diff = now - epochSeconds
+    /**
+     * Human readable age of a MediaStore timestamp. Takes a [Context] because the
+     * wording ("5 min ago") is translated through string resources.
+     */
+    fun relativeTime(context: Context, epochSeconds: Long): String {
+        if (epochSeconds <= 0L) return context.getString(R.string.time_just_now)
+        val diff = (System.currentTimeMillis() / 1000) - epochSeconds
         return when {
-            diff < 60 -> "just now"
-            diff < 3600 -> "${diff / 60} min ago"
-            diff < 86_400 -> "${diff / 3600} h ago"
-            diff < 604_800 -> "${diff / 86_400} d ago"
-            else -> java.time.Instant.ofEpochSecond(epochSeconds)
-                .atZone(java.time.ZoneId.systemDefault())
+            diff < 60 -> context.getString(R.string.time_just_now)
+            diff < 3_600 -> context.getString(R.string.time_minutes_ago, diff / 60)
+            diff < 86_400 -> context.getString(R.string.time_hours_ago, diff / 3_600)
+            diff < 604_800 -> context.getString(R.string.time_days_ago, diff / 86_400)
+            else -> Instant.ofEpochSecond(epochSeconds)
+                .atZone(ZoneId.systemDefault())
                 .toLocalDate()
                 .toString()
         }

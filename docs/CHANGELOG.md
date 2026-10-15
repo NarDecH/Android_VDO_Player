@@ -4,6 +4,23 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.1] — 2026-10-15
+
+### Added
+
+- Thai (`th`) translation of the whole interface: `res/values-th/strings.xml`
+  mirrors `values/strings.xml` key for key, including the heads-up display, the
+  track info panel and the export snackbars
+- `res/xml/locales_config.xml` plus `android:localeConfig`, so Android 13 and
+  newer list English and Thai in **Settings → System → App languages**
+- Every user-visible string moved out of the composables into resources; enum
+  display names (sort order, theme, decoder priority) resolve through
+  `ui/Labels.kt` instead of being baked into the data layer
+- The media notification channel is named by the app now, so it follows the
+  selected language instead of Media3's default wording
+- The three count strings became `<plurals>`, so the English copy reads “1 video”
+  and “1 log line” instead of “1 videos”
+
 ## [1.0.0] — 2026-10-15
 
 First public release. Everything below is new.
@@ -103,6 +120,6 @@ First public release. Everything below is new.
   using NextLib's `DecoderManager`
 - Subtitle auto-discovery next to the video file
 - Audio track picker UI (the engine already exposes the tracks)
-- Thai UI translation via `values-th/strings.xml`
 
+[1.0.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.0.1
 [1.0.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.0.0

@@ -2,13 +2,190 @@
 <resources>
     <string name="app_name">VDO Player</string>
 
-    <string name="notification_channel_playback">Playback</string>
     <string name="notification_channel_name">Now playing</string>
 
-    <string name="permission_media_title">Video access needed</string>
-    <string name="permission_media_rationale">VDO Player reads the videos already on this device. Nothing is uploaded anywhere.</string>
-    <string name="permission_media_grant">Grant access</string>
+    <!-- Bottom navigation -->
+    <string name="tab_library">Library</string>
+    <string name="tab_recent">Recent</string>
+    <string name="tab_logs">Logs</string>
+    <string name="tab_settings">Settings</string>
 
-    <string name="share_logs_chooser">Share diagnostics</string>
-    <string name="open_settings">Open app settings</string>
+    <!-- Library -->
+    <string name="library_search_placeholder">Search videos</string>
+    <string name="library_clear_search">Clear search</string>
+    <string name="library_sort">Sort order</string>
+    <string name="library_toggle_layout">Toggle layout</string>
+    <string name="library_folder_all">All (%1$d)</string>
+    <string name="folder_external">External</string>
+    <plurals name="library_count">
+        <item quantity="one">%1$d of %2$d video · library updates automatically</item>
+        <item quantity="other">%1$d of %2$d videos · library updates automatically</item>
+    </plurals>
+    <string name="library_meta">%1$s · %2$s</string>
+    <string name="library_scanning">Scanning your device…</string>
+    <string name="library_scanning_hint">Looking through the device media library.</string>
+    <string name="library_empty">No videos matched</string>
+    <string name="library_empty_hint">Try a different folder filter or clear the search box.</string>
+
+    <!-- Permission gate -->
+    <string name="permission_title">Video access needed</string>
+    <string name="permission_body">VDO Player reads the videos already on this device. Nothing leaves your phone unless you export a log yourself.</string>
+    <string name="permission_grant">Grant access</string>
+
+    <!-- Video details dialog -->
+    <string name="details_folder">Folder</string>
+    <string name="details_resolution">Resolution</string>
+    <string name="details_duration">Duration</string>
+    <string name="details_size">Size</string>
+    <string name="details_type">Type</string>
+    <string name="details_added">Added</string>
+    <string name="details_path">Path</string>
+    <string name="details_uri">URI</string>
+    <string name="details_close">Close</string>
+
+    <!-- Sort orders -->
+    <string name="sort_date_newest">Newest first</string>
+    <string name="sort_date_oldest">Oldest first</string>
+    <string name="sort_name_asc">Name A→Z</string>
+    <string name="sort_name_desc">Name Z→A</string>
+    <string name="sort_duration_desc">Longest first</string>
+    <string name="sort_duration_asc">Shortest first</string>
+    <string name="sort_size_desc">Largest first</string>
+
+    <!-- Player -->
+    <string name="player_close">Close player</string>
+    <string name="player_info">Track info</string>
+    <string name="player_pip">Picture in picture</string>
+    <string name="player_lock">Lock controls</string>
+    <string name="player_unlock">Unlock controls</string>
+    <string name="player_previous">Previous</string>
+    <string name="player_next">Next</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_subtitles">Subtitles</string>
+    <string name="player_speed">Speed %1$s</string>
+    <string name="player_aspect">Aspect ratio</string>
+    <string name="player_rotate">Rotate</string>
+    <string name="player_unknown_duration">unknown</string>
+    <string name="player_buffered">+%1$s buffered</string>
+    <string name="player_error_title">This file could not be played</string>
+    <string name="player_error_retry">Retry</string>
+    <string name="player_streams_title">Streams</string>
+    <string name="player_stream_video">Video</string>
+    <string name="player_stream_audio">Audio</string>
+    <string name="player_stream_subtitles">Subtitles</string>
+    <string name="player_stream_frame_size">Frame size</string>
+    <string name="player_stream_audio_tracks">Audio tracks</string>
+    <string name="player_stream_subtitles_loaded">Subtitles loaded</string>
+    <string name="player_waiting_tracks">waiting for tracks</string>
+    <string name="player_none_selected">none selected</string>
+    <string name="player_unknown">unknown</string>
+    <string name="player_copy_diagnostics">Copy full diagnostics</string>
+    <string name="player_queued_counter">%1$d/%2$d</string>
+
+    <string name="dialog_speed_title">Playback speed</string>
+    <string name="dialog_aspect_title">Aspect ratio</string>
+    <string name="dialog_cancel">Cancel</string>
+
+    <string name="aspect_fit">Fit to screen</string>
+    <string name="aspect_zoom">Zoom to fill (crop)</string>
+    <string name="aspect_stretch">Stretch</string>
+    <string name="aspect_width">Match width</string>
+
+    <string name="hud_brightness">Brightness</string>
+    <string name="hud_volume">Volume</string>
+    <string name="hud_double_tap_seek">Double tap seek</string>
+    <string name="hud_hold_speed">Hold to speed up</string>
+    <string name="hud_seek_forward">+%1$ds</string>
+    <string name="hud_seek_backward">-%1$ds</string>
+
+    <string name="dialog_selected">✓  %1$s</string>
+
+    <string name="clipboard_diagnostics">VDO Player diagnostics</string>
+    <string name="clipboard_logs">VDO Player logs</string>
+
+    <!-- Recent -->
+    <string name="recent_title">Continue watching</string>
+    <string name="recent_clear">Clear history</string>
+    <string name="recent_empty_title">Nothing played yet</string>
+    <string name="recent_empty_hint">Videos you open show up here with the position you stopped at.</string>
+    <string name="recent_resume">Resume</string>
+    <string name="recent_remove">Remove</string>
+    <string name="recent_position">%1$s of %2$s</string>
+
+    <!-- Logs -->
+    <string name="logs_filter_placeholder">Filter log text</string>
+    <string name="logs_clear_filter">Clear filter</string>
+    <string name="logs_freeze">Freeze list</string>
+    <string name="logs_resume_live">Resume live tail</string>
+    <string name="logs_all_tags">All tags</string>
+    <string name="logs_share">Share</string>
+    <string name="logs_save">Save</string>
+    <string name="logs_copy">Copy</string>
+    <string name="logs_clear">Clear</string>
+    <plurals name="logs_summary">
+        <item quantity="one">%1$d of %2$d line · file level %3$s · %4$s export</item>
+        <item quantity="other">%1$d of %2$d lines · file level %3$s · %4$s export</item>
+    </plurals>
+    <string name="logs_summary_frozen"> · list frozen</string>
+    <string name="logs_summary_live"> · live</string>
+    <string name="logs_empty_title">No log lines match</string>
+    <string name="logs_empty_hint">Lower the level filter or clear the search box.</string>
+    <plurals name="logs_copied">
+        <item quantity="one">%1$d log line copied</item>
+        <item quantity="other">%1$d log lines copied</item>
+    </plurals>
+    <string name="logs_share_chooser">Share VDO Player diagnostics</string>
+    <string name="logs_sharing">Sharing %1$s — %2$s</string>
+    <string name="logs_saved">Saved %1$s to Downloads</string>
+    <string name="logs_save_failed">Could not write to Downloads, use Share instead</string>
+    <string name="logs_export_failed">Export failed: %1$s</string>
+
+    <!-- Settings -->
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme">Theme</string>
+    <string name="settings_dynamic_color">Material You colours</string>
+    <string name="settings_dynamic_color_sub">Follow the system wallpaper palette on Android 12 and newer</string>
+    <string name="settings_columns">Library columns</string>
+    <string name="settings_default_sort">Default sort</string>
+    <string name="settings_playback">Playback</string>
+    <string name="settings_decoder">Decoder priority</string>
+    <string name="settings_decoder_hint">FFmpeg software decoders play more formats, but they use more battery than the hardware decoders in the device.</string>
+    <string name="settings_default_speed">Default speed</string>
+    <string name="settings_seek_step">Double tap seek</string>
+    <string name="settings_resume">Resume where I stopped</string>
+    <string name="settings_resume_sub">Remembers the position for every video</string>
+    <string name="settings_gestures">Gesture controls</string>
+    <string name="settings_gestures_sub">Swipe for brightness, volume and seek</string>
+    <string name="settings_keep_screen_on">Keep screen on while playing</string>
+    <string name="settings_auto_rotate">Auto rotate</string>
+    <string name="settings_remember_brightness">Remember screen brightness</string>
+    <string name="settings_remember_brightness_sub">Off restores the system brightness when you leave the player</string>
+    <string name="settings_autoplay_next">Play next video automatically</string>
+    <string name="settings_background">Keep playing in the background</string>
+    <string name="settings_background_sub">Audio continues with the screen off, through the media notification</string>
+    <string name="settings_diagnostics">Diagnostics and logs</string>
+    <string name="settings_log_level">Log level written to file</string>
+    <string name="settings_export_format">Export format</string>
+    <string name="settings_include_diagnostics">Include device and codec report</string>
+    <string name="settings_include_diagnostics_sub">Adds model, Android version and the MediaCodec list to every export</string>
+    <string name="settings_logs_note">Log files live in the app private folder and are only shared when you export them.</string>
+    <string name="settings_about">About</string>
+    <string name="settings_about_body">VDO Player plays the videos already on this phone, with FFmpeg fallback decoders for the formats the hardware cannot handle.</string>
+    <string name="settings_version">Version %1$s (%2$d)</string>
+    <string name="settings_license_note">Software decoders: FFmpeg via NextLib (GPL-3.0). This app is released under the same licence.</string>
+
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+
+    <string name="decoder_platform_first">Hardware first, FFmpeg fallback</string>
+    <string name="decoder_ffmpeg_first">Prefer FFmpeg (most compatible)</string>
+    <string name="decoder_platform_only">Hardware only</string>
+
+    <!-- Relative times -->
+    <string name="time_just_now">just now</string>
+    <string name="time_minutes_ago">%1$d min ago</string>
+    <string name="time_hours_ago">%1$d h ago</string>
+    <string name="time_days_ago">%1$d d ago</string>
 </resources>

@@ -79,6 +79,7 @@
         <tr><td>Lock</td><td>Hide every control until unlocked</td></tr>
         <tr><td>Info (top right)</td><td>Stream details for the current file, plus “copy full diagnostics”</td></tr>
         <tr><td>PiP</td><td>Continue in a floating window, using the video's real aspect ratio</td></tr>
+        <tr><td>Language</td><td>English or Thai, chosen per app on Android 13+ (system setting, not an in-player button)</td></tr>
         <tr><td>Subtitles</td><td>Toggle text tracks on, or pick an <code>.srt</code>/<code>.vtt</code>/<code>.ass</code> file</td></tr>
       </tbody>
     </table>
@@ -89,6 +90,16 @@
       <img src="assets/screen-player.svg" alt="Player screen mockup" style="max-width:300px" />
       <figcaption>Player screen: title, controls, buffered indicator and the seek HUD.</figcaption>
     </figure>
+
+    <h3>Languages</h3>
+    <p>The interface ships in English (default) and Thai. On Android 13 and newer, both appear in
+      <strong>Settings → System → App languages → VDO Player</strong>, so the app can be switched to
+      Thai without changing the phone's system language. On older releases the app follows the system
+      language.</p>
+    <div class="callout">
+      Log lines, the exported diagnostics report and the clipboard labels used when sharing them stay
+      English on purpose: they are pasted into bug reports, and one language keeps them searchable.
+    </div>
 
     <h2 id="installing">Installing</h2>
     <ol>

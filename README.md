@@ -29,6 +29,10 @@ a detailed log you can hand to a developer when something refuses to play.
    จับ crash พร้อม stack trace, มีรายงานอุปกรณ์ + รายการ codec ของเครื่อง และกด
    **ส่ง** หรือ **บันทึกลง Downloads** เป็น .txt หรือ .zip ได้ในคลิกเดียว
 
+เมนูทั้งแอปมีสองภาษา: อังกฤษ (ค่าเริ่มต้น) และ **ไทย** เปลี่ยนได้ที่
+**ตั้งค่า → ระบบ → ภาษาแอป** (Android 13 ขึ้นไป) ส่วนข้อความใน log และรายงานวินิจฉัย
+ยังเป็นภาษาอังกฤษ เพื่อให้คัดลอกส่งในรายงานบั๊กได้ตรงกัน
+
 ติดตั้ง: ดาวน์โหลด APK จาก [Releases](https://github.com/NarDecH/Android_VDO_Player/releases/latest)
 (เลือก `arm64-v8a` สำหรับมือถือรุ่นใหม่ หรือใช้ `universal` ถ้าไม่แน่ใจ)
 
@@ -45,6 +49,7 @@ a detailed log you can hand to a developer when something refuses to play.
 | **Subtitles** | Embedded text tracks plus side-loaded `.srt` / `.vtt` / `.ass` picker, subtitle on/off toggle |
 | **Diagnostics** | Ring-buffer log with level/tag/text filters, rotating files on disk, crash capture, device + MediaCodec inventory, export as `.txt` or `.zip`, share or save to Downloads |
 | **UX** | Material 3 with dynamic colour, light/dark/system themes, 1–4 column library, gesture toggle, keep-screen-on, remember brightness |
+| **Languages** | English and Thai UI, listed in the Android 13+ per-app language picker; log lines and diagnostics stay English so they can be pasted into a bug report |
 
 Stream details are visible while watching: tap the info button to see the exact
 video/audio/subtitle formats that were selected for the current file, and a

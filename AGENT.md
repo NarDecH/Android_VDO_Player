@@ -73,10 +73,41 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
 4. **History writes are throttled.** `PlayerScreen` checkpoints the watch position
    every 5 seconds plus once on dispose. Do not move that back to every position
    tick: each write is a DataStore transaction.
-5. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
+5. **Only the UI is translated.** Every user-visible string lives in
+   `res/values/strings.xml` with `res/values-th/strings.xml` as the Thai mirror;
+   enums map to resources in `ui/Labels.kt` so `data/` and `logging/` stay free of
+   Android resources. Log lines, diagnostics reports and the clipboard labels used
+   when sharing them stay English on purpose: they are pasted into bug reports.
+6. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
    Windows backslashes makes AGP fail with a bare
    `java.io.IOException: The filename, directory name, or volume label syntax is incorrect`
    from `SdkLocator.validateSdkPath`. Use `cygpath -m` if you generate it.
+
+## Localisation
+
+* A language only counts as complete when its key set and its `%1$s` placeholders
+  match `values/strings.xml`. Check both before a release:
+
+  ```bash
+  # keys that exist in English but not in Thai (and vice versa)
+  comm -3 <(grep -o 'name="[a-z_0-9]*"' app/src/main/res/values/strings.xml | sort) \
+          <(grep -o 'name="[a-z_0-9]*"' app/src/main/res/values-th/strings.xml | sort)
+  # R.string keys used in Kotlin but missing from the resources
+  comm -23 <(grep -rho 'R\.string\.[a-z_0-9]*' app/src/main/java | sed 's/R\.string\.//' | sort -u) \
+           <(grep -o 'name="[a-z_0-9]*"' app/src/main/res/values/strings.xml | sed 's/name="//;s/"//' | sort)
+  ```
+
+* `res/xml/locales_config.xml` plus `android:localeConfig` on `<application>` is
+  what makes the Android 13 “App languages” picker offer the language. Adding a
+  `values-xx/` folder alone does not add it to that list.
+* Countable strings are `<plurals>`, read with `pluralStringResource(id, count, …)`.
+  The quantity argument is the count the wording depends on, not always the first
+  placeholder: `library_count` pluralises on the total, not the visible number.
+  Each language must define exactly the quantities its plural rules require —
+  English needs `one` and `other`, Thai only `other`.
+* Compose resolves strings at composition time, so anything a gesture callback or a
+  non-composable helper needs (HUD labels, snackbar text) must be resolved in the
+  composable first and passed down, or read from `Context`.
 
 ## Build gotchas (learned the hard way)
 
@@ -126,8 +157,8 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
 * Kotlin, four-space indent, trailing commas, explicit `import`s, no wildcard imports.
 * Comments explain *why* (especially around threading, throttling and Media3
   workarounds); avoid restating what the code does.
-* User-facing strings are English and currently live inline in composables;
-  `res/values/strings.xml` holds the ones referenced from the manifest.
+* User-facing strings live in `res/values/strings.xml` / `res/values-th/strings.xml`;
+  never inline UI text in a composable.
 * Log meaningful state transitions once (`LogBus.i`) rather than in a loop, and
   attach the `Throwable` to `LogBus.e` so the stack trace lands in the export.
 

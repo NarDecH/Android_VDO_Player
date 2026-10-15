@@ -11,6 +11,7 @@ import android.os.Build
 import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
@@ -73,6 +74,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -82,6 +84,7 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
+import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.VideoItem
 import com.nardech.vdoplayer.logging.Diagnostics
@@ -89,15 +92,16 @@ import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
 import com.nardech.vdoplayer.playback.PlaybackViewModel
 import com.nardech.vdoplayer.playback.PlayerUiState
+import com.nardech.vdoplayer.ui.folderLabel
 import com.nardech.vdoplayer.util.Formatters
 import com.nardech.vdoplayer.util.IntentHelpers
 import kotlin.math.abs
 
-private enum class AspectMode(val label: String, val resizeMode: Int) {
-    FIT("Fit to screen", AspectRatioFrameLayout.RESIZE_MODE_FIT),
-    ZOOM("Zoom to fill (crop)", AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
-    STRETCH("Stretch", AspectRatioFrameLayout.RESIZE_MODE_FILL),
-    FIXED_WIDTH("Match width", AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH),
+private enum class AspectMode(@StringRes val labelRes: Int, val resizeMode: Int) {
+    FIT(R.string.aspect_fit, AspectRatioFrameLayout.RESIZE_MODE_FIT),
+    ZOOM(R.string.aspect_zoom, AspectRatioFrameLayout.RESIZE_MODE_ZOOM),
+    STRETCH(R.string.aspect_stretch, AspectRatioFrameLayout.RESIZE_MODE_FILL),
+    FIXED_WIDTH(R.string.aspect_width, AspectRatioFrameLayout.RESIZE_MODE_FIXED_WIDTH),
 }
 
 private enum class HudKind { BRIGHTNESS, VOLUME, SEEK }
@@ -130,6 +134,16 @@ fun PlayerScreen(
     var showInfo by remember { mutableStateOf(false) }
     var hud by remember { mutableStateOf<HudState?>(null) }
     var scrubProgress by remember { mutableFloatStateOf(-1f) }
+
+    // Gesture callbacks run outside composition, so the HUD wording is resolved here.
+    val brightnessLabel = stringResource(R.string.hud_brightness)
+    val volumeLabel = stringResource(R.string.hud_volume)
+    val doubleTapSeekLabel = stringResource(R.string.hud_double_tap_seek)
+    val holdToSpeedLabel = stringResource(R.string.hud_hold_speed)
+    val seekSeconds = (settings.seekStepMs / 1000L).toInt()
+    val seekForwardLabel = stringResource(R.string.hud_seek_forward, seekSeconds)
+    val seekBackwardLabel = stringResource(R.string.hud_seek_backward, seekSeconds)
+    val speedBoostLabel = Formatters.speed(3f)
 
     val audioManager = remember {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -291,7 +305,7 @@ fun PlayerScreen(
                                     hud = HudState(
                                         HudKind.BRIGHTNESS,
                                         "${(brightness * 100).toInt()}%",
-                                        "Brightness",
+                                        brightnessLabel,
                                     )
                                 }
 
@@ -308,7 +322,7 @@ fun PlayerScreen(
                                     hud = HudState(
                                         HudKind.VOLUME,
                                         "${(volume * 100).toInt()}%",
-                                        "Volume",
+                                        volumeLabel,
                                     )
                                 }
 
@@ -327,15 +341,15 @@ fun PlayerScreen(
                                 playback.seekBy(if (forward) step else -step)
                                 hud = HudState(
                                     HudKind.SEEK,
-                                    if (forward) "+${step / 1000}s" else "-${step / 1000}s",
-                                    "Double tap seek",
+                                    if (forward) seekForwardLabel else seekBackwardLabel,
+                                    doubleTapSeekLabel,
                                 )
                             }
                         },
                         onLongPress = {
                             if (!locked) {
                                 playback.setSpeed(3f)
-                                hud = HudState(HudKind.SEEK, "3x", "Hold to speed up")
+                                hud = HudState(HudKind.SEEK, speedBoostLabel, holdToSpeedLabel)
                             }
                         },
                     )
@@ -389,7 +403,7 @@ fun PlayerScreen(
                 PlayerControls(
                     state = state,
                     title = currentItem?.title ?: state.title,
-                    folder = currentItem?.folder.orEmpty(),
+                    folder = currentItem?.let { folderLabel(it.folder) }.orEmpty(),
                     locked = locked,
                     scrubProgress = scrubProgress,
                     onScrub = { scrubProgress = it },
@@ -450,7 +464,7 @@ fun PlayerScreen(
 
     if (showSpeedDialog) {
         ChoiceDialog(
-            title = "Playback speed",
+            title = stringResource(R.string.dialog_speed_title),
             options = SPEED_PRESETS.map { Formatters.speed(it) },
             selected = Formatters.speed(state.speed),
             onPick = { index ->
@@ -463,9 +477,9 @@ fun PlayerScreen(
 
     if (showAspectDialog) {
         ChoiceDialog(
-            title = "Aspect ratio",
-            options = AspectMode.entries.map { it.label },
-            selected = aspectMode.label,
+            title = stringResource(R.string.dialog_aspect_title),
+            options = AspectMode.entries.map { stringResource(it.labelRes) },
+            selected = stringResource(aspectMode.labelRes),
             onPick = { index ->
                 aspectMode = AspectMode.entries[index]
                 showAspectDialog = false
@@ -506,7 +520,11 @@ private fun PlayerControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onClose) {
-                Icon(Icons.Filled.Close, contentDescription = "Close player", tint = Color.White)
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = stringResource(R.string.player_close),
+                    tint = Color.White,
+                )
             }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -527,12 +545,16 @@ private fun PlayerControls(
                 }
             }
             IconButton(onClick = onInfo) {
-                Icon(Icons.Filled.Info, contentDescription = "Track info", tint = Color.White)
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = stringResource(R.string.player_info),
+                    tint = Color.White,
+                )
             }
             IconButton(onClick = onPip) {
                 Icon(
                     Icons.Filled.PictureInPictureAlt,
-                    contentDescription = "Picture in picture",
+                    contentDescription = stringResource(R.string.player_pip),
                     tint = Color.White,
                 )
             }
@@ -571,14 +593,21 @@ private fun PlayerControls(
                 )
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    text = if (state.durationMs > 0L) Formatters.duration(state.durationMs) else "live",
+                    text = if (state.durationMs > 0L) {
+                        Formatters.duration(state.durationMs)
+                    } else {
+                        stringResource(R.string.player_unknown_duration)
+                    },
                     color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.labelMedium,
                 )
                 if (state.bufferedMs > state.positionMs) {
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        text = "+${Formatters.duration(state.bufferedMs - state.positionMs)} buffered",
+                        text = stringResource(
+                            R.string.player_buffered,
+                            Formatters.duration(state.bufferedMs - state.positionMs),
+                        ),
                         color = Color.White.copy(alpha = 0.5f),
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -586,7 +615,11 @@ private fun PlayerControls(
                 Spacer(Modifier.weight(1f))
                 if (state.queueSize > 1) {
                     Text(
-                        text = "${state.queueIndex + 1}/${state.queueSize}",
+                        text = stringResource(
+                            R.string.player_queued_counter,
+                            state.queueIndex + 1,
+                            state.queueSize,
+                        ),
                         color = Color.White.copy(alpha = 0.8f),
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -601,35 +634,66 @@ private fun PlayerControls(
                 IconButton(onClick = onToggleLock) {
                     Icon(
                         if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen,
-                        contentDescription = "Lock controls",
+                        contentDescription = stringResource(
+                            if (locked) R.string.player_unlock else R.string.player_lock,
+                        ),
                         tint = Color.White,
                     )
                 }
                 IconButton(onClick = onPrevious) {
-                    Icon(Icons.Filled.SkipPrevious, contentDescription = "Previous", tint = Color.White)
+                    Icon(
+                        Icons.Filled.SkipPrevious,
+                        contentDescription = stringResource(R.string.player_previous),
+                        tint = Color.White,
+                    )
                 }
                 IconButton(onClick = onPlayPause) {
                     Icon(
                         if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = if (state.isPlaying) "Pause" else "Play",
+                        contentDescription = stringResource(
+                            if (state.isPlaying) R.string.player_pause else R.string.player_play,
+                        ),
                         tint = Color.White,
                         modifier = Modifier.size(42.dp),
                     )
                 }
                 IconButton(onClick = onNext) {
-                    Icon(Icons.Filled.SkipNext, contentDescription = "Next", tint = Color.White)
+                    Icon(
+                        Icons.Filled.SkipNext,
+                        contentDescription = stringResource(R.string.player_next),
+                        tint = Color.White,
+                    )
                 }
                 IconButton(onClick = onSubtitles) {
-                    Icon(Icons.Filled.Subtitles, contentDescription = "Subtitles", tint = Color.White)
+                    Icon(
+                        Icons.Filled.Subtitles,
+                        contentDescription = stringResource(R.string.player_subtitles),
+                        tint = Color.White,
+                    )
                 }
                 IconButton(onClick = onSpeed) {
-                    Icon(Icons.Filled.Speed, contentDescription = "Speed ${Formatters.speed(state.speed)}", tint = Color.White)
+                    Icon(
+                        Icons.Filled.Speed,
+                        contentDescription = stringResource(
+                            R.string.player_speed,
+                            Formatters.speed(state.speed),
+                        ),
+                        tint = Color.White,
+                    )
                 }
                 IconButton(onClick = onAspect) {
-                    Icon(Icons.Filled.AspectRatio, contentDescription = "Aspect ratio", tint = Color.White)
+                    Icon(
+                        Icons.Filled.AspectRatio,
+                        contentDescription = stringResource(R.string.player_aspect),
+                        tint = Color.White,
+                    )
                 }
                 IconButton(onClick = onRotate) {
-                    Icon(Icons.Filled.ScreenRotation, contentDescription = "Rotate", tint = Color.White)
+                    Icon(
+                        Icons.Filled.ScreenRotation,
+                        contentDescription = stringResource(R.string.player_rotate),
+                        tint = Color.White,
+                    )
                 }
             }
         }
@@ -686,20 +750,39 @@ private fun TrackInfoPanel(
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Streams", style = MaterialTheme.typography.titleSmall)
+            Text(stringResource(R.string.player_streams_title), style = MaterialTheme.typography.titleSmall)
             Spacer(Modifier.height(6.dp))
-            InfoLine("Video", state.videoCodec ?: "waiting for tracks")
-            InfoLine("Audio", state.audioCodec ?: "waiting for tracks")
-            InfoLine("Subtitles", state.textCodec ?: "none selected")
             InfoLine(
-                "Frame size",
-                if (state.videoWidth > 0) "${state.videoWidth}x${state.videoHeight}" else "unknown",
+                stringResource(R.string.player_stream_video),
+                state.videoCodec ?: stringResource(R.string.player_waiting_tracks),
             )
-            InfoLine("Audio tracks", state.audioTrackCount.toString())
-            InfoLine("Subtitles loaded", state.subtitleCount.toString())
+            InfoLine(
+                stringResource(R.string.player_stream_audio),
+                state.audioCodec ?: stringResource(R.string.player_waiting_tracks),
+            )
+            InfoLine(
+                stringResource(R.string.player_stream_subtitles),
+                state.textCodec ?: stringResource(R.string.player_none_selected),
+            )
+            InfoLine(
+                stringResource(R.string.player_stream_frame_size),
+                if (state.videoWidth > 0) {
+                    "${state.videoWidth}x${state.videoHeight}"
+                } else {
+                    stringResource(R.string.player_unknown)
+                },
+            )
+            InfoLine(
+                stringResource(R.string.player_stream_audio_tracks),
+                state.audioTrackCount.toString(),
+            )
+            InfoLine(
+                stringResource(R.string.player_stream_subtitles_loaded),
+                state.subtitleCount.toString(),
+            )
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onCopyDiagnostics) {
-                Text("Copy full diagnostics")
+                Text(stringResource(R.string.player_copy_diagnostics))
             }
         }
     }
@@ -727,7 +810,7 @@ private fun PlaybackErrorCard(message: String, onDismiss: () -> Unit, modifier: 
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                "This file could not be played",
+                stringResource(R.string.player_error_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
@@ -738,7 +821,7 @@ private fun PlaybackErrorCard(message: String, onDismiss: () -> Unit, modifier: 
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
             Spacer(Modifier.height(8.dp))
-            TextButton(onClick = onDismiss) { Text("Retry") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.player_error_retry)) }
         }
     }
 }
@@ -756,17 +839,24 @@ private fun ChoiceDialog(
         title = { Text(title) },
         text = {
             Column {
+                val selectedMark = stringResource(R.string.dialog_selected)
                 options.forEachIndexed { index, label ->
                     TextButton(onClick = { onPick(index) }) {
                         Text(
-                            text = if (label == selected) "✓  $label" else label,
+                            text = if (label == selected) {
+                                selectedMark.format(label)
+                            } else {
+                                label
+                            },
                             color = MaterialTheme.colorScheme.onSurface,
                         )
                     }
                 }
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.dialog_cancel)) }
+        },
     )
 }
 
@@ -802,7 +892,12 @@ private fun copyDiagnostics(context: Context, playback: PlaybackViewModel) {
     runCatching {
         val text = Diagnostics.summary(context, playback.controller)
         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-        clipboard.setPrimaryClip(android.content.ClipData.newPlainText("VDO Player diagnostics", text))
+        clipboard.setPrimaryClip(
+            android.content.ClipData.newPlainText(
+                context.getString(R.string.clipboard_diagnostics),
+                text,
+            ),
+        )
         LogBus.i(LogTag.EXPORT, "Diagnostics copied to the clipboard (${text.length} chars)")
     }.onFailure {
         LogBus.e(LogTag.EXPORT, "Copying diagnostics failed", it)

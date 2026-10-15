@@ -4,8 +4,10 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.session.DefaultMediaNotificationProvider
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
@@ -39,6 +41,15 @@ class PlaybackService : MediaSessionService() {
 
         val exoPlayer = PlayerFactory.build(this, preference)
         player = exoPlayer
+
+        // Media3 builds the playback notification itself; naming the channel here
+        // keeps the notification in the app language instead of Media3's default.
+        setMediaNotificationProvider(
+            DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId(NOTIFICATION_CHANNEL_ID)
+                .setChannelName(R.string.notification_channel_name)
+                .build(),
+        )
 
         // Tapping the playback notification should land back in the player screen.
         val sessionActivity = PendingIntent.getActivity(
@@ -85,5 +96,6 @@ class PlaybackService : MediaSessionService() {
     companion object {
         const val PREFS = "vdo_player_runtime"
         const val KEY_DECODER = "decoder_preference"
+        const val NOTIFICATION_CHANNEL_ID = "vdo_player_playback"
     }
 }
