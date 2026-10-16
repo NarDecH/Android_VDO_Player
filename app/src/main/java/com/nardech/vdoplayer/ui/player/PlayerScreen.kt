@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.AspectRatio
 import androidx.compose.material.icons.filled.Brightness6
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
@@ -54,6 +55,7 @@ import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -96,6 +98,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
+import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.data.VideoItem
 import com.nardech.vdoplayer.logging.Diagnostics
 import com.nardech.vdoplayer.logging.LogBus
@@ -105,6 +108,8 @@ import com.nardech.vdoplayer.playback.PlayerUiState
 import com.nardech.vdoplayer.playback.SeekPreview
 import com.nardech.vdoplayer.playback.SeekPreviewPolicy
 import com.nardech.vdoplayer.playback.SeekPreviewSource
+import com.nardech.vdoplayer.ui.decoderChipLabel
+import com.nardech.vdoplayer.ui.decoderPreferenceLabel
 import com.nardech.vdoplayer.ui.folderLabel
 import com.nardech.vdoplayer.util.Formatters
 import com.nardech.vdoplayer.util.IntentHelpers
@@ -141,6 +146,7 @@ fun PlayerScreen(
     snackbarHost: SnackbarHostState,
     resumePositions: Map<String, Long>,
     onSaveProgress: (VideoItem, Long, Long) -> Unit,
+    onSetDecoderPreference: (DecoderPreference) -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -155,6 +161,7 @@ fun PlayerScreen(
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showAspectDialog by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    var showAudioDialog by remember { mutableStateOf(false) }
     var hud by remember { mutableStateOf<HudState?>(null) }
     var scrubProgress by remember { mutableFloatStateOf(-1f) }
     var previewTarget by remember { mutableStateOf<Long?>(null) }
@@ -177,6 +184,11 @@ fun PlayerScreen(
     val repeatAllLabel = stringResource(R.string.player_repeat_all)
     val repeatOneLabel = stringResource(R.string.player_repeat_one)
     val repeatAnnounceFormat = stringResource(R.string.player_repeat_announce)
+    // Resolved here, because the decoder chips are built inside a callback.
+    val decoderChoices = DecoderPreference.entries
+    val decoderChips = decoderChoices.map { decoderChipLabel(it) }
+    val decoderAnnounceFormat = stringResource(R.string.player_decoder_switched)
+    val decoderPendingFormat = stringResource(R.string.player_decoder_switched_pending)
 
     val audioManager = remember {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -192,9 +204,14 @@ fun PlayerScreen(
     val currentItem = queue.getOrNull(state.queueIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0)))
 
     // Start (or restart) playback whenever a new queue/index arrives.
-    LaunchedEffect(queue, startIndex) {
+    LaunchedEffect(queue, startIndex, settings.subtitleAutoDiscovery) {
         if (queue.isNotEmpty()) {
-            playback.play(queue, startIndex, resumePositions = resumePositions)
+            playback.play(
+                items = queue,
+                startIndex = startIndex,
+                resumePositions = resumePositions,
+                autoSubtitles = settings.subtitleAutoDiscovery,
+            )
         }
     }
 
@@ -524,6 +541,7 @@ fun PlayerScreen(
                     onSpeed = { showSpeedDialog = true },
                     onAspect = { showAspectDialog = true },
                     onInfo = { showInfo = !showInfo },
+                    onAudio = { showAudioDialog = true },
                     onSubtitles = {
                         if (state.subtitleCount > 0) {
                             playback.setSubtitlesEnabled(true)
@@ -546,6 +564,19 @@ fun PlayerScreen(
             if (showInfo) {
                 TrackInfoPanel(
                     state = state,
+                    decoderPreference = settings.decoderPreference,
+                    decoderChips = decoderChips,
+                    onPickDecoder = { preference ->
+                        onSetDecoderPreference(preference)
+                        val appliedLive = playback.setDecoderPreference(preference)
+                        val label = decoderChips[decoderChoices.indexOf(preference)]
+                        val message = if (appliedLive) {
+                            decoderAnnounceFormat.format(label)
+                        } else {
+                            decoderPendingFormat.format(label)
+                        }
+                        scope.launch { snackbarHost.showSnackbar(message) }
+                    },
                     onCopyDiagnostics = { copyDiagnostics(context, playback) },
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
@@ -580,6 +611,21 @@ fun PlayerScreen(
             onDismiss = { showAspectDialog = false },
         )
     }
+
+    if (showAudioDialog) {
+        val audioTracks = state.audioTracks
+        val emptyLabel = stringResource(R.string.player_waiting_tracks)
+        ChoiceDialog(
+            title = stringResource(R.string.dialog_audio_title),
+            options = if (audioTracks.isEmpty()) listOf(emptyLabel) else audioTracks.map { it.label },
+            selected = audioTracks.firstOrNull { it.selected }?.label.orEmpty(),
+            onPick = { index ->
+                playback.selectAudioTrack(index)
+                showAudioDialog = false
+            },
+            onDismiss = { showAudioDialog = false },
+        )
+    }
 }
 
 @Composable
@@ -600,6 +646,7 @@ private fun PlayerControls(
     onRepeat: () -> Unit,
     onAspect: () -> Unit,
     onInfo: () -> Unit,
+    onAudio: () -> Unit,
     onSubtitles: () -> Unit,
     onRotate: () -> Unit,
     onPip: () -> Unit,
@@ -758,6 +805,13 @@ private fun PlayerControls(
                         tint = Color.White,
                     )
                 }
+                IconButton(onClick = onAudio) {
+                    Icon(
+                        Icons.Filled.LibraryMusic,
+                        contentDescription = stringResource(R.string.player_audio_tracks),
+                        tint = Color.White,
+                    )
+                }
                 IconButton(onClick = onSubtitles) {
                     Icon(
                         Icons.Filled.Subtitles,
@@ -869,6 +923,9 @@ private fun HudOverlay(hud: HudState, modifier: Modifier = Modifier) {
 @Composable
 private fun TrackInfoPanel(
     state: PlayerUiState,
+    decoderPreference: DecoderPreference,
+    decoderChips: List<String>,
+    onPickDecoder: (DecoderPreference) -> Unit,
     onCopyDiagnostics: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -908,6 +965,30 @@ private fun TrackInfoPanel(
                 stringResource(R.string.player_stream_subtitles_loaded),
                 state.subtitleCount.toString(),
             )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(
+                    R.string.player_decoder_current,
+                    decoderPreferenceLabel(decoderPreference),
+                ),
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                DecoderPreference.entries.forEachIndexed { index, entry ->
+                    FilterChip(
+                        selected = entry == decoderPreference,
+                        onClick = { onPickDecoder(entry) },
+                        label = {
+                            Text(
+                                text = decoderChips[index],
+                                style = MaterialTheme.typography.labelSmall,
+                            )
+                        },
+                    )
+                }
+            }
             Spacer(Modifier.height(8.dp))
             TextButton(onClick = onCopyDiagnostics) {
                 Text(stringResource(R.string.player_copy_diagnostics))

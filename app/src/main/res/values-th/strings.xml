@@ -64,6 +64,7 @@
     <string name="player_play">เล่น</string>
     <string name="player_pause">หยุดชั่วคราว</string>
     <string name="player_subtitles">คำบรรยาย</string>
+    <string name="player_audio_tracks">แทร็กเสียง</string>
     <string name="player_speed">ความเร็ว %1$s</string>
     <string name="player_repeat_off">ไม่เล่นซ้ำ</string>
     <string name="player_repeat_all">เล่นซ้ำทั้งคิว</string>
@@ -86,11 +87,15 @@
     <string name="player_waiting_tracks">รอข้อมูลสตรีม</string>
     <string name="player_none_selected">ยังไม่ได้เลือก</string>
     <string name="player_unknown">ไม่ทราบ</string>
+    <string name="player_decoder_current">ตัวถอดรหัส: %1$s</string>
+    <string name="player_decoder_switched">ตัวถอดรหัส: %1$s</string>
+    <string name="player_decoder_switched_pending">ตัวถอดรหัส: %1$s (จะมีผลเมื่อเริ่มเล่นใหม่)</string>
     <string name="player_copy_diagnostics">คัดลอกข้อมูลวินิจฉัยทั้งหมด</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
 
     <string name="dialog_speed_title">ความเร็วในการเล่น</string>
     <string name="dialog_aspect_title">อัตราส่วนภาพ</string>
+    <string name="dialog_audio_title">แทร็กเสียง</string>
     <string name="dialog_cancel">ยกเลิก</string>
 
     <string name="aspect_fit">พอดีกับจอ</string>
@@ -154,7 +159,7 @@
     <string name="settings_default_sort">การเรียงลำดับเริ่มต้น</string>
     <string name="settings_playback">การเล่น</string>
     <string name="settings_decoder">ลำดับความสำคัญของตัวถอดรหัส</string>
-    <string name="settings_decoder_hint">ตัวถอดรหัส FFmpeg เล่นได้หลายรูปแบบกว่า แต่กินแบตเตอรี่มากกว่าฮาร์ดแวร์ในเครื่อง</string>
+    <string name="settings_decoder_hint">ตัวถอดรหัส FFmpeg เล่นได้หลายรูปแบบกว่า แต่กินแบตเตอรี่มากกว่าฮาร์ดแวร์ในเครื่อง สลับได้ทันทีระหว่างเล่นผ่านแผงข้อมูลสตรีมในหน้าจอเล่น ไฟล์ที่ฮาร์ดแวร์ไม่รับจึงแก้ได้โดยไม่ต้องออกจากวิดีโอ</string>
     <string name="settings_default_speed">ความเร็วเริ่มต้น</string>
     <string name="settings_seek_step">ระยะเลื่อนเมื่อแตะสองครั้ง</string>
     <string name="settings_resume">เล่นต่อจากจุดที่หยุดไว้</string>
@@ -167,6 +172,8 @@
     <string name="settings_remember_brightness_sub">ถ้าปิดไว้ จะคืนค่าความสว่างของระบบเมื่อออกจากหน้าจอเล่น</string>
     <string name="settings_seek_preview">พรีวิวตอนเลื่อนหา</string>
     <string name="settings_seek_preview_sub">ถอดภาพตัวอย่างขึ้นมาให้เห็นตอนลากแถบเลื่อน รู้เลยว่าเลื่อนไปตรงไหน</string>
+    <string name="settings_subtitle_discovery">หาซับไทเทิลข้างไฟล์วิดีโอ</string>
+    <string name="settings_subtitle_discovery_sub">โหลดไฟล์ .srt, .vtt หรือ .ass ที่ชื่อเดียวกันในโฟลเดอร์เดียวกับวิดีโอให้เอง Android 13 ขึ้นไปจะไม่เห็นไฟล์ที่แอปไม่ได้เป็นเจ้าของ จึงเจอเฉพาะไฟล์ที่อ่านได้ ส่วนปุ่มคำบรรยายยังเลือกไฟล์เองได้เสมอ</string>
     <string name="settings_autoplay_next">เล่นวิดีโอถัดไปอัตโนมัติ</string>
     <string name="settings_background">เล่นต่อในเบื้องหลัง</string>
     <string name="settings_background_sub">เสียงเล่นต่อแม้ปิดจอ ผ่านการแจ้งเตือนมีเดีย</string>
@@ -188,6 +195,9 @@
     <string name="decoder_platform_first">ใช้ฮาร์ดแวร์ก่อน, FFmpeg สำรอง</string>
     <string name="decoder_ffmpeg_first">เน้น FFmpeg (เข้ากันได้มากสุด)</string>
     <string name="decoder_platform_only">ฮาร์ดแวร์เท่านั้น</string>
+    <string name="decoder_chip_platform_first">ฮาร์ดแวร์ก่อน</string>
+    <string name="decoder_chip_ffmpeg">FFmpeg</string>
+    <string name="decoder_chip_platform_only">ฮาร์ดแวร์เท่านั้น</string>
 
     <!-- Wi-Fi transfer -->
     <string name="transfer_mode_receive">รับ</string>

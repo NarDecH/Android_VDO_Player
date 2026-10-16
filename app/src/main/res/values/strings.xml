@@ -64,6 +64,7 @@
     <string name="player_play">Play</string>
     <string name="player_pause">Pause</string>
     <string name="player_subtitles">Subtitles</string>
+    <string name="player_audio_tracks">Audio track</string>
     <string name="player_speed">Speed %1$s</string>
     <string name="player_repeat_off">Repeat off</string>
     <string name="player_repeat_all">Repeat the whole queue</string>
@@ -86,11 +87,15 @@
     <string name="player_waiting_tracks">waiting for tracks</string>
     <string name="player_none_selected">none selected</string>
     <string name="player_unknown">unknown</string>
+    <string name="player_decoder_current">Decoder: %1$s</string>
+    <string name="player_decoder_switched">Decoder: %1$s</string>
+    <string name="player_decoder_switched_pending">Decoder: %1$s (takes effect on the next playback)</string>
     <string name="player_copy_diagnostics">Copy full diagnostics</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
 
     <string name="dialog_speed_title">Playback speed</string>
     <string name="dialog_aspect_title">Aspect ratio</string>
+    <string name="dialog_audio_title">Audio track</string>
     <string name="dialog_cancel">Cancel</string>
 
     <string name="aspect_fit">Fit to screen</string>
@@ -156,7 +161,7 @@
     <string name="settings_default_sort">Default sort</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_decoder">Decoder priority</string>
-    <string name="settings_decoder_hint">FFmpeg software decoders play more formats, but they use more battery than the hardware decoders in the device.</string>
+    <string name="settings_decoder_hint">FFmpeg software decoders play more formats, but they use more battery than the hardware decoders in the device. The player\'s track panel switches this while a video is playing, so a file the hardware refuses can be rescued without leaving it.</string>
     <string name="settings_default_speed">Default speed</string>
     <string name="settings_seek_step">Double tap seek</string>
     <string name="settings_resume">Resume where I stopped</string>
@@ -169,6 +174,8 @@
     <string name="settings_remember_brightness_sub">Off restores the system brightness when you leave the player</string>
     <string name="settings_seek_preview">Seek preview</string>
     <string name="settings_seek_preview_sub">Decode a frame while you drag, so you can see where the seek is going</string>
+    <string name="settings_subtitle_discovery">Find subtitles beside the video</string>
+    <string name="settings_subtitle_discovery_sub">Loads a .srt, .vtt or .ass file with the same name from the video\'s own folder. Android 13 and newer hide files this app does not own, so there it only finds subtitles it can read; the subtitle button still takes any file you pick.</string>
     <string name="settings_autoplay_next">Play next video automatically</string>
     <string name="settings_background">Keep playing in the background</string>
     <string name="settings_background_sub">Audio continues with the screen off, through the media notification</string>
@@ -190,6 +197,9 @@
     <string name="decoder_platform_first">Hardware first, FFmpeg fallback</string>
     <string name="decoder_ffmpeg_first">Prefer FFmpeg (most compatible)</string>
     <string name="decoder_platform_only">Hardware only</string>
+    <string name="decoder_chip_platform_first">Hardware first</string>
+    <string name="decoder_chip_ffmpeg">FFmpeg</string>
+    <string name="decoder_chip_platform_only">Hardware only</string>
 
     <!-- Wi-Fi transfer -->
     <string name="transfer_mode_receive">Receive</string>

@@ -27,8 +27,8 @@ android {
         applicationId = "com.nardech.vdoplayer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.2.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -40,6 +40,17 @@ android {
                 keyAlias = keystoreProperties.getProperty("keyAlias")
                 keyPassword = keystoreProperties.getProperty("keyPassword")
             }
+        }
+    }
+
+    testOptions {
+        unitTests {
+            // Media3's TrackGroup calls TextUtils.isEmpty() while it is constructed, and
+            // the unit tests build real TrackGroup/Tracks objects to check the audio
+            // track picker. Without this, every such test dies with "Method isEmpty in
+            // android.text.TextUtils not mocked". Defaults are only returned for Android
+            // platform calls; the assertions themselves stay about our own code.
+            isReturnDefaultValues = true
         }
     }
 

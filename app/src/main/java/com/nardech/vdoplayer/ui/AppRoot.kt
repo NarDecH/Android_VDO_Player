@@ -127,6 +127,11 @@ fun AppRoot(
                         )
                     }
                 },
+                onSetDecoderPreference = { preference ->
+                    // Stored as well as sent: the service applies it to the running
+                    // player, and the setting decides what the next player uses.
+                    scope.launch { container.settings.setDecoderPreference(preference) }
+                },
                 onClose = {
                     LogBus.i(LogTag.UI, "Closing player screen")
                     playback.stop()

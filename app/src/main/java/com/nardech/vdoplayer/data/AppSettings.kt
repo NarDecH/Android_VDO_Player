@@ -10,22 +10,57 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import androidx.media3.exoplayer.DefaultRenderersFactory
 import com.nardech.vdoplayer.logging.LogExportFormat
 import com.nardech.vdoplayer.logging.LogLevel
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /**
- * Maps onto the NextLib / Media3 extension renderer priority. Display names live
- * in string resources (`decoder_*`) and are resolved by
+ * Decoder priority, in two halves that NextLib keeps apart: which renderers the
+ * player is built with ([extensionMode]), and which of those the decoder manager
+ * is allowed to select ([videoMode] / [audioMode]).
+ *
+ * The renderers are fixed when the player is built, so the extension renderers stay
+ * enabled even for [PLATFORM_ONLY]: that is what lets the player switch between
+ * hardware and FFmpeg while a video is playing. What each entry means:
+ *
+ * * [PLATFORM_FIRST] — hardware first, FFmpeg when the SoC cannot decode the file.
+ * * [FFMPEG_FIRST] — FFmpeg decodes video and audio, for the widest format support.
+ * * [PLATFORM_ONLY] — hardware MediaCodec decoders only; no FFmpeg, no software.
+ *
+ * Display names live in string resources (`decoder_*`) and are resolved by
  * `com.nardech.vdoplayer.ui.decoderPreferenceLabel`.
  */
-enum class DecoderPreference(val extensionMode: Int) {
-    PLATFORM_FIRST(1),
-    FFMPEG_FIRST(2),
-    PLATFORM_ONLY(0),
+enum class DecoderPreference(
+    val extensionMode: Int,
+    val videoMode: DecoderMode,
+    val audioMode: DecoderMode,
+) {
+    PLATFORM_FIRST(
+        extensionMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+        videoMode = DecoderMode.AUTO,
+        audioMode = DecoderMode.AUTO,
+    ),
+    FFMPEG_FIRST(
+        extensionMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER,
+        videoMode = DecoderMode.FFMPEG,
+        audioMode = DecoderMode.FFMPEG,
+    ),
+    PLATFORM_ONLY(
+        extensionMode = DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON,
+        videoMode = DecoderMode.HARDWARE,
+        audioMode = DecoderMode.HARDWARE,
+    ),
+    ;
+
+    companion object {
+        fun fromName(name: String?): DecoderPreference? =
+            entries.firstOrNull { it.name == name }
+    }
 }
 
 data class AppSettings(
@@ -43,6 +78,8 @@ data class AppSettings(
     val rememberBrightness: Boolean = true,
     /** Decodes a frame while scrubbing, so the seek bar shows where it is going. */
     val seekPreviewEnabled: Boolean = true,
+    /** Looks for a `.srt` / `.vtt` / `.ass` next to the video and loads it automatically. */
+    val subtitleAutoDiscovery: Boolean = true,
     val gridColumns: Int = 2,
     val sortOrder: SortOrder = SortOrder.DATE_NEWEST,
     val logLevel: LogLevel = LogLevel.DEBUG,
@@ -71,6 +108,7 @@ class SettingsRepository(private val context: Context) {
         val backgroundPlayback = booleanPreferencesKey("background_playback")
         val rememberBrightness = booleanPreferencesKey("remember_brightness")
         val seekPreview = booleanPreferencesKey("seek_preview")
+        val subtitleAutoDiscovery = booleanPreferencesKey("subtitle_auto_discovery")
         val gridColumns = intPreferencesKey("grid_columns")
         val sortOrder = stringPreferencesKey("sort_order")
         val logLevel = stringPreferencesKey("log_level")
@@ -86,8 +124,7 @@ class SettingsRepository(private val context: Context) {
                 ?.let { name -> ThemeMode.entries.firstOrNull { it.name == name } }
                 ?: defaults.themeMode,
             dynamicColor = prefs[Keys.dynamicColor] ?: defaults.dynamicColor,
-            decoderPreference = prefs[Keys.decoder]
-                ?.let { name -> DecoderPreference.entries.firstOrNull { it.name == name } }
+            decoderPreference = DecoderPreference.fromName(prefs[Keys.decoder])
                 ?: defaults.decoderPreference,
             gesturesEnabled = prefs[Keys.gestures] ?: defaults.gesturesEnabled,
             seekStepMs = prefs[Keys.seekStep] ?: defaults.seekStepMs,
@@ -99,6 +136,8 @@ class SettingsRepository(private val context: Context) {
             backgroundPlayback = prefs[Keys.backgroundPlayback] ?: defaults.backgroundPlayback,
             rememberBrightness = prefs[Keys.rememberBrightness] ?: defaults.rememberBrightness,
             seekPreviewEnabled = prefs[Keys.seekPreview] ?: defaults.seekPreviewEnabled,
+            subtitleAutoDiscovery = prefs[Keys.subtitleAutoDiscovery]
+                ?: defaults.subtitleAutoDiscovery,
             gridColumns = prefs[Keys.gridColumns] ?: defaults.gridColumns,
             sortOrder = prefs[Keys.sortOrder]
                 ?.let { name -> SortOrder.entries.firstOrNull { it.name == name } }
@@ -131,6 +170,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setRememberBrightness(value: Boolean) = edit { it[Keys.rememberBrightness] = value }
 
     suspend fun setSeekPreview(value: Boolean) = edit { it[Keys.seekPreview] = value }
+    suspend fun setSubtitleAutoDiscovery(value: Boolean) =
+        edit { it[Keys.subtitleAutoDiscovery] = value }
     suspend fun setGridColumns(value: Int) = edit { it[Keys.gridColumns] = value }
     suspend fun setSortOrder(value: SortOrder) = edit { it[Keys.sortOrder] = value.name }
     suspend fun setLogLevel(value: LogLevel) = edit { it[Keys.logLevel] = value.name }

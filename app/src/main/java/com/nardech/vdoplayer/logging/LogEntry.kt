@@ -31,6 +31,7 @@ enum class LogTag {
     PLAYER,
     MEDIA,
     DECODER,
+    SUBTITLE,
     STORAGE,
     EXPORT,
     TRANSFER,

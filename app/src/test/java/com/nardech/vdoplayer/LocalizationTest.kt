@@ -116,6 +116,8 @@ class LocalizationTest {
             "player_queued_counter",
             "dialog_selected",
             "transfer_progress",
+            // A product name: NextLib's decoder is FFmpeg in every language.
+            "decoder_chip_ffmpeg",
         )
 
         val PLACEHOLDER = Regex("%(?:\\d+\\$)?[a-zA-Z]")

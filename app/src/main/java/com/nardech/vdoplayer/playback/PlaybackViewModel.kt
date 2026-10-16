@@ -2,6 +2,7 @@ package com.nardech.vdoplayer.playback
 
 import android.app.Application
 import android.content.ComponentName
+import android.os.Bundle
 import androidx.core.content.ContextCompat
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
@@ -14,6 +15,7 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.data.VideoItem
 import com.nardech.vdoplayer.logging.Diagnostics
 import com.nardech.vdoplayer.logging.LogBus
@@ -28,6 +30,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Locale
 
 /** Everything the player UI renders, refreshed from one place. */
 data class PlayerUiState(
@@ -52,6 +56,8 @@ data class PlayerUiState(
     val queueIndex: Int = 0,
     val queueSize: Int = 0,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
+    /** Audio tracks of the current item, for the track picker in the player. */
+    val audioTracks: List<TrackChoice> = emptyList(),
 ) {
     val isBuffering: Boolean get() = playbackState == Player.STATE_BUFFERING
     val isEnded: Boolean get() = playbackState == Player.STATE_ENDED
@@ -81,6 +87,15 @@ class PlaybackViewModel(private val app: Application) {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var ticker: Job? = null
     private var videoSize: VideoSize? = null
+
+    /** The queue as queued, so a media item can be looked up by index later. */
+    private var queueSnapshot: List<VideoItem> = emptyList()
+    private var subtitlesWanted = true
+
+    /** Media ids already searched for subtitles, so the scan runs once per video. */
+    private val subtitleSearchDone = mutableSetOf<String>()
+    private var subtitleJob: Job? = null
+    private val subtitleResolver by lazy { SubtitleResolver(app) }
 
     var controller: MediaController? = null
         private set
@@ -151,12 +166,20 @@ class PlaybackViewModel(private val app: Application) {
     }
 
     /** Replaces the queue and starts playing [startIndex]. */
-    fun play(items: List<VideoItem>, startIndex: Int, resumePositions: Map<String, Long>) {
+    fun play(
+        items: List<VideoItem>,
+        startIndex: Int,
+        resumePositions: Map<String, Long>,
+        autoSubtitles: Boolean = true,
+    ) {
         val player = controller ?: return
         if (items.isEmpty()) return
         val safeIndex = startIndex.coerceIn(0, items.lastIndex)
         val startItem = items[safeIndex]
         val resumeAt = resumePositions[startItem.uri.toString()] ?: 0L
+        queueSnapshot = items
+        subtitlesWanted = autoSubtitles
+        subtitleSearchDone.clear()
 
         LogBus.i(
             LogTag.PLAYER,
@@ -290,6 +313,108 @@ class PlaybackViewModel(private val app: Application) {
         refresh()
     }
 
+    /**
+     * Asks the service to switch the decoder while playback keeps running.
+     *
+     * The change is applied to the live player, so a file that the hardware decoder
+     * cannot handle can be rescued without leaving the video. Returns whether the
+     * session accepted the command; the preference itself is stored by the caller,
+     * which is why a refusal is not fatal — it applies the next time playback starts.
+     */
+    fun setDecoderPreference(preference: DecoderPreference): Boolean {
+        val player = controller ?: run {
+            LogBus.w(
+                LogTag.DECODER,
+                "No playback session to switch the decoder for '${preference.name}' yet",
+            )
+            return false
+        }
+        val args = Bundle().apply { putString(PlaybackCommands.KEY_DECODER, preference.name) }
+        return runCatching {
+            player.sendCustomCommand(PlaybackCommands.setDecoderPreference, args)
+            LogBus.i(
+                LogTag.DECODER,
+                "Asked the playback service for decoder '${preference.name}'",
+            )
+            true
+        }.onFailure {
+            LogBus.w(
+                LogTag.DECODER,
+                "The session refused the decoder switch to '${preference.name}'",
+                it,
+            )
+        }.getOrDefault(false)
+    }
+
+    /** Picks one of the audio tracks [PlayerUiState.audioTracks] currently lists. */
+    fun selectAudioTrack(index: Int) {
+        val choice = _state.value.audioTracks.getOrNull(index) ?: return
+        selectTrack(choice.groupIndex, choice.trackIndex)
+    }
+
+    /**
+     * Looks for a subtitle file next to the current video and adds what it finds.
+     *
+     * Runs once per media id, off the main thread, and is a no-op when the item
+     * already carries subtitles — a file the user picked by hand or one that was
+     * discovered earlier in this session.
+     */
+    private fun scheduleSubtitleDiscovery() {
+        if (!subtitlesWanted) return
+        val player = controller ?: return
+        val item = player.currentMediaItem ?: return
+        val mediaId = item.mediaId
+        if (!subtitleSearchDone.add(mediaId)) return
+        if (!item.localConfiguration?.subtitleConfigurations.isNullOrEmpty()) return
+        val index = player.currentMediaItemIndex
+        val video = queueSnapshot.getOrNull(index) ?: return
+
+        subtitleJob?.cancel()
+        subtitleJob = scope.launch {
+            val configurations = withContext(Dispatchers.IO) {
+                subtitleResolver.discover(video, Locale.getDefault().language)
+            }
+            if (configurations.isEmpty()) return@launch
+            applyDiscoveredSubtitles(index, mediaId, configurations)
+        }
+    }
+
+    /**
+     * Adds discovered subtitles to the item that is playing, unless the video moved
+     * on while the scan was running.
+     */
+    private fun applyDiscoveredSubtitles(
+        index: Int,
+        mediaId: String,
+        configurations: List<MediaItem.SubtitleConfiguration>,
+    ) {
+        val player = controller ?: return
+        val current = player.currentMediaItem
+        if (player.currentMediaItemIndex != index || current?.mediaId != mediaId) {
+            LogBus.d(
+                LogTag.SUBTITLE,
+                "Discovered subtitles for '$mediaId' arrived late, dropping them",
+            )
+            return
+        }
+        val updated = current.buildUpon()
+            .setSubtitleConfigurations(
+                current.localConfiguration?.subtitleConfigurations.orEmpty() + configurations,
+            )
+            .build()
+        runCatching { player.replaceMediaItem(index, updated) }
+            .onSuccess {
+                LogBus.i(
+                    LogTag.SUBTITLE,
+                    "Loaded ${configurations.size} subtitle file(s) found next to '$mediaId'",
+                )
+            }
+            .onFailure {
+                LogBus.w(LogTag.SUBTITLE, "The session refused the discovered subtitles", it)
+            }
+        refresh()
+    }
+
     /** Turns the current file's subtitles on or off without touching other tracks. */
     fun setSubtitlesEnabled(enabled: Boolean) {
         val player = controller ?: return
@@ -344,7 +469,10 @@ class PlaybackViewModel(private val app: Application) {
             queueIndex = player.currentMediaItemIndex,
             queueSize = player.mediaItemCount,
             repeatMode = player.repeatMode,
+            audioTracks = TrackOptions.audioTracks(tracks, Diagnostics::describe),
         )
+
+        scheduleSubtitleDiscovery()
     }
 
     private fun repeatModeName(mode: Int): String = when (mode) {

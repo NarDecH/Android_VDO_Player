@@ -169,6 +169,12 @@ fun SettingsScreen(
                     onChange = { scope.launch { repository.setSeekPreview(it) } },
                 )
                 SwitchRow(
+                    title = stringResource(R.string.settings_subtitle_discovery),
+                    subtitle = stringResource(R.string.settings_subtitle_discovery_sub),
+                    checked = settings.subtitleAutoDiscovery,
+                    onChange = { scope.launch { repository.setSubtitleAutoDiscovery(it) } },
+                )
+                SwitchRow(
                     title = stringResource(R.string.settings_autoplay_next),
                     checked = settings.autoPlayNext,
                     onChange = { scope.launch { repository.setAutoPlayNext(it) } },

@@ -35,6 +35,19 @@ fun decoderPreferenceLabel(preference: DecoderPreference): String = stringResour
     },
 )
 
+/**
+ * Short decoder names for the chips in the player, where the full priority label
+ * ("Hardware first, FFmpeg fallback") is too long for a control row.
+ */
+@Composable
+fun decoderChipLabel(preference: DecoderPreference): String = stringResource(
+    when (preference) {
+        DecoderPreference.PLATFORM_FIRST -> R.string.decoder_chip_platform_first
+        DecoderPreference.FFMPEG_FIRST -> R.string.decoder_chip_ffmpeg
+        DecoderPreference.PLATFORM_ONLY -> R.string.decoder_chip_platform_only
+    },
+)
+
 @Composable
 fun themeModeLabel(mode: ThemeMode): String = stringResource(
     when (mode) {
