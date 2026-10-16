@@ -285,6 +285,13 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
    workflow builds are *not* byte-identical to a local build, so never mix the two
    checksum sets. There is no `gh` CLI on the development machine — Workflows and
    the draft release are handled in the browser or through the GitHub tools.
+   Open the draft **from the Releases page** and edit it there
+   (`/releases/edit/untagged-…`). `/releases/edit/<tag>` is the *new release* form:
+   it is prefilled with the tag message, and submitting it while a draft for that tag
+   already exists creates a **second** release for the same tag — that duplicate
+   carries only the source archives, so it takes over the download page and the site
+   lists no APKs until it is deleted from its own release page. Publishing from the
+   draft's form keeps the four APKs and the checksums together.
 6. The download page reads the GitHub release API at runtime, so no page edit is
    needed — it picks up the new tag on its own.
 7. `docs/` is the Pages source and redeploys from `main`, so the documentation
