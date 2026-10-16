@@ -339,6 +339,21 @@ class TransferServerTest {
     }
 
     @Test
+    fun `stop waits for the accept loop instead of leaving the socket open`() {
+        val server = serverWith(sink(), events).also { it.start() }
+
+        server.stop("test finished")
+
+        // A thread parked in accept() keeps the listening socket alive on Linux, so the
+        // kernel goes on handing a closed port connections for as long as the call is
+        // pending. Waiting for the loop to leave is what makes the port stop answering
+        // as soon as stop() returns.
+        val lingering = Thread.getAllStackTraces().keys
+            .filter { thread -> thread.isAlive && thread.name == "vdo-transfer-accept" }
+        assertEquals("the accept loop outlived stop()", emptyList<Thread>(), lingering)
+    }
+
+    @Test
     fun `cannot start twice and can be restarted after a stop`() {
         val sink = sink()
         val server = serverWith(sink, events)

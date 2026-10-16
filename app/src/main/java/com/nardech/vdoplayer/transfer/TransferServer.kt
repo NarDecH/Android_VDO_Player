@@ -9,6 +9,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.net.SocketTimeoutException
 import java.security.SecureRandom
 import java.util.Collections
 import java.util.concurrent.ExecutorService
@@ -73,6 +74,9 @@ class TransferServer(
         failedAttempts.set(0)
 
         val bound = bind(preferredPort)
+        // accept() waits only long enough to notice that the server was stopped; see
+        // [stop] for why letting it block forever would keep the port open.
+        bound.soTimeout = ACCEPT_POLL_MS
         serverSocket = bound
         port = bound.localPort
         running.set(true)
@@ -112,15 +116,23 @@ class TransferServer(
     @Synchronized
     fun stop(reason: String = "stopped") {
         if (!running.getAndSet(false)) return
+        val waiter = acceptThread
+        acceptThread = null
         runCatching { serverSocket?.close() }
         serverSocket = null
+        // Closing the listener is not enough on its own: on Linux the thread parked in
+        // accept() holds the socket open, and the kernel keeps handing it connections
+        // until that call returns, so the port would answer for a moment after the UI
+        // says the server is off. Waiting for the loop to leave makes "stopped" mean
+        // the port is really closed. On a platform where close() already wakes accept(),
+        // the join returns immediately.
+        runCatching { waiter?.join(ACCEPT_JOIN_MS) }
         synchronized(activeSockets) {
             activeSockets.forEach { socket -> runCatching { socket.close() } }
             activeSockets.clear()
         }
         pool?.shutdownNow()
         pool = null
-        acceptThread = null
         port = 0
         onEvent(Event.Stopped(reason))
     }
@@ -141,6 +153,11 @@ class TransferServer(
             } catch (closed: SocketException) {
                 if (running.get()) onEvent(Event.Failed("Accept failed", closed))
                 return
+            } catch (timeout: SocketTimeoutException) {
+                // Only the accept timeout; the listener itself is healthy, and the
+                // wake-up is how a stop is noticed.
+                if (!running.get()) return
+                continue
             } catch (error: IOException) {
                 if (running.get()) onEvent(Event.Failed("Accept failed", error))
                 continue
@@ -472,5 +489,13 @@ class TransferServer(
         output.write("Connection: close\r\n\r\n".toByteArray())
         output.write(bytes)
         output.flush()
+    }
+
+    private companion object {
+        /** How long accept() waits before re-checking [running], in milliseconds. */
+        const val ACCEPT_POLL_MS = 250
+
+        /** How long [stop] waits for the accept loop to release the listening socket. */
+        const val ACCEPT_JOIN_MS = 2_000L
     }
 }

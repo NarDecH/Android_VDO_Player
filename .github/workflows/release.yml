@@ -56,6 +56,22 @@ jobs:
       - name: Run the unit tests
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
 
+      # A failed test run is only diagnosable from the JUnit XML: the Gradle console
+      # output says which test failed, but not why. Printing an excerpt for every
+      # failing report keeps the reason at the end of the log, where it can be read
+      # without downloading the whole archive.
+      - name: Show the failing tests
+        if: failure()
+        run: |
+          shopt -s nullglob
+          for report in app/build/test-results/testDebugUnitTest/*.xml; do
+            if grep -q '<failure\|<error' "$report"; then
+              echo "=== $report"
+              head -c 4000 "$report"
+              printf '\n'
+            fi
+          done
+
       # Secrets are passed through the environment instead of being interpolated
       # into the script text, so a quote in a password cannot break the shell.
       - name: Restore the release keystore
