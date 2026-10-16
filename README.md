@@ -48,18 +48,19 @@ developer when something refuses to play.
 | | |
 |---|---|
 | **Library** | MediaStore scan with live updates, thumbnails, search, folder filter chips, sort by date/name/duration/size, grid or list layout |
-| **Playback** | Media3 ExoPlayer, FFmpeg software fallback decoders, playlists with next/previous, resume where you stopped, repeat off / whole queue / one video (remembered), background audio through a media notification |
+| **Playback** | Media3 ExoPlayer, FFmpeg software fallback decoders, decoder priority switchable **while a video plays** (hardware ⇄ FFmpeg), audio track picker, playlists with next/previous, resume where you stopped, repeat off / whole queue / one video (remembered), background audio through a media notification |
 | **Controls** | Tap to show controls, double tap ±seek, swipe for brightness / volume / seek with a frame preview of the target position, pinch-free zoom modes, long press for 3× speed, control lock, screen rotation, picture-in-picture |
 | **Format support** | Platform hardware decoders plus FFmpeg: H.264, HEVC, VP8, VP9, AV1 (dav1d), AAC, AC-3, E-AC-3, FLAC, OPUS, Vorbis, DTS, TrueHD, MLP and more |
-| **Subtitles** | Embedded text tracks plus side-loaded `.srt` / `.vtt` / `.ass` picker, subtitle on/off toggle |
+| **Subtitles** | Embedded text tracks, side-loaded `.srt` / `.vtt` / `.ass` picker, subtitle on/off toggle, and automatic loading of a subtitle file that sits next to the video under the same name (or a language tag, `Movie.th.srt`) |
 | **Diagnostics** | Ring-buffer log with level/tag/text filters, rotating files on disk, crash capture, device + MediaCodec inventory, export as `.txt` or `.zip`, share or save to Downloads |
 | **UX** | Material 3 with dynamic colour, light/dark/system themes, 1–4 column library, gesture toggle, keep-screen-on, remember brightness |
 | **Transfer** | Phone-to-phone over your own Wi-Fi — or over **Wi-Fi Direct** when there is no router at all: receive mode runs a local server behind a four digit code, send mode finds receivers over mDNS or takes a typed `ip:port`, several files at a time with progress and cancel, videos land in Movies/VDO Player and appear in the library |
 | **Languages** | English and Thai UI, listed in the Android 13+ per-app language picker; log lines and diagnostics stay English so they can be pasted into a bug report |
 
 Stream details are visible while watching: tap the info button to see the exact
-video/audio/subtitle formats that were selected for the current file, and a
-**Copy full diagnostics** button for bug reports.
+video/audio/subtitle formats that were selected for the current file, the decoder
+chips that switch hardware ⇄ FFmpeg without leaving the video, and a **Copy full
+diagnostics** button for bug reports.
 
 ## Screenshots
 

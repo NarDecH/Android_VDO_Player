@@ -49,6 +49,12 @@ device that will play it.
 - Media3 ExoPlayer with the phone's hardware decoders
 - FFmpeg software decoders (NextLib) for the formats hardware refuses —
   selectable priority: hardware first, FFmpeg first, or hardware only
+- **Switch the decoder while a video plays** (info panel → decoder chips): a file the
+  hardware refuses can be rescued without stopping it, and the choice is remembered
+  for the next time. Hardware first, FFmpeg and hardware-only are the same three
+  settings the Settings screen offers
+- **Audio track picker**: the control row lists every audio track of the current
+  file with its codec, channels and language, and switching keeps the position
 - Playlists: next/previous within the filtered library view
 - Resume where you stopped, per video, remembered across restarts
 - Background audio with a media notification (play/pause/seek from the shade)
@@ -63,7 +69,8 @@ device that will play it.
 - Control lock so a pocketed phone cannot skip your video
 - Screen rotation button plus optional auto-rotate
 - Picture-in-picture (Android 8+) with the video's real aspect ratio
-- Mixing: shows the exact selected video/audio/subtitle formats for the file
+- Mixing: shows the exact selected video/audio/subtitle formats for the file, plus the
+  decoder chips for switching hardware ⇄ FFmpeg live
 
 **Wi-Fi transfer** (the **Transfer** tab)
 
@@ -92,7 +99,10 @@ device that will play it.
   be switched to Thai without changing the phone's system language
 - Log lines, the exported diagnostics report and clipboard labels stay English;
   they are meant to be pasted into a bug report
-- Side-load `.srt`, `.vtt` or `.ass` subtitles from storage
+- Subtitles: embedded text tracks, a side-loaded `.srt` / `.vtt` / `.ass` picker, and
+  automatic loading of a subtitle file next to the video under the same name (or with a
+  language tag, `Movie.th.srt`). Turn it off in Settings → **Find subtitles beside the
+  video**
 
 **Diagnostics**
 
@@ -150,9 +160,10 @@ key; the certificate SHA-256 is printed in each release note.
 | Swipe vertically, right half | Media volume |
 | Long press | Play at 3× while held |
 | Repeat button | Cycles off → the whole queue → this video, and remembers the choice. The icon lights up while repeating |
+| Audio button | Lists the audio tracks of the current file (codec, channels, language) and switches between them without losing the position |
 | Seek preview | While you scrub (swipe or progress bar) a frame of the target position is decoded into the heads-up display; turn it off in Settings if you prefer the plain time label |
 | Lock button | Hide all controls until you unlock them |
-| Info button (top right) | Stream details for the current file |
+| Info button (top right) | Stream details for the current file, plus the decoder chips (hardware first / FFmpeg / hardware only) that switch decoding while the video keeps playing |
 | PiP button | Continue in a floating window |
 | Subtitle button | Turns subtitles on, or opens a file picker if none are loaded |
 
@@ -266,9 +277,10 @@ identifiers, and the app's own events.
 | Symptom | What to try |
 |---|---|
 | Empty library | Grant video access in Settings → Apps → VDO Player → Permissions; on Android 9 and below also make sure the file is in a scanned media folder |
-| "This file could not be played" | Switch decoder priority to **Prefer FFmpeg** in Settings; then export a log — the start of the error entry names the failing codec |
+| "This file could not be played" | Tap the info button and switch the decoder to **FFmpeg** right there — no need to leave the video. If it still fails, export a log: the start of the error entry names the failing codec |
 | Video plays but audio is silent | Usually an unsupported audio codec (DTS/TrueHD/AC-3 variants). Try **Prefer FFmpeg**, and check the Audio line in the info panel |
-| Subtitles never appear | Use the subtitle button to pick the `.srt`/`.vtt`/`.ass` file; embedded tracks show up automatically when the container has them |
+| Subtitles never appear | Use the subtitle button to pick the `.srt`/`.vtt`/`.ass` file; embedded tracks show up automatically when the container has them. Automatic loading looks for a file with the video's own name in the same folder, and on Android 13+ it can only see files this app owns — check the `SUBTITLE` lines in the log to see what it searched |
+| Decoder switch does something unexpected | The chips apply immediately and are stored, so the next video starts with them. **Hardware only** refuses FFmpeg and software decoders; **FFmpeg** decodes with FFmpeg even when the chip could do it |
 | Choppy software decoding | Prefer hardware decoding, or pick a lower resolution source. FFmpeg decoding is CPU work, not free |
 | Battery drains while paused | Check that the playback notification is gone; if not, background playback was left enabled |
 | Playback stops when leaving the app | Enable **Keep playing in the background** in Settings |

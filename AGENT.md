@@ -29,10 +29,19 @@ Verification rules that apply to this repository:
 
 * A change is not done until `:app:assembleDebug` (or the test task, which
   compiles the same sources) succeeds. `:app:lintDebug` does **not** fail the
-  build on purpose (`abortOnError = false`): its report holds ~54 pre-existing
-  `UnsafeOptInUsageError` entries for Media3/NextLib unstable APIs in
-  `AppRoot`, `Diagnostics`, `PlayerFactory` and `PlayerScreen`, so judge a lint
-  run by whether *new* findings appear, not by the total. Kotlin errors here are usually about
+  build on purpose (`abortOnError = false`): its report holds ~66
+  `UnsafeOptInUsageError` entries for Media3/NextLib unstable APIs (app code opts
+  in with `-opt-in=androidx.media3.common.util.UnstableApi`, the lint rule does not
+  see that per file) plus a handful of known platform warnings, so judge a lint run
+  by whether *new* findings appear, not by the total. Two lint findings have been
+  real bugs in the past — a `WrongConstant` on `SessionResult` (the error codes come
+  from `SessionError`, not `SessionResult`) and an `InlinedApi` for a `MediaStore`
+  volume constant — so read the non-opt-in lines.
+* `testOptions.unitTests.isReturnDefaultValues = true` is set in
+  `app/build.gradle.kts` because Media3's `TrackGroup` calls `TextUtils.isEmpty()`
+  while it is constructed, and `TrackOptionsTest` builds real `TrackGroup`/`Tracks`
+  objects. It is there for platform calls inside dependencies, **not** as a way to
+  fake Android behaviour in a test: keep new tests about our own code. Kotlin errors here are usually about
   Media3 APIs; see the gotchas below before assuming a typo.
 * `:app:testDebugUnitTest` is plain JUnit 4 on the JVM — no Android SDK jar, no
   Robolectric, no device. Anything that can be tested without Android belongs
@@ -40,7 +49,10 @@ Verification rules that apply to this repository:
   `transfer/TransferServerTest` and `TransferClientTest` start a real server on a
   loopback socket, `TransferProtocolTest` covers names/URLs/JSON, `DirectGroupPlannerTest`
   covers the Wi-Fi Direct address rules, `PlaybackPreferencesTest` the repeat cycle,
-  `SeekPreviewPolicyTest` the frame bucketing, and `LocalizationTest` parses both
+  `SeekPreviewPolicyTest` the frame bucketing, `SubtitleMatchingTest` the subtitle
+  name rules, `DecoderPreferenceTest` the decoder mode table,
+  `TrackOptionsTest` the audio track options built from real Media3 objects, and
+  `LocalizationTest` parses both
   `strings.xml` files and fails on a missing key, a lost `%1$s` placeholder or an
   untranslated value.
 * There is still **no device or emulator in the loop** (the emulator cannot start
@@ -66,8 +78,10 @@ app/src/main/java/com/nardech/vdoplayer/
 │                          PlayHistory (JSON blob in DataStore)
 ├── logging/               LogEntry/LogBus, LogFileWriter, CrashGuard, Diagnostics,
 │                          LogShare (export/share/save)
-├── playback/              PlayerFactory, PlaybackService (MediaSessionService),
-│                          PlaybackViewModel (MediaController + UI state)
+├── playback/              PlayerFactory (engine + DecoderManager), PlaybackService
+│                          (MediaSessionService + session commands), PlaybackViewModel
+│                          (MediaController + UI state), PlaybackCommands,
+│                          SubtitleMatching + SubtitleDiscovery, TrackOptions
 ├── transfer/              Wi-Fi send/receive: TransferProtocol (wire contract),
 │                          TransferServer, TransferClient, TransferDiscovery (mDNS),
 │                          MediaStoreReceivedFileSink, TransferManager (state for the UI)
@@ -139,7 +153,29 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
     the joiner's peer list gains the owner so the normal HTTP flow is unchanged. Every
     framework call is guarded, and a refusal leaves `DirectState.issue` set while the
     app keeps working over ordinary Wi-Fi.
-13. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
+13. **The live decoder switch goes through a session command, not a shared
+    singleton.** `PlaybackService` owns the one `PlaybackEngine` (player +
+    `DecoderManager`) because NextLib's manager has to be driven on the player's
+    application thread, so the UI sends `PlaybackCommands.setDecoderPreference` and
+    the session's `Callback.onConnect` grants that custom command to every
+    controller. A refusal is not fatal: the preference is stored anyway and applies
+    the next time the player is built.
+14. **The renderer set is fixed at player build time; the decoder mode is not.**
+    `DecoderPreference` therefore carries both halves — `extensionMode` for the
+    renderers and `DecoderMode` for the selection — and the extension renderers stay
+    enabled even for "hardware only". Without them the manager could never switch to
+    FFmpeg mid-video. Adding a fourth setting means editing that table *and*
+    `DecoderPreferenceTest`, which pins every entry on purpose.
+15. **Subtitle discovery is bounded and honest.** `SubtitleResolver` only reads
+    MediaStore (a folder query per video start, off the main thread), only attaches
+    files it can actually open, and logs every search under `SUBTITLE`, including the
+    empty ones. It cannot see third-party `.srt` files on Android 13+, where the media
+    permissions do not cover them; do not "fix" that with `MANAGE_EXTERNAL_STORAGE`.
+16. **Audio track options are built from the player's own track list.**
+    `TrackOptions.audioTracks` keeps the group and track indices Media3 reported, so
+    the picker's indices stay valid; the label formatter is injected so the file stays
+    free of `Diagnostics` and testable on the JVM.
+17. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
    Windows backslashes makes AGP fail with a bare
    `java.io.IOException: The filename, directory name, or volume label syntax is incorrect`
    from `SdkLocator.validateSdkPath`. Use `cygpath -m` if you generate it.

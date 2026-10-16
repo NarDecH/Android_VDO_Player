@@ -79,9 +79,15 @@ Decoder coverage reported by the project:
 * Sources: [NextLib README](https://github.com/anilbeesetti/nextlib), [Maven Central](https://central.sonatype.com/artifact/io.github.anilbeesetti/nextlib-media3ext)
 
 NextLib also exposes a `DecoderManager` for switching between hardware and FFmpeg
-decoders at runtime on a live `ExoPlayer`. That is deliberately **not** wired up in
-1.0.0: the API surface for it is newer than the renderer factory, so it is listed
-as planned work in the changelog rather than guessed at.
+decoders at runtime on a live `ExoPlayer`. It arrived in `1.11.0-0.14.0`, so the pin
+above has it, and 1.2.0 wires it up: one manager per player, attached before the
+first media item is prepared, with `DecoderMode.AUTO` / `HARDWARE` / `SOFTWARE` /
+`FFMPEG` selecting the decoder and `selectVideoDecoder` / `selectAudioDecoder`
+re-selecting it while playback continues. The renderers still have to come from
+`NextRenderersFactory(context).setDecoderManager(manager)`, which is why the two
+are built together in `PlaybackEngine` and why the FFmpeg renderers stay enabled
+even in "hardware only" mode.
+* Sources: [DecoderManager.kt](https://github.com/anilbeesetti/nextlib/blob/v1.11.0-0.14.0/media3ext/src/main/java/io/github/anilbeesetti/nextlib/media3ext/ffdecoder/DecoderManager.kt), [runtime decoder switching notes](https://github.com/anilbeesetti/nextlib/blob/v1.11.0-0.14.0/media3ext/DECODER_SWITCHING.md)
 
 ### Option C — LibVLC
 
@@ -97,11 +103,15 @@ another large native payload.
 
 ### Decision
 
-Media3 + NextLib, with the extension renderer priority exposed to the user as
-*Hardware first* (`EXTENSION_RENDERER_MODE_ON`), *Prefer FFmpeg*
-(`…_PREFER`) and *Hardware only* (`…_OFF`). `ON` is the default because it keeps
-hardware decoding — with its lower power draw — in front, and only falls back when
-the platform cannot handle the format.
+Media3 + NextLib, with the decoder exposed to the user as *Hardware first*
+(`EXTENSION_RENDERER_MODE_ON` + `DecoderMode.AUTO`), *Prefer FFmpeg*
+(`…_PREFER` + `DecoderMode.FFMPEG`) and *Hardware only*
+(`EXTENSION_RENDERER_MODE_ON` + `DecoderMode.HARDWARE`). `AUTO` is the default
+because it keeps hardware decoding — with its lower power draw — in front, and only
+falls back when the platform cannot handle the format. The renderers stay enabled in
+every mode so the same setting can be changed from the player while a video plays;
+"hardware only" is expressed by the decoder mode rather than by removing the FFmpeg
+renderers, which cannot be added back without rebuilding the player.
 
 ## 3. Version matrix
 

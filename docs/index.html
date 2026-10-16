@@ -107,7 +107,8 @@
         <h3>Two decoder paths</h3>
         <p>Media3/ExoPlayer runs the phone's hardware decoders first. When a file needs something the
           SoC cannot do, bundled FFmpeg decoders (NextLib) take over. Priority is a setting, not a
-          secret.</p>
+          secret — and the info panel switches decoding <strong>while the video is playing</strong>, so a
+          file the hardware refuses can be rescued without leaving it.</p>
       </div>
       <div class="card">
         <div class="kicker">Diagnostics</div>
@@ -133,8 +134,9 @@
         <div class="kicker">Controls</div>
         <h3>Common gestures</h3>
         <p>Swipe for brightness and volume, double tap to seek, long press for 3× speed, control lock,
-          aspect modes, subtitles from disk, picture-in-picture — and a frame preview of where a
-          scrub is heading, plus repeat off / queue / one video.</p>
+          aspect modes, subtitles from disk (or found next to the video automatically), an audio
+          track picker, picture-in-picture — and a frame preview of where a scrub is heading, plus
+          repeat off / queue / one video.</p>
       </div>
       <div class="card">
         <div class="kicker">Library</div>

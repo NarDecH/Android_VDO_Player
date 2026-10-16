@@ -4,6 +4,47 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] — 2026-10-16
+
+### Added
+
+- **Live decoder switching** — the player's stream panel now switches between
+  hardware and FFmpeg decoding while the video keeps playing. NextLib's
+  `DecoderManager` is attached to the one ExoPlayer, the UI asks the service over a
+  custom Media3 session command, and `PlaybackService` applies the change on the
+  player's thread and remembers it for the next start; a file the hardware decoder
+  refuses can be rescued without leaving it. The preference table grew the modes
+  behind the three settings, so both the panel and Settings drive the same choice.
+- **Audio track picker** — the control row lists every audio track of the current
+  file (codec, channels, language, the same description the stream panel shows) and
+  switches between them through `TrackSelectionParameters`. `TrackOptions` builds
+  the list, so the group and track indices the picker hands back are exactly the
+  ones the player reported — the part that is easy to get wrong and is now covered
+  by a test.
+- **Subtitle auto-discovery** — a `.srt` / `.vtt` / `.ass` file that sits next to
+  the video under the same name (or with a language tag, `Movie.th.srt`) loads by
+  itself. `SubtitleMatching` holds the name rules — exact name first, then the
+  device language, then the other languages, and files of other videos never match
+  — and `SubtitleResolver` does the MediaStore lookup off the main thread and only
+  attaches files it can actually open. Switchable in Settings, and a new `SUBTITLE`
+  log tag records every search, including the ones that find nothing.
+- 17 more JVM tests (71 in total): the subtitle name rules, the decoder preference
+  table and the audio track options built from real Media3 `Tracks` objects
+
+### Changed
+
+- **Hardware only** now means hardware MediaCodec decoders only. The FFmpeg
+  renderers stay built in every mode, because the renderer set is fixed when the
+  player is created — that is exactly what makes switching to FFmpeg possible while
+  a video plays.
+- Subtitle auto-discovery is honest about its reach: it reads MediaStore, so on
+  Android 13 and newer it can only see subtitle files this app owns (the media
+  permissions cover video, audio and images, not `.srt`). Where nothing is found,
+  the subtitle button still takes any file you pick.
+- An unknown decoder value in the settings store now falls back to the default
+  instead of being ignored silently, and the decoder switch logs the modes that are
+  really active after NextLib applies it.
+
 ## [1.1.0] — 2026-10-16
 
 ### Added
@@ -179,15 +220,7 @@ First public release. Everything below is new.
 
 ---
 
-## Unreleased
-
-### Planned
-
-- Runtime decoder switching (hardware ⇄ FFmpeg) without restarting playback,
-  using NextLib's `DecoderManager`
-- Subtitle auto-discovery next to the video file
-- Audio track picker UI (the engine already exposes the tracks)
-
+[1.2.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.2.0
 [1.1.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.1.0
 [1.0.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.0.1
 [1.0.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.0.0

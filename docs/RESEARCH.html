@@ -63,7 +63,9 @@
             HEVC, VP8, VP9, AV1. Audio: Vorbis, Opus, FLAC, ALAC, PCM, MP3, AMR, AAC, AC-3, E-AC-3,
             DCA, MLP, TrueHD. ABIs: <code>armeabi-v7a</code>, <code>arm64-v8a</code>, <code>x86</code>, <code>x86_64</code>.</td>
           <td><strong>Chosen</strong> — two lines to integrate, matched to Media3 1.11.1, published to
-            Maven Central. Licence GPL-3.0.</td>
+            Maven Central. Licence GPL-3.0. Its <code>DecoderManager</code> (from 1.11.0-0.14.0,
+            included in the pin) switches between hardware, software and FFmpeg decoders while a
+            video keeps playing, which is what the player's decoder chips use.</td>
         </tr>
         <tr>
           <td>LibVLC <code>org.videolan.android:libvlc-all:3.7.7</code></td>

@@ -62,6 +62,9 @@
       <li>Media3 ExoPlayer with hardware decoders</li>
       <li>FFmpeg software decoders through NextLib, priority selectable: hardware first, FFmpeg
         first, or hardware only</li>
+      <li>Decoder switching <strong>while a video plays</strong> — the info panel's chips rescue a file
+        the hardware refuses without stopping it, and the choice is remembered for the next time</li>
+      <li>Audio track picker: every track of the current file with its codec, channels and language</li>
       <li>Playlists following the filtered library order, with next/previous</li>
       <li>Resume per video, remembered across restarts</li>
       <li>Background audio with a media notification; playback survives leaving the app</li>
@@ -79,12 +82,13 @@
         <tr><td>Swipe vertically, right half</td><td>Media volume</td></tr>
         <tr><td>Long press</td><td>Play at 3× while held</td></tr>
         <tr><td>Repeat button</td><td>Cycles off → the whole queue → this video and remembers the choice; the icon lights up while repeating</td></tr>
+        <tr><td>Audio button</td><td>Lists the audio tracks of the current file (codec, channels, language) and switches between them without losing the position</td></tr>
         <tr><td>Seek preview</td><td>While scrubbing, a frame of the target position is decoded into the heads-up display (switchable in Settings)</td></tr>
         <tr><td>Lock</td><td>Hide every control until unlocked</td></tr>
-        <tr><td>Info (top right)</td><td>Stream details for the current file, plus “copy full diagnostics”</td></tr>
+        <tr><td>Info (top right)</td><td>Stream details for the current file, the decoder chips (hardware first / FFmpeg / hardware only) that switch decoding live, plus “copy full diagnostics”</td></tr>
         <tr><td>PiP</td><td>Continue in a floating window, using the video's real aspect ratio</td></tr>
         <tr><td>Language</td><td>English or Thai, chosen per app on Android 13+ (system setting, not an in-player button)</td></tr>
-        <tr><td>Subtitles</td><td>Toggle text tracks on, or pick an <code>.srt</code>/<code>.vtt</code>/<code>.ass</code> file</td></tr>
+        <tr><td>Subtitles</td><td>Toggle text tracks on, or pick an <code>.srt</code>/<code>.vtt</code>/<code>.ass</code> file. A subtitle file sitting next to the video under the same name (or a language tag, <code>Movie.th.srt</code>) is loaded automatically; the search is switchable in Settings</td></tr>
       </tbody>
     </table>
     <p>Aspect modes (fit, zoom/crop, stretch, match width) live behind the aspect button; screen
@@ -199,12 +203,13 @@
       <thead><tr><th>Symptom</th><th>What to try</th></tr></thead>
       <tbody>
         <tr><td>Empty library</td><td>Grant video access in system Settings → Apps → VDO Player → Permissions</td></tr>
-        <tr><td>“This file could not be played”</td><td>Set decoder priority to <em>Prefer FFmpeg</em>; then export a log — the error entry names the failing codec</td></tr>
+        <tr><td>“This file could not be played”</td><td>Tap the info button and switch the decoder to <em>FFmpeg</em> right there — no need to leave the video. If it still fails, export a log: the error entry names the failing codec</td></tr>
         <tr><td>Video plays, no audio</td><td>Usually an unsupported audio codec (DTS/TrueHD/AC-3 variants). Prefer FFmpeg, then check the Audio line in the info panel</td></tr>
-        <tr><td>No subtitles</td><td>Use the subtitle button to pick the file; embedded tracks appear automatically</td></tr>
+        <tr><td>No subtitles</td><td>Use the subtitle button to pick the file; embedded tracks appear automatically. Automatic loading looks for a file named after the video in the same folder, and on Android 13+ it can only see files this app owns — the <code>SUBTITLE</code> log lines show what it searched</td></tr>
         <tr><td>Choppy playback</td><td>Prefer hardware decoding, or use a lower resolution source — FFmpeg decoding is CPU work</td></tr>
         <tr><td>Battery drain while idle</td><td>Check the notification is gone; background playback may still be enabled</td></tr>
         <tr><td>The video repeats, or never moves on</td><td>Check the repeat button: lit for “whole queue”, a “1” badge for “this video”, dim for off</td></tr>
+        <tr><td>A decoder switch does something unexpected</td><td>The chips apply immediately and are stored, so the next video starts with them. <em>Hardware only</em> refuses FFmpeg and software decoders; <em>FFmpeg</em> decodes with FFmpeg even where the chip would manage</td></tr>
         <tr><td>Scrubbing feels slow on a 4K file</td><td>The seek preview decodes a frame per two seconds of movement. Turn <strong>Seek preview</strong> off in Settings for the time label alone</td></tr>
         <tr><td>Wi-Fi Direct refused the request</td><td>Both phones need Wi-Fi Direct on and no other group open; the receiving phone must open the group first. Fall back to a hotspot plus the typed address</td></tr>
         <tr><td>The other phone never appears in the send list</td><td>Both phones must be on the same Wi-Fi (not one on mobile data), and receiving must be started on the other phone. Guest networks that isolate clients block discovery by design — type the address instead, or share a hotspot from one phone.</td></tr>
