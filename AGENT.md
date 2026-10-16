@@ -43,6 +43,14 @@ Verification rules that apply to this repository:
   objects. It is there for platform calls inside dependencies, **not** as a way to
   fake Android behaviour in a test: keep new tests about our own code. Kotlin errors here are usually about
   Media3 APIs; see the gotchas below before assuming a typo.
+* The unit tests run on **both** GitHub platforms
+  (`.github/workflows/ci.yml`: Ubuntu and Windows) for every push to `main` and every
+  pull request. That is not box-ticking: the transfer tests start real loopback sockets, and
+  the platforms genuinely differ — on Windows `close()` wakes a thread parked in
+  `accept()`, on Linux it does not, so a listening socket that has been closed keeps
+  answering on one platform and not the other. Found on a commit, that costs a CI run;
+  found by a release tag, it costs a version. The release workflow runs the same test
+  task on the machine that builds the APKs, so tag a commit whose CI run has passed.
 * `:app:testDebugUnitTest` is plain JUnit 4 on the JVM — no Android SDK jar, no
   Robolectric, no device. Anything that can be tested without Android belongs
   there, so keep new protocol or formatting logic out of the UI layer:
@@ -266,7 +274,8 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
 3. Verify locally: `./gradlew :app:testDebugUnitTest :app:assembleRelease`, then
    `apksigner verify --print-certs` on the APKs and `aapt2 dump badging` for the
    version that was packaged.
-4. Push the commit to `main`, then push the tag: `git tag -a vX.Y.Z -m …` and
+4. Push the commit to `main` and wait for the CI run to pass the unit tests on both
+   Ubuntu and Windows, then push the tag: `git tag -a vX.Y.Z -m …` and
    `git push origin main vX.Y.Z`. The tag push runs
    `.github/workflows/release.yml`, which tests, builds, signs (when the
    `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`

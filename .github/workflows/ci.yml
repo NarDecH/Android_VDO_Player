@@ -1,0 +1,71 @@
+name: CI
+
+# The unit tests run on both platforms on purpose. The transfer tests start real
+# loopback sockets, and a stopped listener does not behave the same everywhere: on
+# Windows `close()` wakes a thread parked in `accept()`, on Linux it does not, so the
+# closed port keeps answering on one platform and not the other. 1.2.0 shipped a bug
+# of exactly that kind, and only the Ubuntu release run saw it. Running the suite on
+# both systems means a platform-only failure shows up on the commit that caused it,
+# long before a version tag turns it into a release.
+#
+# This is the gate for anything that reaches `main`; the release workflow runs the
+# same test task on the machine that builds the APKs.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit-tests:
+    name: unit tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One platform failing must not cancel the other: the point is to learn which
+      # of the two broke.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # The Windows image already carries the SDK, but asking for the same packages on
+      # both platforms keeps the two jobs honest about what this project needs.
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37.0 build-tools;37.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # `shell: bash` on Windows (Git Bash is on the image) so the one wrapper script
+      # in the repository is what both jobs run.
+      - name: Run the unit tests
+        shell: bash
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+      # A failed test run is only diagnosable from the JUnit XML: the Gradle console
+      # output says which test failed, but not why.
+      - name: Show the failing tests
+        if: failure()
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for report in app/build/test-results/testDebugUnitTest/*.xml; do
+            if grep -q '<failure\|<error' "$report"; then
+              echo "=== $report"
+              head -c 4000 "$report"
+              printf '\n'
+            fi
+          done
