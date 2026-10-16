@@ -41,11 +41,15 @@ data class AppSettings(
     val autoPlayNext: Boolean = true,
     val backgroundPlayback: Boolean = true,
     val rememberBrightness: Boolean = true,
+    /** Decodes a frame while scrubbing, so the seek bar shows where it is going. */
+    val seekPreviewEnabled: Boolean = true,
     val gridColumns: Int = 2,
     val sortOrder: SortOrder = SortOrder.DATE_NEWEST,
     val logLevel: LogLevel = LogLevel.DEBUG,
     val logExportFormat: LogExportFormat = LogExportFormat.ZIP,
     val includeDiagnosticsInExport: Boolean = true,
+    /** Name other phones see while receiving; empty means "use the device model". */
+    val deviceName: String = "",
 )
 
 private val Context.settingsDataStore: DataStore<Preferences> by
@@ -66,11 +70,13 @@ class SettingsRepository(private val context: Context) {
         val autoPlayNext = booleanPreferencesKey("auto_play_next")
         val backgroundPlayback = booleanPreferencesKey("background_playback")
         val rememberBrightness = booleanPreferencesKey("remember_brightness")
+        val seekPreview = booleanPreferencesKey("seek_preview")
         val gridColumns = intPreferencesKey("grid_columns")
         val sortOrder = stringPreferencesKey("sort_order")
         val logLevel = stringPreferencesKey("log_level")
         val logExportFormat = stringPreferencesKey("log_export_format")
         val diagnosticsInExport = booleanPreferencesKey("diagnostics_in_export")
+        val deviceName = stringPreferencesKey("device_name")
     }
 
     val settings: Flow<AppSettings> = context.settingsDataStore.data.map { prefs ->
@@ -92,6 +98,7 @@ class SettingsRepository(private val context: Context) {
             autoPlayNext = prefs[Keys.autoPlayNext] ?: defaults.autoPlayNext,
             backgroundPlayback = prefs[Keys.backgroundPlayback] ?: defaults.backgroundPlayback,
             rememberBrightness = prefs[Keys.rememberBrightness] ?: defaults.rememberBrightness,
+            seekPreviewEnabled = prefs[Keys.seekPreview] ?: defaults.seekPreviewEnabled,
             gridColumns = prefs[Keys.gridColumns] ?: defaults.gridColumns,
             sortOrder = prefs[Keys.sortOrder]
                 ?.let { name -> SortOrder.entries.firstOrNull { it.name == name } }
@@ -104,6 +111,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.logExportFormat,
             includeDiagnosticsInExport = prefs[Keys.diagnosticsInExport]
                 ?: defaults.includeDiagnosticsInExport,
+            deviceName = prefs[Keys.deviceName] ?: defaults.deviceName,
         )
     }
 
@@ -121,6 +129,8 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutoPlayNext(value: Boolean) = edit { it[Keys.autoPlayNext] = value }
     suspend fun setBackgroundPlayback(value: Boolean) = edit { it[Keys.backgroundPlayback] = value }
     suspend fun setRememberBrightness(value: Boolean) = edit { it[Keys.rememberBrightness] = value }
+
+    suspend fun setSeekPreview(value: Boolean) = edit { it[Keys.seekPreview] = value }
     suspend fun setGridColumns(value: Int) = edit { it[Keys.gridColumns] = value }
     suspend fun setSortOrder(value: SortOrder) = edit { it[Keys.sortOrder] = value.name }
     suspend fun setLogLevel(value: LogLevel) = edit { it[Keys.logLevel] = value.name }
@@ -128,6 +138,8 @@ class SettingsRepository(private val context: Context) {
         edit { it[Keys.logExportFormat] = value.name }
 
     suspend fun setIncludeDiagnostics(value: Boolean) = edit { it[Keys.diagnosticsInExport] = value }
+
+    suspend fun setDeviceName(value: String) = edit { it[Keys.deviceName] = value }
 
     private suspend fun edit(block: (androidx.datastore.preferences.core.MutablePreferences) -> Unit) {
         context.settingsDataStore.edit(block)

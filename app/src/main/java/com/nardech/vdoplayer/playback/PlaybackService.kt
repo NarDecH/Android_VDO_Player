@@ -40,6 +40,9 @@ class PlaybackService : MediaSessionService() {
         }.getOrDefault(DecoderPreference.PLATFORM_FIRST)
 
         val exoPlayer = PlayerFactory.build(this, preference)
+        // Repeat is a habit that outlives the process, so it is restored here rather than
+        // when the player screen opens.
+        exoPlayer.repeatMode = PlaybackPreferences.repeatMode(this)
         player = exoPlayer
 
         // Media3 builds the playback notification itself; naming the channel here

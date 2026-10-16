@@ -7,6 +7,7 @@
     <!-- Bottom navigation -->
     <string name="tab_library">Library</string>
     <string name="tab_recent">Recent</string>
+    <string name="tab_transfer">Transfer</string>
     <string name="tab_logs">Logs</string>
     <string name="tab_settings">Settings</string>
 
@@ -64,6 +65,11 @@
     <string name="player_pause">Pause</string>
     <string name="player_subtitles">Subtitles</string>
     <string name="player_speed">Speed %1$s</string>
+    <string name="player_repeat_off">Repeat off</string>
+    <string name="player_repeat_all">Repeat the whole queue</string>
+    <string name="player_repeat_one">Repeat this video</string>
+    <string name="player_repeat_announce">Repeat: %1$s</string>
+    <string name="player_seek_preview">Preview frame for the seek position</string>
     <string name="player_aspect">Aspect ratio</string>
     <string name="player_rotate">Rotate</string>
     <string name="player_unknown_duration">unknown</string>
@@ -161,6 +167,8 @@
     <string name="settings_auto_rotate">Auto rotate</string>
     <string name="settings_remember_brightness">Remember screen brightness</string>
     <string name="settings_remember_brightness_sub">Off restores the system brightness when you leave the player</string>
+    <string name="settings_seek_preview">Seek preview</string>
+    <string name="settings_seek_preview_sub">Decode a frame while you drag, so you can see where the seek is going</string>
     <string name="settings_autoplay_next">Play next video automatically</string>
     <string name="settings_background">Keep playing in the background</string>
     <string name="settings_background_sub">Audio continues with the screen off, through the media notification</string>
@@ -182,6 +190,74 @@
     <string name="decoder_platform_first">Hardware first, FFmpeg fallback</string>
     <string name="decoder_ffmpeg_first">Prefer FFmpeg (most compatible)</string>
     <string name="decoder_platform_only">Hardware only</string>
+
+    <!-- Wi-Fi transfer -->
+    <string name="transfer_mode_receive">Receive</string>
+    <string name="transfer_mode_send">Send</string>
+    <string name="transfer_receive_title">Receive from another phone</string>
+    <string name="transfer_receive_hint">Keep this open on this phone. The other phone finds it automatically while both are on the same Wi-Fi.</string>
+    <string name="transfer_device_name">Device name</string>
+    <string name="transfer_device_name_hint">Name the other phone will see (empty = device model)</string>
+    <string name="transfer_save_device_name">Save device name</string>
+    <string name="transfer_code">Code</string>
+    <string name="transfer_code_note">The sending phone must type these four digits, so a random stranger on the network cannot drop files here.</string>
+    <string name="transfer_address">Address</string>
+    <string name="transfer_address_advertised">Visible to other phones on this Wi-Fi network automatically.</string>
+    <string name="transfer_address_not_advertised">Could not advertise on the network — the other phone can type this address instead.</string>
+    <string name="transfer_start">Start receiving</string>
+    <string name="transfer_stop">Stop receiving</string>
+    <string name="transfer_copy_address">Copy address</string>
+    <string name="transfer_copied">Address copied</string>
+    <string name="transfer_new_code">New code</string>
+    <string name="transfer_received_title">Received files</string>
+    <string name="transfer_received_empty">Nothing has arrived yet. Start receiving and send a file from the other phone.</string>
+    <string name="transfer_received_saved">Saved to %1$s</string>
+    <string name="transfer_clear_received">Clear list</string>
+    <string name="transfer_send_title">Send to another phone</string>
+    <string name="transfer_scan">Find phones on this Wi-Fi</string>
+    <string name="transfer_scanning">Searching…</string>
+    <string name="transfer_scan_stop">Stop searching</string>
+    <string name="transfer_peers_empty">No phone found yet. Open the receive tab on the other phone, or type its address below.</string>
+    <string name="transfer_selected_peer">Sending to %1$s</string>
+    <string name="transfer_pick_files">Pick files and send</string>
+    <string name="transfer_manual_title">Or type the address</string>
+    <string name="transfer_manual_address">e.g. 192.168.1.20</string>
+    <string name="transfer_manual_code">4 digit code</string>
+    <string name="transfer_probe">Check</string>
+    <string name="transfer_probe_ok">Connected to %1$s</string>
+    <string name="transfer_probe_failed">Nothing answered there — check the address and that both phones share the Wi-Fi.</string>
+    <string name="direct_receive_title">No router? Wi-Fi Direct</string>
+    <string name="direct_receive_body">Open a group on this phone and the other one can join it directly, even when there is no Wi-Fi network in range. The address below is the one a sender uses.</string>
+    <string name="direct_open_group">Open the Wi-Fi Direct group</string>
+    <string name="direct_close_group">Close the group</string>
+    <string name="direct_group_open">Group is open — a sender reaches this phone at %1$s</string>
+    <string name="direct_send_title">Join a phone that has no router</string>
+    <string name="direct_send_body">Look for a receiving phone that opened a Wi-Fi Direct group and join it. It then shows up in the receiver list above, where you type the code.</string>
+    <string name="direct_scan">Find Wi-Fi Direct phones</string>
+    <string name="direct_scan_stop">Stop looking</string>
+    <string name="direct_scanning">Looking for group owners…</string>
+    <string name="direct_connect">Join</string>
+    <string name="direct_none_found">No group owner found yet. The receiving phone has to open its group first.</string>
+    <string name="direct_unsupported">This phone cannot do Wi-Fi Direct. Use the address above instead.</string>
+    <string name="direct_no_permission">Android needs the Nearby devices permission for Wi-Fi Direct. Allow it and tap again.</string>
+    <string name="direct_granted">Permission granted — tap again to connect.</string>
+    <string name="direct_error">Wi-Fi Direct refused the request (code %1$d). Check that Wi-Fi Direct is on and that no other group is open.</string>
+    <string name="direct_port_note">Wi-Fi Direct sends to the default port; if the receiving phone had to use another one, type the address it shows.</string>
+    <string name="transfer_uploads_title">This session</string>
+    <string name="transfer_uploads_empty">No transfers started yet.</string>
+    <string name="transfer_cancel">Cancel</string>
+    <string name="transfer_state_running">Sending</string>
+    <string name="transfer_state_done">Sent</string>
+    <string name="transfer_state_failed">Failed</string>
+    <string name="transfer_state_cancelled">Cancelled</string>
+    <string name="transfer_progress">%1$s / %2$s</string>
+    <string name="transfer_need_target">Pick a phone or type an address first.</string>
+    <string name="transfer_need_code">Enter the four digit code shown on the receiving phone first.</string>
+    <string name="transfer_permission_title">Allow local network access</string>
+    <string name="transfer_permission_body">Android 17 keeps every app off the local network until you allow it. Without this, the other phone cannot find this one and files will not leave or arrive. It covers your own Wi-Fi only — nothing is sent to the internet.</string>
+    <string name="transfer_permission_grant">Allow</string>
+    <string name="transfer_permission_denied">Local network access is blocked, so transfers cannot run. Allow it in Settings → Apps → VDO Player → Permissions → Nearby devices.</string>
+    <string name="transfer_privacy_note">Files travel inside your own Wi-Fi network only: the app is a local server and client, it never uploads anything anywhere. Videos land in Movies/VDO Player and show up in the library; other files land in Download/VDO Player.</string>
 
     <!-- Relative times -->
     <string name="time_just_now">just now</string>

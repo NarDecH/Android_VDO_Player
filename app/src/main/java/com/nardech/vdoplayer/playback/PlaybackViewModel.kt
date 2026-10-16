@@ -51,6 +51,7 @@ data class PlayerUiState(
     val audioTrackCount: Int = 0,
     val queueIndex: Int = 0,
     val queueSize: Int = 0,
+    val repeatMode: Int = Player.REPEAT_MODE_OFF,
 ) {
     val isBuffering: Boolean get() = playbackState == Player.STATE_BUFFERING
     val isEnded: Boolean get() = playbackState == Player.STATE_ENDED
@@ -205,6 +206,27 @@ class PlaybackViewModel(private val app: Application) {
         refresh()
     }
 
+    /**
+     * Cycles repeat off → the whole queue → this video.
+     *
+     * A [MediaController] may refuse the command; when it does, the change is logged and
+     * the UI keeps showing whatever mode the player really has. Returns the mode now in
+     * effect, so the caller can tell the user what happened.
+     */
+    fun cycleRepeatMode(): Int {
+        val player = controller ?: return Player.REPEAT_MODE_OFF
+        val next = PlaybackPreferences.nextRepeatMode(player.repeatMode)
+        runCatching {
+            player.setRepeatMode(next)
+            PlaybackPreferences.setRepeatMode(app, next)
+            LogBus.i(LogTag.PLAYER, "Repeat mode changed to ${repeatModeName(next)}")
+        }.onFailure {
+            LogBus.w(LogTag.PLAYER, "The session refused a repeat-mode change", it)
+        }
+        refresh()
+        return player.repeatMode
+    }
+
     fun skipToNext() {
         controller?.takeIf { it.hasNextMediaItem() }?.seekToNextMediaItem()
         refresh()
@@ -321,7 +343,15 @@ class PlaybackViewModel(private val app: Application) {
             audioTrackCount = countSelectedGroup(tracks, C.TRACK_TYPE_AUDIO),
             queueIndex = player.currentMediaItemIndex,
             queueSize = player.mediaItemCount,
+            repeatMode = player.repeatMode,
         )
+    }
+
+    private fun repeatModeName(mode: Int): String = when (mode) {
+        Player.REPEAT_MODE_OFF -> "off"
+        Player.REPEAT_MODE_ALL -> "whole queue"
+        Player.REPEAT_MODE_ONE -> "this video"
+        else -> "unknown($mode)"
     }
 
     private data class SelectedFormats(val video: String?, val audio: String?, val text: String?)

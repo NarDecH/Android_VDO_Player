@@ -8,6 +8,40 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!--
+      Local Wi-Fi transfer needs a socket, which is what INTERNET guards. Nothing is
+      ever sent to the internet: the server only listens on the LAN and the client only
+      connects to an address the user picked. Both are normal permissions, granted at
+      install time, so "send a file to my other phone" never opens a permission dialog.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+      Android 17 (API 37) blocks local network traffic — the receiving socket, the mDNS
+      advert and outgoing connections — for apps that target it, until this runtime
+      permission is granted. On Android 16 and below the app has local network access
+      implicitly through INTERNET, so nothing is requested there.
+    -->
+    <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
+
+    <!--
+      Wi-Fi Direct, for two phones that share no router: the receiving phone opens the
+      group and the sending one joins it. Android 13 asks for NEARBY_WIFI_DEVICES
+      (never used to infer a location), and older releases gate it behind location.
+    -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission
+        android:name="android.permission.ACCESS_FINE_LOCATION"
+        android:maxSdkVersion="32" />
+    <!-- The platform hands out precise and approximate location together below Android 13. -->
+    <uses-permission
+        android:name="android.permission.ACCESS_COARSE_LOCATION"
+        android:maxSdkVersion="32" />
+
     <!-- Background playback through MediaSessionService. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />

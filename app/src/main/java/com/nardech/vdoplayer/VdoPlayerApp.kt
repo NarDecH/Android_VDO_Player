@@ -12,6 +12,7 @@ import com.nardech.vdoplayer.logging.CrashGuard
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
 import com.nardech.vdoplayer.playback.PlaybackService
+import com.nardech.vdoplayer.transfer.TransferManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -23,6 +24,7 @@ class AppContainer(application: Application) {
     val settings = SettingsRepository(application)
     val library = VideoLibrary(application)
     val history = PlayHistory(application)
+    val transfer = TransferManager(application)
 }
 
 class VdoPlayerApp : Application() {

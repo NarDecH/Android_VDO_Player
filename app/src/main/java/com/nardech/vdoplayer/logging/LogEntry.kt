@@ -33,6 +33,7 @@ enum class LogTag {
     DECODER,
     STORAGE,
     EXPORT,
+    TRANSFER,
     CRASH,
 }
 

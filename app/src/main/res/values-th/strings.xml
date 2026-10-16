@@ -7,6 +7,7 @@
     <!-- Bottom navigation -->
     <string name="tab_library">คลังวิดีโอ</string>
     <string name="tab_recent">ดูล่าสุด</string>
+    <string name="tab_transfer">รับ-ส่ง</string>
     <string name="tab_logs">บันทึก</string>
     <string name="tab_settings">ตั้งค่า</string>
 
@@ -64,6 +65,11 @@
     <string name="player_pause">หยุดชั่วคราว</string>
     <string name="player_subtitles">คำบรรยาย</string>
     <string name="player_speed">ความเร็ว %1$s</string>
+    <string name="player_repeat_off">ไม่เล่นซ้ำ</string>
+    <string name="player_repeat_all">เล่นซ้ำทั้งคิว</string>
+    <string name="player_repeat_one">เล่นซ้ำวิดีโอนี้</string>
+    <string name="player_repeat_announce">เล่นซ้ำ: %1$s</string>
+    <string name="player_seek_preview">ภาพตัวอย่างของตำแหน่งที่กำลังเลื่อนไป</string>
     <string name="player_aspect">อัตราส่วนภาพ</string>
     <string name="player_rotate">หมุนจอ</string>
     <string name="player_unknown_duration">ไม่ทราบ</string>
@@ -159,6 +165,8 @@
     <string name="settings_auto_rotate">หมุนจออัตโนมัติ</string>
     <string name="settings_remember_brightness">จำค่าความสว่างหน้าจอ</string>
     <string name="settings_remember_brightness_sub">ถ้าปิดไว้ จะคืนค่าความสว่างของระบบเมื่อออกจากหน้าจอเล่น</string>
+    <string name="settings_seek_preview">พรีวิวตอนเลื่อนหา</string>
+    <string name="settings_seek_preview_sub">ถอดภาพตัวอย่างขึ้นมาให้เห็นตอนลากแถบเลื่อน รู้เลยว่าเลื่อนไปตรงไหน</string>
     <string name="settings_autoplay_next">เล่นวิดีโอถัดไปอัตโนมัติ</string>
     <string name="settings_background">เล่นต่อในเบื้องหลัง</string>
     <string name="settings_background_sub">เสียงเล่นต่อแม้ปิดจอ ผ่านการแจ้งเตือนมีเดีย</string>
@@ -180,6 +188,74 @@
     <string name="decoder_platform_first">ใช้ฮาร์ดแวร์ก่อน, FFmpeg สำรอง</string>
     <string name="decoder_ffmpeg_first">เน้น FFmpeg (เข้ากันได้มากสุด)</string>
     <string name="decoder_platform_only">ฮาร์ดแวร์เท่านั้น</string>
+
+    <!-- Wi-Fi transfer -->
+    <string name="transfer_mode_receive">รับ</string>
+    <string name="transfer_mode_send">ส่ง</string>
+    <string name="transfer_receive_title">รับไฟล์จากเครื่องอื่น</string>
+    <string name="transfer_receive_hint">เปิดหน้านี้ค้างไว้บนเครื่องนี้ อีกเครื่องจะเห็นชื่อเครื่องนี้อัตโนมัติเมื่ออยู่ Wi-Fi วงเดียวกัน</string>
+    <string name="transfer_device_name">ชื่อเครื่อง</string>
+    <string name="transfer_device_name_hint">ชื่อที่เครื่องอื่นจะเห็น (ว่าง = ใช้รุ่นเครื่อง)</string>
+    <string name="transfer_save_device_name">บันทึกชื่อเครื่อง</string>
+    <string name="transfer_code">รหัส</string>
+    <string name="transfer_code_note">เครื่องที่ส่งต้องกรอกเลข 4 หลักนี้ เพื่อไม่ให้เครื่องแปลกปลอมในวงเดียวกันแอบส่งไฟล์เข้ามา</string>
+    <string name="transfer_address">ที่อยู่</string>
+    <string name="transfer_address_advertised">เครื่องอื่นในวง Wi-Fi เดียวกันมองเห็นเครื่องนี้อัตโนมัติ</string>
+    <string name="transfer_address_not_advertised">ประกาศตัวในวงไม่สำเร็จ — ให้อีกเครื่องพิมพ์ที่อยู่นี้เอง</string>
+    <string name="transfer_start">เริ่มรับ</string>
+    <string name="transfer_stop">หยุดรับ</string>
+    <string name="transfer_copy_address">คัดลอกที่อยู่</string>
+    <string name="transfer_copied">คัดลอกที่อยู่แล้ว</string>
+    <string name="transfer_new_code">เปลี่ยนรหัส</string>
+    <string name="transfer_received_title">ไฟล์ที่รับมาแล้ว</string>
+    <string name="transfer_received_empty">ยังไม่มีไฟล์เข้ามา — กดเริ่มรับ แล้วเลือกส่งจากอีกเครื่อง</string>
+    <string name="transfer_received_saved">บันทึกไว้ที่ %1$s</string>
+    <string name="transfer_clear_received">ล้างรายการ</string>
+    <string name="transfer_send_title">ส่งไฟล์ไปเครื่องอื่น</string>
+    <string name="transfer_scan">ค้นหาเครื่องในวง Wi-Fi เดียวกัน</string>
+    <string name="transfer_scanning">กำลังค้นหา…</string>
+    <string name="transfer_scan_stop">หยุดค้นหา</string>
+    <string name="transfer_peers_empty">ยังไม่พบเครื่อง — เปิดแท็บรับบนอีกเครื่อง หรือพิมพ์ที่อยู่เองด้านล่าง</string>
+    <string name="transfer_selected_peer">จะส่งไปที่ %1$s</string>
+    <string name="transfer_pick_files">เลือกไฟล์แล้วส่ง</string>
+    <string name="transfer_manual_title">หรือพิมพ์ที่อยู่เอง</string>
+    <string name="transfer_manual_address">เช่น 192.168.1.20</string>
+    <string name="transfer_manual_code">รหัส 4 หลัก</string>
+    <string name="transfer_probe">ตรวจสอบ</string>
+    <string name="transfer_probe_ok">เชื่อมต่อได้: %1$s</string>
+    <string name="transfer_probe_failed">ไม่มีเครื่องตอบกลับ — ตรวจที่อยู่ และให้แน่ใจว่าทั้งสองเครื่องอยู่ Wi-Fi วงเดียวกัน</string>
+    <string name="direct_receive_title">ไม่มีเราเตอร์ก็ส่งได้ (Wi-Fi Direct)</string>
+    <string name="direct_receive_body">เปิดกลุ่มบนเครื่องนี้ แล้วอีกเครื่องเชื่อมเข้ากลุ่มได้เลย แม้รอบตัวจะไม่มี Wi-Fi ให้ใช้ ที่อยู่ด้านล่างคือที่อยู่ที่เครื่องส่งจะใช้</string>
+    <string name="direct_open_group">เปิดกลุ่ม Wi-Fi Direct</string>
+    <string name="direct_close_group">ปิดกลุ่ม</string>
+    <string name="direct_group_open">กลุ่มเปิดอยู่ — เครื่องส่งเข้าถึงเครื่องนี้ที่ %1$s</string>
+    <string name="direct_send_title">เชื่อมกับเครื่องที่ไม่มีเราเตอร์</string>
+    <string name="direct_send_body">ค้นหาเครื่องรับที่เปิดกลุ่ม Wi-Fi Direct ไว้ แล้วกดเข้าร่วม จากนั้นเครื่องนั้นจะขึ้นในรายการด้านบนให้กรอกรหัสและส่งได้เลย</string>
+    <string name="direct_scan">ค้นหาเครื่องด้วย Wi-Fi Direct</string>
+    <string name="direct_scan_stop">หยุดค้นหา</string>
+    <string name="direct_scanning">กำลังมองหาเครื่องที่เปิดกลุ่ม…</string>
+    <string name="direct_connect">เข้าร่วม</string>
+    <string name="direct_none_found">ยังไม่พบเครื่องที่เปิดกลุ่ม — เครื่องรับต้องกดเปิดกลุ่มก่อน</string>
+    <string name="direct_unsupported">เครื่องนี้ใช้ Wi-Fi Direct ไม่ได้ ให้ใช้ที่อยู่ด้านบนแทน</string>
+    <string name="direct_no_permission">Android ต้องได้สิทธิ์ “อุปกรณ์ใกล้เคียง” จึงใช้ Wi-Fi Direct ได้ กดอนุญาตแล้วแตะอีกครั้ง</string>
+    <string name="direct_granted">อนุญาตแล้ว — แตะอีกครั้งเพื่อเชื่อม</string>
+    <string name="direct_error">Wi-Fi Direct ปฏิเสธคำขอ (รหัส %1$d) ตรวจว่าเปิด Wi-Fi Direct อยู่ และไม่มีกลุ่มอื่นค้างอยู่</string>
+    <string name="direct_port_note">Wi-Fi Direct จะส่งไปที่พอร์ตเริ่มต้น ถ้าเครื่องรับต้องใช้พอร์ตอื่น ให้พิมพ์ที่อยู่ที่เครื่องรับแสดง</string>
+    <string name="transfer_uploads_title">การส่งในรอบนี้</string>
+    <string name="transfer_uploads_empty">ยังไม่มีการส่ง</string>
+    <string name="transfer_cancel">ยกเลิก</string>
+    <string name="transfer_state_running">กำลังส่ง</string>
+    <string name="transfer_state_done">ส่งแล้ว</string>
+    <string name="transfer_state_failed">ส่งไม่สำเร็จ</string>
+    <string name="transfer_state_cancelled">ยกเลิกแล้ว</string>
+    <string name="transfer_progress">%1$s / %2$s</string>
+    <string name="transfer_need_target">เลือกเครื่องปลายทาง หรือพิมพ์ที่อยู่ก่อน</string>
+    <string name="transfer_need_code">กรอกรหัส 4 หลักที่แสดงบนเครื่องรับก่อน</string>
+    <string name="transfer_permission_title">อนุญาตให้เข้าถึงเครือข่ายในวง</string>
+    <string name="transfer_permission_body">Android 17 จะกันทุกแอปออกจากเครือข่ายในวงจนกว่าคุณจะอนุญาต ถ้าไม่อนุญาต เครื่องอีกเครื่องจะมองไม่เห็นเครื่องนี้ และไฟล์จะส่งหรือรับไม่ได้ สิทธิ์นี้เกี่ยวกับ Wi-Fi ของคุณเท่านั้น ไม่มีการส่งข้อมูลออกอินเทอร์เน็ต</string>
+    <string name="transfer_permission_grant">อนุญาต</string>
+    <string name="transfer_permission_denied">การเข้าถึงเครือข่ายในวงถูกบล็อก จึงส่ง-รับไฟล์ไม่ได้ เปิดได้ที่ ตั้งค่า → แอป → VDO Player → สิทธิ์ → อุปกรณ์ใกล้เคียง</string>
+    <string name="transfer_privacy_note">ไฟล์วิ่งอยู่ในวง Wi-Fi ของคุณเท่านั้น แอปทำตัวเป็นเซิร์ฟเวอร์และไคลเอนต์ในเครื่อง ไม่ส่งอะไรออกอินเทอร์เน็ต วิดีโอจะไปอยู่ที่ Movies/VDO Player และโผล่ในคลังของแอป ส่วนไฟล์อื่นไปที่ Download/VDO Player</string>
 
     <!-- Relative times -->
     <string name="time_just_now">เมื่อสักครู่</string>

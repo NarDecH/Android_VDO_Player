@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.VideoLibrary
+import androidx.compose.material.icons.filled.WifiTethering
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -44,12 +45,14 @@ import com.nardech.vdoplayer.ui.logs.LogsScreen
 import com.nardech.vdoplayer.ui.player.PlayerScreen
 import com.nardech.vdoplayer.ui.recent.RecentScreen
 import com.nardech.vdoplayer.ui.settings.SettingsScreen
+import com.nardech.vdoplayer.ui.transfer.TransferScreen
 import com.nardech.vdoplayer.util.IntentHelpers
 import kotlinx.coroutines.launch
 
 enum class AppTab(val labelRes: Int, val icon: ImageVector) {
     LIBRARY(R.string.tab_library, Icons.Filled.VideoLibrary),
     RECENT(R.string.tab_recent, Icons.Filled.History),
+    TRANSFER(R.string.tab_transfer, Icons.Filled.WifiTethering),
     LOGS(R.string.tab_logs, Icons.Filled.BugReport),
     SETTINGS(R.string.tab_settings, Icons.Filled.Settings),
 }
@@ -170,6 +173,13 @@ fun AppRoot(
                             startIndex = 0
                             playerVisible = true
                         },
+                    )
+
+                    AppTab.TRANSFER -> TransferScreen(
+                        container = container,
+                        settings = settings,
+                        snackbarHost = snackbarHost,
+                        contentPadding = padding,
                     )
 
                     AppTab.LOGS -> LogsScreen(

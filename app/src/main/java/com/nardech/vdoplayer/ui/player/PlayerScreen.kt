@@ -5,6 +5,7 @@ import android.app.PictureInPictureParams
 import android.content.Context
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Bitmap
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
@@ -17,6 +18,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -43,6 +45,8 @@ import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PictureInPictureAlt
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.RepeatOne
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
@@ -67,13 +71,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -82,6 +91,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.Player
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.nardech.vdoplayer.R
@@ -92,10 +102,16 @@ import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
 import com.nardech.vdoplayer.playback.PlaybackViewModel
 import com.nardech.vdoplayer.playback.PlayerUiState
+import com.nardech.vdoplayer.playback.SeekPreview
+import com.nardech.vdoplayer.playback.SeekPreviewPolicy
+import com.nardech.vdoplayer.playback.SeekPreviewSource
 import com.nardech.vdoplayer.ui.folderLabel
 import com.nardech.vdoplayer.util.Formatters
 import com.nardech.vdoplayer.util.IntentHelpers
 import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private enum class AspectMode(@StringRes val labelRes: Int, val resizeMode: Int) {
     FIT(R.string.aspect_fit, AspectRatioFrameLayout.RESIZE_MODE_FIT),
@@ -106,7 +122,13 @@ private enum class AspectMode(@StringRes val labelRes: Int, val resizeMode: Int)
 
 private enum class HudKind { BRIGHTNESS, VOLUME, SEEK }
 
-private data class HudState(val kind: HudKind, val primary: String, val secondary: String)
+private data class HudState(
+    val kind: HudKind,
+    val primary: String,
+    val secondary: String,
+    /** Frame grabbed for this seek position; only the seek HUD ever has one. */
+    val preview: Bitmap? = null,
+)
 
 private val SPEED_PRESETS = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f, 2.5f, 3f)
 
@@ -124,6 +146,7 @@ fun PlayerScreen(
     val context = LocalContext.current
     val activity = context as? ComponentActivity
     val configuration = LocalConfiguration.current
+    val scope = rememberCoroutineScope()
     val state by playback.state.collectAsStateWithLifecycle()
 
     var controlsVisible by remember { mutableStateOf(true) }
@@ -134,6 +157,12 @@ fun PlayerScreen(
     var showInfo by remember { mutableStateOf(false) }
     var hud by remember { mutableStateOf<HudState?>(null) }
     var scrubProgress by remember { mutableFloatStateOf(-1f) }
+    var previewTarget by remember { mutableStateOf<Long?>(null) }
+    // Held in a state object rather than a local, because the gesture and slider
+    // callbacks are created once and must read the newest frame when they run.
+    val previewFrame = remember { mutableStateOf<SeekPreview?>(null) }
+    val previewSource = remember { SeekPreviewSource() }
+    val previewMaxWidthPx = with(LocalDensity.current) { 220.dp.toPx() }.toInt()
 
     // Gesture callbacks run outside composition, so the HUD wording is resolved here.
     val brightnessLabel = stringResource(R.string.hud_brightness)
@@ -144,6 +173,10 @@ fun PlayerScreen(
     val seekForwardLabel = stringResource(R.string.hud_seek_forward, seekSeconds)
     val seekBackwardLabel = stringResource(R.string.hud_seek_backward, seekSeconds)
     val speedBoostLabel = Formatters.speed(3f)
+    val repeatOffLabel = stringResource(R.string.player_repeat_off)
+    val repeatAllLabel = stringResource(R.string.player_repeat_all)
+    val repeatOneLabel = stringResource(R.string.player_repeat_one)
+    val repeatAnnounceFormat = stringResource(R.string.player_repeat_announce)
 
     val audioManager = remember {
         context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -162,6 +195,30 @@ fun PlayerScreen(
     LaunchedEffect(queue, startIndex) {
         if (queue.isNotEmpty()) {
             playback.play(queue, startIndex, resumePositions = resumePositions)
+        }
+    }
+
+    // A frame grabbed while scrubbing, decoded off the main thread. The effect restarts
+    // whenever the target bucket changes, which also cancels a decode nobody wants.
+    LaunchedEffect(previewTarget, state.mediaId, settings.seekPreviewEnabled) {
+        val target = previewTarget
+        val uri = playback.controller?.currentMediaItem?.localConfiguration?.uri
+        if (target == null || uri == null || !SeekPreviewPolicy.isEnabled(settings.seekPreviewEnabled)) {
+            previewFrame.value = null
+            return@LaunchedEffect
+        }
+        val frame = withContext(Dispatchers.IO) {
+            previewSource.frame(context, uri, target, previewMaxWidthPx)
+        }
+        previewFrame.value = frame?.let { SeekPreview(target, it) }
+    }
+
+    // A new video means new frames: drop the retriever so it does not hold the old file.
+    DisposableEffect(state.mediaId) {
+        onDispose {
+            previewSource.release()
+            previewFrame.value = null
+            previewTarget = null
         }
     }
 
@@ -267,6 +324,7 @@ fun PlayerScreen(
                             }
                             mode = null
                             dragging = false
+                            previewTarget = null
                             hud = null
                         },
                         onDrag = { change, dragAmount ->
@@ -290,10 +348,16 @@ fun PlayerScreen(
                                     val delta = (dragAmount.x / width) * 90_000f
                                     seekTarget = (seekTarget + delta.toLong())
                                         .coerceIn(0L, duration.coerceAtLeast(0L))
+                                    previewTarget = seekTarget
                                     hud = HudState(
                                         HudKind.SEEK,
                                         Formatters.duration(seekTarget),
                                         Formatters.duration(duration),
+                                        preview = previewFrame.value
+                                            ?.takeIf {
+                                                SeekPreviewPolicy.stillApplies(it.positionMs, seekTarget)
+                                            }
+                                            ?.bitmap,
                                     )
                                 }
 
@@ -406,12 +470,41 @@ fun PlayerScreen(
                     folder = currentItem?.let { folderLabel(it.folder) }.orEmpty(),
                     locked = locked,
                     scrubProgress = scrubProgress,
-                    onScrub = { scrubProgress = it },
+                    onScrub = { fraction ->
+                        scrubProgress = fraction
+                        val duration = playback.state.value.durationMs
+                        if (settings.seekPreviewEnabled && duration > 0L) {
+                            val target = (fraction * duration).toLong()
+                            previewTarget = target
+                            hud = HudState(
+                                HudKind.SEEK,
+                                Formatters.duration(target),
+                                Formatters.duration(duration),
+                                preview = previewFrame.value
+                                    ?.takeIf { SeekPreviewPolicy.stillApplies(it.positionMs, target) }
+                                    ?.bitmap,
+                            )
+                        }
+                    },
                     onScrubFinished = {
                         if (scrubProgress >= 0f && state.durationMs > 0L) {
                             playback.seekTo((scrubProgress * state.durationMs).toLong())
                         }
                         scrubProgress = -1f
+                        previewTarget = null
+                        previewFrame.value = null
+                        hud = null
+                    },
+                    onRepeat = {
+                        val mode = playback.cycleRepeatMode()
+                        val label = when (mode) {
+                            Player.REPEAT_MODE_ALL -> repeatAllLabel
+                            Player.REPEAT_MODE_ONE -> repeatOneLabel
+                            else -> repeatOffLabel
+                        }
+                        scope.launch {
+                            snackbarHost.showSnackbar(repeatAnnounceFormat.format(label))
+                        }
                     },
                     onToggleLock = { locked = !locked },
                     onClose = onClose,
@@ -504,6 +597,7 @@ private fun PlayerControls(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSpeed: () -> Unit,
+    onRepeat: () -> Unit,
     onAspect: () -> Unit,
     onInfo: () -> Unit,
     onSubtitles: () -> Unit,
@@ -671,6 +765,27 @@ private fun PlayerControls(
                         tint = Color.White,
                     )
                 }
+                IconButton(onClick = onRepeat) {
+                    Icon(
+                        if (state.repeatMode == Player.REPEAT_MODE_ONE) {
+                            Icons.Filled.RepeatOne
+                        } else {
+                            Icons.Filled.Repeat
+                        },
+                        contentDescription = stringResource(
+                            when (state.repeatMode) {
+                                Player.REPEAT_MODE_ALL -> R.string.player_repeat_all
+                                Player.REPEAT_MODE_ONE -> R.string.player_repeat_one
+                                else -> R.string.player_repeat_off
+                            },
+                        ),
+                        tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) {
+                            Color.White.copy(alpha = 0.55f)
+                        } else {
+                            MaterialTheme.colorScheme.primary
+                        },
+                    )
+                }
                 IconButton(onClick = onSpeed) {
                     Icon(
                         Icons.Filled.Speed,
@@ -707,32 +822,45 @@ private fun HudOverlay(hud: HudState, modifier: Modifier = Modifier) {
         shape = RoundedCornerShape(20.dp),
         color = Color.Black.copy(alpha = 0.72f),
     ) {
-        Row(
+        Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Icon(
-                when (hud.kind) {
-                    HudKind.BRIGHTNESS -> Icons.Filled.Brightness6
-                    HudKind.VOLUME -> Icons.AutoMirrored.Filled.VolumeUp
-                    HudKind.SEEK -> Icons.Filled.PlayArrow
-                },
-                contentDescription = null,
-                tint = Color.White,
-            )
-            Spacer(Modifier.width(12.dp))
-            Column {
-                Text(
-                    text = hud.primary,
-                    color = Color.White,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
+            hud.preview?.let { frame ->
+                Image(
+                    bitmap = frame.asImageBitmap(),
+                    contentDescription = stringResource(R.string.player_seek_preview),
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier
+                        .width(220.dp)
+                        .clip(RoundedCornerShape(10.dp)),
                 )
-                Text(
-                    text = hud.secondary,
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelSmall,
+                Spacer(Modifier.height(10.dp))
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    when (hud.kind) {
+                        HudKind.BRIGHTNESS -> Icons.Filled.Brightness6
+                        HudKind.VOLUME -> Icons.AutoMirrored.Filled.VolumeUp
+                        HudKind.SEEK -> Icons.Filled.PlayArrow
+                    },
+                    contentDescription = null,
+                    tint = Color.White,
                 )
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = hud.primary,
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = hud.secondary,
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
             }
         }
     }
