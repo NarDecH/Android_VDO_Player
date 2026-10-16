@@ -28,8 +28,9 @@ All notable changes to VDO Player are documented here. The format follows
   — and `SubtitleResolver` does the MediaStore lookup off the main thread and only
   attaches files it can actually open. Switchable in Settings, and a new `SUBTITLE`
   log tag records every search, including the ones that find nothing.
-- 17 more JVM tests (71 in total): the subtitle name rules, the decoder preference
-  table and the audio track options built from real Media3 `Tracks` objects
+- 18 more JVM tests (72 in total): the subtitle name rules, the decoder preference
+  table, the audio track options built from real Media3 `Tracks` objects, and the
+  promise that stopping the receiver has really let go of the port
 
 ### Changed
 
@@ -44,6 +45,17 @@ All notable changes to VDO Player are documented here. The format follows
 - An unknown decoder value in the settings store now falls back to the default
   instead of being ignored silently, and the decoder switch logs the modes that are
   really active after NextLib applies it.
+
+### Fixed
+
+- **Stopping a receive session now really closes the port.** `TransferServer.stop()`
+  closed the listening socket and returned, but on Linux a thread parked in
+  `ServerSocket.accept()` keeps that socket alive, and the kernel went on handing the
+  closed port connections for a moment — so the receiver could still take a file after
+  the screen said it had stopped. The accept loop now waits with a short timeout and
+  `stop()` waits for it to leave before it returns. Caught by the release workflow on
+  Ubuntu, where the unit test that opens the port right after a stop failed; the same
+  test now pins the guarantee.
 
 ## [1.1.0] — 2026-10-16
 

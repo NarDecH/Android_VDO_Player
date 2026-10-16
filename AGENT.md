@@ -175,7 +175,16 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
     `TrackOptions.audioTracks` keeps the group and track indices Media3 reported, so
     the picker's indices stay valid; the label formatter is injected so the file stays
     free of `Diagnostics` and testable on the JVM.
-17. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
+17. **`TransferServer.stop()` waits for the accept loop before it returns.** On Linux
+    a thread parked in `ServerSocket.accept()` keeps the listening socket alive — the
+    kernel goes on queueing connections for the closed port until that call returns —
+    so "close the socket and return" left the receiver answering for a moment after
+    the UI said it had stopped. The accept loop therefore runs with `soTimeout` (250 ms)
+    so it notices `running == false`, and `stop()` joins it before it closes the client
+    sockets and the pool. Windows hides this: there `close()` wakes the parked
+    `accept()`. Do not shorten it back; `TransferServerTest` opens the port immediately
+    after a stop, and the release workflow runs on Ubuntu.
+18. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
    Windows backslashes makes AGP fail with a bare
    `java.io.IOException: The filename, directory name, or volume label syntax is incorrect`
    from `SdkLocator.validateSdkPath`. Use `cygpath -m` if you generate it.

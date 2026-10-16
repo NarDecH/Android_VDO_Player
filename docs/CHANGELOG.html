@@ -42,9 +42,10 @@
       <li><span class="tag added">added</span> <strong>Audio track picker</strong> — the control row lists every audio track of the current file (codec, channels, language) and switches between them through <code>TrackSelectionParameters</code>; <code>TrackOptions</code> builds the list so the indices handed back are the ones the player reported</li>
       <li><span class="tag added">added</span> <strong>Subtitle auto-discovery</strong> — a <code>.srt</code> / <code>.vtt</code> / <code>.ass</code> file with the video's own name (or a language tag such as <code>Movie.th.srt</code>) loads by itself: exact name first, then the device language, then the rest, and files of other videos never match</li>
       <li><span class="tag added">added</span> A new <code>SUBTITLE</code> log tag that records every subtitle search, including the ones that find nothing</li>
-      <li><span class="tag added">added</span> 17 more JVM tests (71 in total): subtitle name rules, the decoder preference table and audio track options built from real Media3 <code>Tracks</code> objects</li>
+      <li><span class="tag added">added</span> 18 more JVM tests (72 in total): subtitle name rules, the decoder preference table, audio track options built from real Media3 <code>Tracks</code> objects, and the promise that a stopped receiver has really let go of the port</li>
       <li><span class="tag changed">changed</span> <strong>Hardware only</strong> now means hardware MediaCodec decoders only; the FFmpeg renderers stay built in every mode, because the renderer set is fixed when the player is created — that is what makes switching to FFmpeg mid-video possible</li>
       <li><span class="tag changed">changed</span> Subtitle auto-discovery reads MediaStore, so on Android 13 and newer it only sees subtitle files this app owns; the subtitle button still takes any file you pick</li>
+      <li><span class="tag fixed">fixed</span> Stopping a receive session now really closes the port: on Linux a thread parked in <code>accept()</code> kept the closed socket alive, so the receiver could take one more file after the screen said it had stopped</li>
     </ul>
 
     <h2 id="v1-1-0">1.1.0 — 2026-10-16</h2>
