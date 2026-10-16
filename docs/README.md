@@ -28,7 +28,9 @@ VDO Player is a **local file** video player for Android. It does not stream from
 the internet, it does not upload anything, and it has no account. Point it at the
 videos already on the device and it plays them; the interesting engineering is in
 the two places that usually break on real phones — codec coverage and
-diagnosability.
+diagnosability. It can also move a file from one phone to another over your own
+Wi-Fi, so you never need a cable or a cloud account to get a video onto the
+device that will play it.
 
 ![Library screen](assets/screen-library.svg)
 
@@ -62,6 +64,26 @@ diagnosability.
 - Screen rotation button plus optional auto-rotate
 - Picture-in-picture (Android 8+) with the video's real aspect ratio
 - Mixing: shows the exact selected video/audio/subtitle formats for the file
+
+**Wi-Fi transfer** (the **Transfer** tab)
+
+- **Receive**: one tap starts a small HTTP server on the phone and shows an
+  address plus a four digit code. Nothing is accepted without that code, so a
+  stranger on the same Wi-Fi cannot drop files onto the device.
+- **Send**: the other phone finds this one over mDNS — no setup, no pairing — or
+  you type the address shown on the receiving phone (`192.168.1.20` is enough).
+- **No router at all?** The receiving phone can open a **Wi-Fi Direct** group and
+  the sending phone joins it directly; the group owner then shows up in the same
+  receiver list, so the code and the progress behave exactly as over normal Wi-Fi.
+  Android asks for the Nearby devices permission the first time it is used.
+- Pick several files at once: they are sent one after another with progress bars
+  and a cancel button. A cancelled or interrupted transfer leaves no half file
+  behind on either side.
+- Videos land in `Movies/VDO Player` and appear in the library immediately;
+  everything else lands in `Download/VDO Player`.
+- Nothing leaves the local network, and the tab spells out what the four digit
+  code protects against. A sender and receiver can be any two Android phones on
+  the same Wi-Fi, including a phone hotspot.
 
 **Languages**
 
@@ -127,10 +149,40 @@ key; the certificate SHA-256 is printed in each release note.
 | Swipe vertically, left half | Screen brightness for this player only |
 | Swipe vertically, right half | Media volume |
 | Long press | Play at 3× while held |
+| Repeat button | Cycles off → the whole queue → this video, and remembers the choice. The icon lights up while repeating |
+| Seek preview | While you scrub (swipe or progress bar) a frame of the target position is decoded into the heads-up display; turn it off in Settings if you prefer the plain time label |
 | Lock button | Hide all controls until you unlock them |
 | Info button (top right) | Stream details for the current file |
 | PiP button | Continue in a floating window |
 | Subtitle button | Turns subtitles on, or opens a file picker if none are loaded |
+
+### Transfer tab
+
+Two modes, chosen with the chips at the top.
+
+**Receive**
+
+| Control | What it does |
+|---|---|
+| Device name | What other phones see while this one advertises; empty means the device model |
+| Start receiving / Stop receiving | Opens the port and advertises on the network |
+| Code | The four digits a sender must repeat; **New code** invalidates the old one at any time |
+| Address | `http://<ip>:<port>` — copyable, and the one thing to type on the other phone if discovery is blocked |
+| Received files | Name and folder of everything that arrived in this session; **Clear list** empties it |
+
+**Send**
+
+| Control | What it does |
+|---|---|
+| Find phones on this Wi-Fi | Scans with mDNS and lists the receivers that are advertising; tap one to select it |
+| Code | The digits shown on the receiving phone |
+| Or type the address | `192.168.1.20` or `192.168.1.20:45871`; **Check** says whether a receiver answered |
+| Pick files and send | Chooses one or many files; they are sent one after another |
+| This session | Progress, cancel, and the outcome of every upload |
+
+A cancelled upload stops sending and the receiving phone deletes the partial file:
+there is never a half-written video in the library. Received videos appear in the
+**Library** tab as they land.
 
 ### Recent tab
 
@@ -143,8 +195,8 @@ clears all history (this also removes resume positions).
 - **Appearance** — theme (system/light/dark), Material You palette, library
   columns, default sort order
 - **Playback** — decoder priority, default speed, double-tap seek step, resume,
-  gesture controls, keep screen on, auto rotate, remember brightness, autoplay
-  next, background playback
+  gesture controls, keep screen on, auto rotate, remember brightness, seek preview,
+  autoplay next, background playback
 - **Diagnostics and logs** — file log level, export format, whether exports
   include the device report
 - **About** — version and licence note
@@ -158,12 +210,23 @@ clears all history (this also removes resume positions).
 | `FOREGROUND_SERVICE` + `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Keep audio playing with the screen off |
 | `WAKE_LOCK` | Prevent the CPU sleeping mid-playback |
 | `WRITE_EXTERNAL_STORAGE` (≤ Android 9 only) | Legacy path for saving an exported log to Downloads |
+| `INTERNET` | Open the local sockets the Wi-Fi transfer uses — the receiving server on one phone and the sending client on the other. It is a normal permission, granted at install time, so no dialog appears. |
+| `ACCESS_NETWORK_STATE` | Read whether Wi-Fi is up, so the transfer screen can explain itself instead of silently failing |
+| `ACCESS_LOCAL_NETWORK` (Android 17+) | Android 17 blocks local network traffic — including the receiving socket and mDNS — for apps that target it. Requested the first time you use the transfer tab; changing Wi-Fi networks does not ask again. |
 
-There is **no** `INTERNET` permission in the manifest. The app cannot upload
-your videos or your logs: sharing only happens through the Android share sheet
-you trigger yourself. Log files live in the app's private external directory
-(`Android/data/com.nardech.vdoplayer/files/logs/`) and are excluded from cloud
-backup.
+**Nothing is uploaded anywhere.** `INTERNET` is declared because a socket is how
+two phones on the same Wi-Fi talk to each other: the receiving phone listens on a
+port and the sending phone connects to the address you pick or discover. The app
+has no server to talk to, no account and no analytics, and it never resolves a
+name on the public internet. Files only move when you press **Start receiving** on
+one phone and **Pick files and send** on the other, and `ACCESS_LOCAL_NETWORK`
+makes that stay true on Android 17, where the network stack would otherwise block
+the traffic. Log files live in the app's private external directory
+(`Android/data/com.nardech.vdoplayer/files/logs/`), are excluded from cloud
+backup, and are only shared through the Android share sheet you trigger yourself.
+
+If you deny `ACCESS_LOCAL_NETWORK`, nothing breaks: the transfer tab shows a
+notice with a button to grant it, and the rest of the app keeps working.
 
 ## Diagnostics and logs
 
@@ -171,8 +234,10 @@ The logging pipeline has four stages:
 
 1. **`LogBus`** — every event goes into a 2000-entry ring buffer, goes to logcat,
    and (at or above the configured file level) to the writer. Tags are
-   `APP`, `UI`, `PLAYER`, `MEDIA`, `DECODER`, `STORAGE`, `EXPORT`, `CRASH`; levels
-   are `VERBOSE`…`ERROR`.
+   `APP`, `UI`, `PLAYER`, `MEDIA`, `DECODER`, `STORAGE`, `EXPORT`, `TRANSFER`,
+   `CRASH`; levels are `VERBOSE`…`ERROR`. Transfer entries name the file, its size
+   and the peer address, which is usually enough to tell a wrong code apart from a
+   phone that never reached the network.
 2. **`LogFileWriter`** — writes off the main thread into rotating files of 2 MB,
    keeping the ten newest.
 3. **`CrashGuard`** — an uncaught exception writes the stack trace plus a device
@@ -207,6 +272,14 @@ identifiers, and the app's own events.
 | Choppy software decoding | Prefer hardware decoding, or pick a lower resolution source. FFmpeg decoding is CPU work, not free |
 | Battery drains while paused | Check that the playback notification is gone; if not, background playback was left enabled |
 | Playback stops when leaving the app | Enable **Keep playing in the background** in Settings |
+| The video repeats, or never moves to the next one | Check the repeat button in the player controls: lit green for “whole queue”, a “1” badge for “this video”. Tap it until it is dim for off |
+| Scrubbing feels slow on a big 4K file | The seek preview decodes a frame per two seconds of movement, which costs CPU on large files. Turn **Seek preview** off in Settings and only the time label appears |
+| Wi-Fi Direct says the request was refused | Both phones need Wi-Fi Direct enabled and no other group open; the receiving phone has to open the group first. Guest networks and some vendors disable it — fall back to a hotspot plus the typed address |
+| The other phone never appears in the send list | Both phones must be on the same Wi-Fi network (**not** one on Wi-Fi and one on mobile data), and the receiving phone must have the transfer tab open with receiving started. Guest networks that isolate clients from each other block it by design — type the receiving phone's address instead, and if that also fails, use one phone as a hotspot. |
+| "Nothing answered there" after typing an address | Check the address shown on the receiving phone; the port matters (`192.168.1.20:45871`, and typing just `192.168.1.20` assumes the default port). |
+| Transfers fail on Android 17 with a timeout | Allow the **Nearby devices** permission for the app: **Settings → Apps → VDO Player → Permissions → Nearby devices**. Android 17 blocks local network traffic without it, and a blocked TCP connection looks like a timeout. |
+| Wrong code, or the code keeps being rejected | The code changes every time receiving is restarted, and after too many wrong attempts it rotates by itself. Read it off the receiving phone again. |
+| A file arrived with the wrong name | Only characters a file system cannot take (`/ \ : * ? " < > |`) are replaced with `_`; everything else, Thai included, is kept exactly as sent. |
 
 ## Building from source
 
@@ -217,7 +290,13 @@ and roughly 2 GB of free disk for Gradle's caches.
 export ANDROID_HOME=/path/to/Android/Sdk
 ./gradlew :app:assembleDebug     # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease   # per-ABI APKs plus a universal one
+./gradlew :app:testDebugUnitTest # wire protocol, file names, Thai translations
 ```
+
+The unit tests are plain JVM tests — no device or emulator — and they cover the
+parts that are easy to break silently: the HTTP contract between the two phones,
+the file-name sanitiser, and the promise that both string files carry the same
+keys with the same placeholders.
 
 `local.properties` needs a valid `sdk.dir`. Use forward slashes on Windows —
 escaped backslashes make AGP fail with an unhelpful `IOException` (see
@@ -238,14 +317,29 @@ languages, and it survives reinstalls.
 intents are handled by the same player; the file is queued and played
 immediately.
 
-**Does it support network streams?** No, and that is deliberate: the app has no
-`INTERNET` permission. Use a streaming app for that.
+**Does it support network streams?** No, and that is deliberate: it plays files
+that are on the device. The `INTERNET` permission exists only for the Wi-Fi
+transfer tab, which talks to another phone on your own network. Use a streaming
+app for HTTP(S) playback.
 
 **Why is the universal APK so large?** It carries four copies of FFmpeg. Install
 the `arm64-v8a` build instead unless you need the fallback.
 
 **Is my watch history uploaded?** No. It is a small JSON blob in the app's
 private DataStore, cleared from the Recent tab.
+
+**Does the transfer work without internet access?** Yes. It needs Wi-Fi between the
+two phones — a home router, a public hotspot, or one phone sharing its own hotspot —
+but no internet connection and no account. Airplane mode plus Wi-Fi works.
+
+**Where do received files go?** Videos go to `Movies/VDO Player`, other files to
+`Download/VDO Player`, and both appear in the phone's own Files app. Videos show up
+in the library straight away, so you can play a file the moment it arrives.
+
+**Can it send to an iPhone or a PC?** Not with a nice UI, but the receiving side is
+plain HTTP: `curl -H 'X-VDO-Code: 1234' --data-binary @clip.mp4 'http://192.168.1.20:45871/upload?name=clip.mp4'`
+works from any machine on the same network, and the code is the one shown on the
+receiving phone.
 
 **Why GPL-3.0?** The FFmpeg decoder library (NextLib) is GPL-3.0, so the linked
 application must be as well. The reasoning and alternatives are in

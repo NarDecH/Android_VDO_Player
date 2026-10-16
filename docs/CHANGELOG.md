@@ -4,6 +4,75 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] — 2026-10-16
+
+### Added
+
+- **Wi-Fi transfer (the Transfer tab)** — send videos and other files from one phone
+  to another on the same network, with no cable, no cloud and no account:
+  - **Receive** starts a small HTTP server, shows the phone's address and a four
+    digit code, and advertises the phone over mDNS so the other one can find it
+    without typing anything
+  - **Send** lists the receivers it discovers, or takes a typed address
+    (`192.168.1.20`, `192.168.1.20:45871`, `http://…`); **Check** confirms that
+    something answered before you pick files
+  - Several files per transfer, one after another, with progress, speed-independent
+    cancel, and per-file outcomes; a cancelled or interrupted transfer leaves no
+    partial file behind on either side, and the receiver stays usable
+  - Received videos are published to `Movies/VDO Player` through MediaStore
+    `IS_PENDING` and appear in the library immediately; other files go to
+    `Download/VDO Player`
+  - Files can be streamed from a provider that does not report a size (chunked
+    request bodies), so the sender never needs the whole file in memory
+  - A new `TRANSFER` log tag records every incoming and outgoing file with its size
+    and the peer address
+- **Wi-Fi Direct**, for the two phones with no router between them: the receiving
+  phone opens a group, the sending phone finds it and joins, and the group owner
+  then appears in the ordinary receiver list — same code, same progress, same
+  `Movies/VDO Player` destination. `NEARBY_WIFI_DEVICES` (Android 13+) or
+  `ACCESS_FINE_LOCATION` (≤ 12) is requested the first time it is used.
+- `ACCESS_LOCAL_NETWORK` (Android 17) plus the runtime prompt: Android 17 blocks
+  local network traffic — the receiving socket and mDNS included — for apps that
+  target SDK 37, and a blocked connection only shows up as a timeout
+- Optional custom device name for the receiving phone, stored in settings
+- **Repeat**, from the player's control row: one tap walks off → the whole queue →
+  this video, announce the new mode, and remember it for the next session
+- **Seek preview**: dragging the progress bar or scrubbing with a swipe decodes a
+  frame of the target position and shows it in the heads-up display, cached per
+  two-second bucket so a slow drag does not re-decode; switchable in Settings
+- 54 JVM unit tests (`./gradlew :app:testDebugUnitTest`) covering the wire
+  protocol both ways over loopback sockets, the file-name sanitiser, the chunked
+  body path, cancellation, the repeat cycle, the seek-preview policy, the Wi-Fi
+  Direct address rules, and the promise that both string files carry the same keys
+  and placeholders; CI runs them before it builds a release
+- A GitHub Actions release workflow (`.github/workflows/release.yml`): pushing a
+  `v*` tag runs the unit tests, builds the four APKs, signs them from the
+  repository secrets when they are configured, verifies every signature and opens
+  a **draft** release with the APKs attached; the `SHA-256` checksums are printed
+  in the workflow run summary
+
+### Changed
+
+- The manifest declares `INTERNET` and `ACCESS_NETWORK_STATE`. 1.0.0 did not, and
+  the manual made a point of it; the transfer sockets need them. Nothing is sent
+  to the internet — the app has no backend, and files only move between two phones
+  on your own network.
+- Unit testing is now part of the build (JUnit 4 in the version catalog)
+
+### Fixed
+
+- File names are sanitised by removing only what a file system cannot take
+  (directory separators, control characters and `/ \ : * ? " < > |`), so Thai
+  names with vowel marks and ordinary punctuation arrive unchanged instead of
+  turning into `_`
+- Long file names are shortened without losing the extension, so a long video
+  name still lands in `Movies` instead of `Downloads`
+- Cancelling an upload reports “Cancelled” instead of an internal
+  “insufficient data written” error, and a sender walking away is no longer logged
+  as an app error
+- The transfer screen resolves its probe wording at composition time, so a language
+  change while the screen is open cannot leave a stale message behind
+
 ## [1.0.1] — 2026-10-15
 
 ### Added
@@ -114,12 +183,11 @@ First public release. Everything below is new.
 
 ### Planned
 
-- CI workflow that builds and signs a draft release from a version tag
-  (`gh release` driven, needs the `workflow` scope on the publishing token)
 - Runtime decoder switching (hardware ⇄ FFmpeg) without restarting playback,
   using NextLib's `DecoderManager`
 - Subtitle auto-discovery next to the video file
 - Audio track picker UI (the engine already exposes the tracks)
 
+[1.1.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.1.0
 [1.0.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.0.1
 [1.0.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.0.0

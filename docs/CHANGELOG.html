@@ -36,6 +36,28 @@
 
   <article class="prose">
 
+    <h2 id="v1-1-0">1.1.0 — 2026-10-16</h2>
+    <ul>
+      <li><span class="tag added">added</span> <strong>Wi-Fi transfer (`Transfer` tab)</strong> — send files from one phone to another on the same network: no cable, no cloud, no account</li>
+      <li><span class="tag added">added</span> Receive mode runs a small HTTP server, shows the address and a four digit code, and advertises over mDNS so the other phone finds it without typing</li>
+      <li><span class="tag added">added</span> Send mode lists discovered receivers or takes a typed address (<code>192.168.1.20</code>, <code>192.168.1.20:45871</code>, <code>http://…</code>), with a <strong>Check</strong> button before you pick files</li>
+      <li><span class="tag added">added</span> Several files per transfer with progress, cancel and per-file outcomes; a cancelled or interrupted transfer leaves no partial file behind, and the receiver stays usable</li>
+      <li><span class="tag added">added</span> Received videos are published to <code>Movies/VDO Player</code> through MediaStore <code>IS_PENDING</code> and appear in the library at once; other files go to <code>Download/VDO Player</code></li>
+      <li><span class="tag added">added</span> Files whose size a provider does not report are streamed with a chunked request body — the sender never holds the whole file in memory</li>
+      <li><span class="tag added">added</span> New <code>TRANSFER</code> log tag records every incoming and outgoing file with its size and the peer address</li>
+      <li><span class="tag added">added</span> <code>ACCESS_LOCAL_NETWORK</code> and its runtime prompt for Android 17, which blocks local network traffic — mDNS included — for apps targeting SDK 37</li>
+      <li><span class="tag added">added</span> <strong>Wi-Fi Direct</strong> for phones with no router between them: the receiving phone opens a group, the sender joins it, and the group owner appears in the normal receiver list. Asks for <code>NEARBY_WIFI_DEVICES</code> (13+) or <code>ACCESS_FINE_LOCATION</code> (≤12) when first used</li>
+      <li><span class="tag added">added</span> <strong>Repeat</strong> in the player's control row: off → the whole queue → this video, announced on screen and remembered for the next session</li>
+      <li><span class="tag added">added</span> <strong>Seek preview</strong>: dragging the progress bar or scrubbing with a swipe decodes a frame of the target position into the heads-up display, cached per two-second bucket and switchable in Settings</li>
+      <li><span class="tag added">added</span> 54 JVM unit tests over the wire protocol, the file-name sanitiser, the chunked path, cancellation, the repeat cycle, the seek-preview policy, the Wi-Fi Direct address rules and translation completeness; CI runs them before building a release</li>
+      <li><span class="tag added">added</span> GitHub Actions release workflow (<code>.github/workflows/release.yml</code>): a <code>v*</code> tag runs the tests, builds the four APKs, signs them from repository secrets and opens a <strong>draft</strong> release with the <code>SHA-256</code> checksums in the run summary</li>
+      <li><span class="tag changed">changed</span> The manifest now declares <code>INTERNET</code> and <code>ACCESS_NETWORK_STATE</code> for the transfer sockets. Nothing is uploaded to the internet; files only move between two phones on your own network</li>
+      <li><span class="tag fixed">fixed</span> File names keep Thai vowel marks and ordinary punctuation — only what a file system cannot take becomes <code>_</code></li>
+      <li><span class="tag fixed">fixed</span> Long file names are shortened without losing the extension, so a long video still lands in <code>Movies</code></li>
+      <li><span class="tag fixed">fixed</span> Cancelling an upload says “Cancelled” instead of an internal I/O error, and a sender walking away is no longer logged as an app failure</li>
+      <li><span class="tag fixed">fixed</span> The transfer screen resolves its probe wording at composition time, so a language change while it is open cannot leave a stale message behind</li>
+    </ul>
+
     <h2 id="v1-0-1">1.0.1 — 2026-10-15</h2>
     <ul>
       <li><span class="tag added">added</span> Thai (<code>th</code>) translation of the whole interface — heads-up display, track info panel and export snackbars included</li>
@@ -115,7 +137,6 @@
 
     <h2 id="unreleased">Unreleased — planned</h2>
     <ul>
-      <li><span class="tag changed">planned</span> CI workflow that builds and signs a draft release from a version tag</li>
       <li><span class="tag changed">planned</span> Runtime decoder switching (hardware ⇄ FFmpeg) without restarting playback, via NextLib's <code>DecoderManager</code></li>
       <li><span class="tag changed">planned</span> Subtitle auto-discovery next to the video file</li>
       <li><span class="tag changed">planned</span> Audio track picker UI (the engine already exposes the tracks)</li>

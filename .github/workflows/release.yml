@@ -51,6 +51,11 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # The transfer protocol, the file-name sanitiser and the Thai translation are all
+      # covered by JVM unit tests, so a release cannot ship with a broken wire format.
+      - name: Run the unit tests
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
       # Secrets are passed through the environment instead of being interpolated
       # into the script text, so a quote in a password cannot break the shell.
       - name: Restore the release keystore

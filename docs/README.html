@@ -43,7 +43,9 @@
       VDO Player is a <strong>local file</strong> video player for Android. It reads the videos
       already on the device, plays them with the phone's hardware decoders first and bundled FFmpeg
       decoders as a fallback, and keeps a detailed log for when a file still will not play. There is
-      no account, no streaming, and no <code>INTERNET</code> permission.
+      no account and no streaming. It can also move a file from one phone to another over your own
+      Wi-Fi, so getting a video onto the device that will play it needs no cable and no cloud
+      account.
     </p>
 
     <h3>Library</h3>
@@ -76,6 +78,8 @@
         <tr><td>Swipe vertically, left half</td><td>Brightness for the player window only</td></tr>
         <tr><td>Swipe vertically, right half</td><td>Media volume</td></tr>
         <tr><td>Long press</td><td>Play at 3× while held</td></tr>
+        <tr><td>Repeat button</td><td>Cycles off → the whole queue → this video and remembers the choice; the icon lights up while repeating</td></tr>
+        <tr><td>Seek preview</td><td>While scrubbing, a frame of the target position is decoded into the heads-up display (switchable in Settings)</td></tr>
         <tr><td>Lock</td><td>Hide every control until unlocked</td></tr>
         <tr><td>Info (top right)</td><td>Stream details for the current file, plus “copy full diagnostics”</td></tr>
         <tr><td>PiP</td><td>Continue in a floating window, using the video's real aspect ratio</td></tr>
@@ -90,6 +94,24 @@
       <img src="assets/screen-player.svg" alt="Player screen mockup" style="max-width:300px" />
       <figcaption>Player screen: title, controls, buffered indicator and the seek HUD.</figcaption>
     </figure>
+
+    <h3>Wi-Fi transfer · the Transfer tab</h3>
+    <ul>
+      <li><strong>Receive</strong> — one tap starts a small HTTP server on the phone and shows an
+        address plus a four digit code. Nothing is accepted without that code.</li>
+      <li><strong>Send</strong> — the other phone finds this one over mDNS (no pairing, no setup),
+        or you type the address the receiving phone shows. <code>192.168.1.20</code> is enough.</li>
+      <li><strong>No router at all?</strong> The receiving phone opens a <strong>Wi-Fi Direct</strong>
+        group and the sender joins it directly; the group owner then appears in the same receiver
+        list, with the same code and progress. Android asks for the Nearby devices permission the
+        first time it is used.</li>
+      <li>Several files at once, sent one after another, with progress and a cancel button. A
+        cancelled or interrupted transfer leaves no half file behind on either side.</li>
+      <li>Videos land in <code>Movies/VDO Player</code> and appear in the library immediately;
+        everything else lands in <code>Download/VDO Player</code>.</li>
+      <li>Log tag <code>TRANSFER</code> records each incoming and outgoing file with its size and
+        the peer address.</li>
+    </ul>
 
     <h3>Languages</h3>
     <p>The interface ships in English (default) and Thai. On Android 13 and newer, both appear in
@@ -129,15 +151,28 @@
         <tr><td><code>FOREGROUND_SERVICE</code>, <code>FOREGROUND_SERVICE_MEDIA_PLAYBACK</code></td><td>Keep audio playing with the screen off</td></tr>
         <tr><td><code>WAKE_LOCK</code></td><td>Stop the CPU sleeping mid-playback</td></tr>
         <tr><td><code>WRITE_EXTERNAL_STORAGE</code> (≤9 only)</td><td>Legacy path for saving an export to Downloads</td></tr>
+        <tr><td><code>INTERNET</code></td><td>The local sockets the Wi-Fi transfer uses: the receiving server on one phone, the sending client on the other. A normal permission, granted at install time, so no dialog appears.</td></tr>
+        <tr><td><code>ACCESS_NETWORK_STATE</code></td><td>Read whether Wi-Fi is up so the transfer screen can explain itself instead of failing silently</td></tr>
+        <tr><td><code>ACCESS_LOCAL_NETWORK</code> (Android 17+)</td><td>Android 17 blocks local network traffic — the receiving socket and mDNS included — for apps that target it. Requested the first time the Transfer tab is used.</td></tr>
       </tbody>
     </table>
-    <p>There is no <code>INTERNET</code> permission. Logs live in the app's private external directory
-      and are excluded from cloud backup; sharing is always an action you take.</p>
+    <p><strong>Nothing is uploaded anywhere.</strong> <code>INTERNET</code> is declared because a socket
+      is how two phones on one Wi-Fi talk to each other: one listens on a port, the other connects to
+      the address you pick or discover. There is no server for the app to talk to, no account and no
+      analytics, and it never resolves a name on the public internet. Files move only when you press
+      <strong>Start receiving</strong> on one phone and <strong>Pick files and send</strong> on the
+      other; <code>ACCESS_LOCAL_NETWORK</code> keeps that working on Android 17, where the network
+      stack would otherwise block the traffic. Logs live in the app's private external directory and
+      are excluded from cloud backup; sharing is always an action you take.</p>
+    <div class="callout">
+      Deny <code>ACCESS_LOCAL_NETWORK</code> and nothing else breaks: the Transfer tab shows a notice
+      with a button to grant it, and the rest of the app keeps working.
+    </div>
 
     <h2 id="diagnostics-and-logs">Diagnostics and logs</h2>
     <div class="grid">
       <div class="card"><h3>LogBus</h3><p>2000-entry ring buffer, versioned snapshots, logcat mirror,
-        8 tags (<code>APP UI PLAYER MEDIA DECODER STORAGE EXPORT CRASH</code>) and 6 levels.</p></div>
+        9 tags (<code>APP UI PLAYER MEDIA DECODER STORAGE EXPORT TRANSFER CRASH</code>) and 6 levels.</p></div>
       <div class="card"><h3>LogFileWriter</h3><p>Asynchronous rotating files: 2 MB each, ten kept,
         oldest pruned, in <code>Android/data/com.nardech.vdoplayer/files/logs/</code>.</p></div>
       <div class="card"><h3>CrashGuard</h3><p>Uncaught exceptions are logged with a device summary and
@@ -169,13 +204,35 @@
         <tr><td>No subtitles</td><td>Use the subtitle button to pick the file; embedded tracks appear automatically</td></tr>
         <tr><td>Choppy playback</td><td>Prefer hardware decoding, or use a lower resolution source — FFmpeg decoding is CPU work</td></tr>
         <tr><td>Battery drain while idle</td><td>Check the notification is gone; background playback may still be enabled</td></tr>
+        <tr><td>The video repeats, or never moves on</td><td>Check the repeat button: lit for “whole queue”, a “1” badge for “this video”, dim for off</td></tr>
+        <tr><td>Scrubbing feels slow on a 4K file</td><td>The seek preview decodes a frame per two seconds of movement. Turn <strong>Seek preview</strong> off in Settings for the time label alone</td></tr>
+        <tr><td>Wi-Fi Direct refused the request</td><td>Both phones need Wi-Fi Direct on and no other group open; the receiving phone must open the group first. Fall back to a hotspot plus the typed address</td></tr>
+        <tr><td>The other phone never appears in the send list</td><td>Both phones must be on the same Wi-Fi (not one on mobile data), and receiving must be started on the other phone. Guest networks that isolate clients block discovery by design — type the address instead, or share a hotspot from one phone.</td></tr>
+        <tr><td>“Nothing answered there”</td><td>Check the address on the receiving phone, including the port (<code>192.168.1.20:45871</code>); typing only <code>192.168.1.20</code> assumes the default port</td></tr>
+        <tr><td>Transfers time out on Android 17</td><td>Allow <strong>Nearby devices</strong> for the app in system Settings → Apps → VDO Player → Permissions. Android 17 blocks local network traffic without it, and a blocked TCP connection looks like a timeout.</td></tr>
+        <tr><td>The code keeps being rejected</td><td>The code changes when receiving is restarted, and rotates by itself after repeated wrong attempts. Read it off the receiving phone again.</td></tr>
+        <tr><td>A file arrived with the wrong name</td><td>Only characters a file system cannot take (<code>/ \ : * ? " &lt; &gt; |</code>) become <code>_</code>; Thai text and every other character are kept as sent</td></tr>
+      </tbody>
+    </table>
+
+    <h2 id="faq">Common questions</h2>
+    <table>
+      <thead><tr><th>Question</th><th>Answer</th></tr></thead>
+      <tbody>
+        <tr><td>How do I switch the app to Thai?</td><td>Android 13+: <strong>Settings → System → App languages → VDO Player</strong>. Older releases follow the system language.</td></tr>
+        <tr><td>Does it support network streams?</td><td>No. It plays files that are on the device; <code>INTERNET</code> exists only for the Wi-Fi transfer tab, which talks to another phone on your own network.</td></tr>
+        <tr><td>Does the transfer need internet access?</td><td>No — only Wi-Fi between the two phones (a router, a public hotspot, or one phone sharing its hotspot). Airplane mode plus Wi-Fi works.</td></tr>
+        <tr><td>Where do received files go?</td><td>Videos to <code>Movies/VDO Player</code>, everything else to <code>Download/VDO Player</code>; both show up in the phone's Files app, and videos appear in the library at once.</td></tr>
+        <tr><td>Can it send to a PC?</td><td>The receiving side is plain HTTP: <code>curl -H 'X-VDO-Code: 1234' --data-binary @clip.mp4 'http://192.168.1.20:45871/upload?name=clip.mp4'</code> works from any machine on the same network.</td></tr>
+        <tr><td>Is my watch history uploaded?</td><td>No. It is a small JSON blob in the app's private DataStore, cleared from the Recent tab.</td></tr>
       </tbody>
     </table>
 
     <h2 id="building-from-source">Building from source</h2>
     <pre><code>export ANDROID_HOME=/path/to/Android/Sdk
 ./gradlew :app:assembleDebug     # debug APK
-./gradlew :app:assembleRelease   # per-ABI + universal release APKs</code></pre>
+./gradlew :app:assembleRelease   # per-ABI + universal release APKs
+./gradlew :app:testDebugUnitTest # wire protocol, file names, Thai translations</code></pre>
     <p>Requires JDK 17, Android SDK platform 37 and build-tools 37.0.0. Release signing reads
       <code>keystore.properties</code>; without it, release builds fall back to the debug key so they
       still compile. See <a href="../AGENT.md">AGENT.md</a> for the build traps that cost time

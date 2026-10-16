@@ -13,7 +13,8 @@ a measurement from this machine, it says so.
 - [7. Licensing](#7-licensing)
 - [8. Screenshots](#8-screenshots)
 - [9. Rejected alternatives](#9-rejected-alternatives)
-- [10. References](#10-references)
+- [10. Wi-Fi transfer: why HTTP on the LAN](#10-wi-fi-transfer-why-http-on-the-lan)
+- [11. References](#11-references)
 
 ---
 
@@ -220,9 +221,22 @@ different decoder stack entirely.
 
 The documentation uses vector mockups (`docs/assets/screen-*.svg`) rather than
 device captures. No Android device or emulator participated in building this
-release, so presenting renders as screenshots would be dishonest. The mockups
+release, so presenting renders as screenshots would be dishonest. The emulator
+cannot start on the build machine at all: CPU virtualisation is disabled in the
+firmware (`Virtualization Enabled In Firmware: No` in `systeminfo`), so Google's
+Android Emulator hypervisor driver installs but never loads and `emulator` exits
+with `x86_64 emulation currently requires hardware acceleration!`. The mockups
 reproduce the shipped layouts — component order, iconography and the information
 each screen shows — and are labelled as mockups wherever they appear.
+
+What *is* verified without a device, and how: `./gradlew :app:testDebugUnitTest`
+runs 40 JVM tests that stand up the real receiving server on a loopback socket and
+drive it with the real client (upload, wrong code, no length, truncated body,
+chunked body, three concurrent uploads, code rotation, hostile file names,
+cancellation), `:app:lintDebug` keeps the build free of errors, and
+`aapt2 dump resources` shows the `(th)` values that actually got packaged. That is
+evidence about the protocol and the resources, not about pixels or MediaStore on a
+real phone — see the release notes for the list of what remains unproven.
 
 ## 9. Rejected alternatives
 
@@ -236,9 +250,48 @@ each screen shows — and are labelled as mockups wherever they appear.
 | Grid/list as two screens | Unnecessary duplication; layout is a property of the library screen |
 | Room for playback history | A `DataStore` JSON blob is a few hundred entries of cheap writes; a database is overhead at this scale |
 | R8 minification in 1.0.0 | Unverifiable without a device in the loop; documented as a future switch |
-| `INTERNET` permission | Not needed: the app only plays local files. Omitting it makes "no uploads" a structural fact |
+| `INTERNET` permission (1.0.0) | Not needed while the app only played local files, so it was left out. 1.1.0's Wi-Fi transfer needs a socket, so the manifest declares it and the manual explains what it is for |
+| Nearby Connections / Wi-Fi Direct for the transfer | Play Services and a second permission dance for phones that are usually in the same room. A hand-written HTTP server needs no dependency and can be driven with `curl` |
+| A cloud or relay server for the transfer | Requires a backend and an account to move a file ten metres. The LAN path also keeps working with no internet connection at all |
 
-## 10. References
+## 10. Wi-Fi transfer: why HTTP on the LAN
+
+Two phones in the same room do not need a cloud. The 1.1.0 transfer tab is
+deliberately the smallest thing that works:
+
+| Decision | Reason |
+|---|---|
+| Plain HTTP/1.1 on a socket, written by hand | No dependency, no Play Services, no native code. The protocol is one Kotlin file and the whole wire contract is covered by JVM tests over loopback sockets, so a broken frame fails in CI rather than on a phone |
+| A four digit code in a header | The receiver cannot tell a friendly phone from a hostile one on a shared network. The code is the only authorisation, it can be regenerated on demand, and it rotates itself after repeated wrong attempts |
+| mDNS (`NsdManager`) for discovery, a typed address as the fallback | Discovery is a convenience, not a requirement: captive portals and guest networks that isolate clients break multicast, and the manual path keeps transfers working there |
+| MediaStore `IS_PENDING` on Android 10+ | A half-finished transfer is invisible to the gallery; only `commit()` publishes the file. Before Android 10 the app writes into `Movies/VDO Player` and asks the media scanner to index it |
+| Files land in `Movies/VDO Player` | The app's own MediaStore scan then shows the new video without a restart |
+| Sender streams, receiver writes | A 4 GB file costs the same memory as a 4 MB one, and the sender can stream from a `content://` URI without staging a copy |
+
+### Permissions this needs on modern Android
+
+| Use | Android 12 and below | Android 13–16 | Android 17, targetSdk 37 |
+|---|---|---|---|
+| `ServerSocket` listening on the LAN | `INTERNET` | `INTERNET` | `INTERNET` + runtime `ACCESS_LOCAL_NETWORK` |
+| `NsdManager` register / discover | `INTERNET` | `INTERNET` — NSD is not one of the Wi-Fi APIs that `NEARBY_WIFI_DEVICES` covers (that list is Wi-Fi P2P and Aware) | `INTERNET` + `ACCESS_LOCAL_NETWORK` |
+| Wi-Fi Direct (`WifiP2pManager`) — not used here | `ACCESS_FINE_LOCATION` | `NEARBY_WIFI_DEVICES` | `NEARBY_WIFI_DEVICES` (+ `ACCESS_LOCAL_NETWORK` for the traffic) |
+
+Android 17 (API 37) enforces the Local Network Protections project for apps that
+target SDK 37: an incoming TCP connection, an outgoing connection to a local
+address and mDNS all need `ACCESS_LOCAL_NETWORK` (part of the Nearby devices
+permission group), and without it the traffic is blocked by the network stack —
+a blocked TCP connection looks like a timeout, not a permission error. That is
+why the app asks for the permission before starting a receive session and says so
+in the UI when it is missing. Apps targeting SDK 36 or lower keep an implicit
+grant through `INTERNET`; the requirement only appeared when the target SDK moved
+to 37, which is a reminder that a target SDK bump can silently disable a feature
+that never had a permission dialogue before.
+
+Sources: [Local network permission](https://developer.android.com/privacy-and-security/local-network-permission),
+[Use network service discovery](https://developer.android.com/develop/connectivity/wifi/use-nsd),
+[Request permission to access nearby Wi-Fi devices](https://developer.android.com/develop/connectivity/wifi/wifi-permissions).
+
+## 11. References
 
 1. AGP 9.4 release notes — https://developer.android.com/build/releases/agp-9-4-0-release-notes
 2. AGP and Gradle compatibility — https://developer.android.com/build/releases/about-agp
@@ -259,3 +312,8 @@ each screen shows — and are labelled as mockups wherever they appear.
 17. vlc-android source — https://github.com/videolan/vlc-android
 18. Android NDK ABI guidance — https://developer.android.com/ndk/guides/abis
 19. GNU GPL-3.0 text — https://www.gnu.org/licenses/gpl-3.0.txt
+20. Local network permission (Android 17 enforcement) — https://developer.android.com/privacy-and-security/local-network-permission
+21. Use network service discovery (NsdManager) — https://developer.android.com/develop/connectivity/wifi/use-nsd
+22. Request permission to access nearby Wi-Fi devices — https://developer.android.com/develop/connectivity/wifi/wifi-permissions
+23. Share files with MediaStore `IS_PENDING` — https://developer.android.com/training/data-storage/shared/media
+24. JUnit 4 for JVM unit tests — https://junit.org/junit4/

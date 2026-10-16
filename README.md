@@ -3,8 +3,9 @@
 <img src="docs/assets/app-icon.svg" alt="VDO Player icon" width="120" align="right" />
 
 An Android video player for the videos **already on your phone**: it scans your
-media library, plays practically anything the hardware can throw at it, and keeps
-a detailed log you can hand to a developer when something refuses to play.
+media library, plays practically anything the hardware can throw at it, hands a
+file to another phone over Wi-Fi, and keeps a detailed log you can hand to a
+developer when something refuses to play.
 
 [![Latest release](https://img.shields.io/github/v/release/NarDecH/Android_VDO_Player?sort=semver)](https://github.com/NarDecH/Android_VDO_Player/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/NarDecH/Android_VDO_Player/total)](https://github.com/NarDecH/Android_VDO_Player/releases)
@@ -28,6 +29,10 @@ a detailed log you can hand to a developer when something refuses to play.
 3. **ระบบ log ละเอียดสำหรับดีบัก** — เก็บ log ลงไฟล์แบบหมุนเวียน (สูงสุด 10 ไฟล์ ไฟล์ละ 2 MB),
    จับ crash พร้อม stack trace, มีรายงานอุปกรณ์ + รายการ codec ของเครื่อง และกด
    **ส่ง** หรือ **บันทึกลง Downloads** เป็น .txt หรือ .zip ได้ในคลิกเดียว
+4. **ส่ง-รับไฟล์ระหว่างมือถือผ่าน Wi-Fi** — แท็บ **รับ-ส่ง** เครื่องหนึ่งกด *เริ่มรับ*
+   อีกเครื่องกด *ค้นหา* แล้วเจอกันเองในวง Wi-Fi เดียวกัน (หรือพิมพ์ที่อยู่เองก็ได้)
+   กรอกรหัส 4 หลักที่เครื่องรับแสดงไว้ แล้วไฟล์ก็ย้ายเครื่อง วิดีโอไปอยู่ที่
+   **Movies/VDO Player** และขึ้นในคลังให้เล่นต่อทันที ไม่ต้องต่อเน็ตออกนอก ไม่ต้องมีบัญชี
 
 เมนูทั้งแอปมีสองภาษา: อังกฤษ (ค่าเริ่มต้น) และ **ไทย** เปลี่ยนได้ที่
 **ตั้งค่า → ระบบ → ภาษาแอป** (Android 13 ขึ้นไป) ส่วนข้อความใน log และรายงานวินิจฉัย
@@ -43,12 +48,13 @@ a detailed log you can hand to a developer when something refuses to play.
 | | |
 |---|---|
 | **Library** | MediaStore scan with live updates, thumbnails, search, folder filter chips, sort by date/name/duration/size, grid or list layout |
-| **Playback** | Media3 ExoPlayer, FFmpeg software fallback decoders, playlists with next/previous, resume where you stopped, background audio through a media notification |
-| **Controls** | Tap to show controls, double tap ±seek, swipe for brightness / volume / seek, pinch-free zoom modes, long press for 3× speed, control lock, screen rotation, picture-in-picture |
+| **Playback** | Media3 ExoPlayer, FFmpeg software fallback decoders, playlists with next/previous, resume where you stopped, repeat off / whole queue / one video (remembered), background audio through a media notification |
+| **Controls** | Tap to show controls, double tap ±seek, swipe for brightness / volume / seek with a frame preview of the target position, pinch-free zoom modes, long press for 3× speed, control lock, screen rotation, picture-in-picture |
 | **Format support** | Platform hardware decoders plus FFmpeg: H.264, HEVC, VP8, VP9, AV1 (dav1d), AAC, AC-3, E-AC-3, FLAC, OPUS, Vorbis, DTS, TrueHD, MLP and more |
 | **Subtitles** | Embedded text tracks plus side-loaded `.srt` / `.vtt` / `.ass` picker, subtitle on/off toggle |
 | **Diagnostics** | Ring-buffer log with level/tag/text filters, rotating files on disk, crash capture, device + MediaCodec inventory, export as `.txt` or `.zip`, share or save to Downloads |
 | **UX** | Material 3 with dynamic colour, light/dark/system themes, 1–4 column library, gesture toggle, keep-screen-on, remember brightness |
+| **Transfer** | Phone-to-phone over your own Wi-Fi — or over **Wi-Fi Direct** when there is no router at all: receive mode runs a local server behind a four digit code, send mode finds receivers over mDNS or takes a typed `ip:port`, several files at a time with progress and cancel, videos land in Movies/VDO Player and appear in the library |
 | **Languages** | English and Thai UI, listed in the Android 13+ per-app language picker; log lines and diagnostics stay English so they can be pasted into a bug report |
 
 Stream details are visible while watching: tap the info button to see the exact
@@ -76,8 +82,11 @@ rather than device captures).
 3. Allow installation from unknown sources when Android asks, then open the file.
 
 Requires Android 8.0 (API 26) or newer. The app asks for video read access on
-first launch; nothing is uploaded anywhere — video never leaves the device, and
-logs are only shared when you tap Share or Save.
+first launch, and for local network access on Android 17 if you use the transfer
+tab. Videos never leave the device on their own: the only outbound traffic is the
+Wi-Fi transfer you start yourself, which talks to another phone on the same
+network (`INTERNET` is declared for those local sockets — nothing is uploaded to
+the internet). Logs are shared only when you tap Share or Save.
 
 ## Diagnostics: how the logging works
 
@@ -100,6 +109,7 @@ lines, or export. Level `DEBUG` writes to disk by default; raise it to `INFO` or
 export ANDROID_HOME=/path/to/Android/Sdk
 ./gradlew :app:assembleDebug        # debug APK, installs alongside release builds
 ./gradlew :app:assembleRelease      # signed release APKs (per ABI + universal)
+./gradlew :app:testDebugUnitTest    # JVM tests for the transfer protocol and the translations
 ```
 
 Release signing reads `keystore.properties` from the repository root:
@@ -123,8 +133,10 @@ app/src/main/java/com/nardech/vdoplayer/
 ├── data/                      MediaStore library, settings, playback history
 ├── logging/                   LogBus, rotating file writer, crash guard, export
 ├── playback/                  ExoPlayer factory, MediaSessionService, view model
-├── ui/                        Compose screens (library, player, recent, logs, settings)
+├── transfer/                  Wi-Fi send/receive: protocol, server, client, mDNS, MediaStore sink
+├── ui/                        Compose screens (library, player, recent, transfer, logs, settings)
 └── util/                      formatters, intent helpers
+app/src/test/java/             JVM unit tests: wire protocol, name sanitising, Thai translations
 docs/                          Markdown + HTML documentation, GitHub Pages download site
 AGENT.md                       working notes for AI agents in this repository
 ```

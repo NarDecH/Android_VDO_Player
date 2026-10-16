@@ -34,12 +34,12 @@
     <p class="tagline">
       An Android player for the videos already on your device: hardware decoding when it works,
       bundled FFmpeg decoders when it does not, and a log you can send in one tap when a file
-      still refuses to play.
+      still refuses to play. Move a file to your other phone over Wi-Fi on the way.
     </p>
 
     <div class="chips">
       <span class="chip"><strong>Android 8.0+</strong> · API 26</span>
-      <span class="chip"><strong>No internet permission</strong> · nothing is uploaded</span>
+      <span class="chip"><strong>Wi-Fi transfer</strong> · phone to phone, no cable, no cloud</span>
       <span class="chip"><strong>FFmpeg fallback</strong> · AC-3, DTS, TrueHD, VP9, AV1</span>
       <span class="chip"><strong>English + ไทย</strong> · per-app language picker</span>
       <span class="chip"><strong>GPL-3.0</strong> · source available</span>
@@ -116,16 +116,25 @@
           export as <code>.txt</code> or <code>.zip</code> — share it or save it to Downloads.</p>
       </div>
       <div class="card">
+        <div class="kicker">Transfer</div>
+        <h3>Phone to phone over Wi-Fi</h3>
+        <p>One phone shows an address and a four digit code, the other finds it in the same Wi-Fi and
+          sends as many files as you pick. With no router between the two, Wi-Fi Direct does the same
+          job. Videos land in <code>Movies/VDO Player</code> and appear in the library immediately.</p>
+      </div>
+      <div class="card">
         <div class="kicker">Privacy</div>
-        <h3>No internet permission</h3>
-        <p>The manifest has no <code>INTERNET</code> permission. Your videos and logs cannot leave the
-          device except through the share sheet you trigger.</p>
+        <h3>No cloud, no account</h3>
+        <p>Files move over your own network and nowhere else. There is no backend to upload to and no
+          analytics; <code>INTERNET</code> exists only for the socket between the two phones, and the
+          code stops anyone else on the Wi-Fi from dropping files in.</p>
       </div>
       <div class="card">
         <div class="kicker">Controls</div>
         <h3>Common gestures</h3>
         <p>Swipe for brightness and volume, double tap to seek, long press for 3× speed, control lock,
-          aspect modes, subtitles from disk, picture-in-picture.</p>
+          aspect modes, subtitles from disk, picture-in-picture — and a frame preview of where a
+          scrub is heading, plus repeat off / queue / one video.</p>
       </div>
       <div class="card">
         <div class="kicker">Library</div>
@@ -189,6 +198,7 @@
       <tr><th>Minimum Android</th><td>8.0 (API 26)</td></tr>
       <tr><th>Built against</th><td>compileSdk / targetSdk 37, JDK 17, AGP 9.4.1, Gradle 9.8.1</td></tr>
       <tr><th>Playback</th><td>Media3 1.11.1 (ExoPlayer) with NextLib FFmpeg renderers 1.11.1-0.16.0</td></tr>
+      <tr><th>Transfer</th><td>In-app HTTP server + client over Wi-Fi, mDNS discovery, no third-party SDK</td></tr>
       <tr><th>UI</th><td>Jetpack Compose (BOM 2026.09.00), Material 3, dynamic colour</td></tr>
       <tr><th>Languages</th><td>English (default) and Thai, declared in <code>locales_config.xml</code> for the Android 13+ per-app picker</td></tr>
       <tr><th>Licence</th><td>GPL-3.0-or-later (the FFmpeg decoder library is GPL-3.0)</td></tr>

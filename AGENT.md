@@ -20,17 +20,35 @@ whose whole purpose is to make a failure on someone else's phone debuggable.
 export ANDROID_HOME=/path/to/Android/Sdk
 
 ./gradlew :app:assembleDebug      # fast check that everything compiles
+./gradlew :app:testDebugUnitTest  # JVM tests: wire protocol, file names, translations
 ./gradlew :app:assembleRelease    # per-ABI + universal signed APKs
 ./gradlew :app:lintDebug          # lint is configured with abortOnError = false
 ```
 
 Verification rules that apply to this repository:
 
-* A change is not done until `:app:assembleDebug` succeeds. Kotlin errors here
-  are usually about Media3 APIs; see the gotchas below before assuming a typo.
-* There is **no device or emulator in the loop**. A successful build proves the
-  code compiles and packages (including that FFmpeg `.so` files are inside the
-  APK) — it does not prove playback works. Say so explicitly when reporting.
+* A change is not done until `:app:assembleDebug` (or the test task, which
+  compiles the same sources) succeeds. `:app:lintDebug` does **not** fail the
+  build on purpose (`abortOnError = false`): its report holds ~54 pre-existing
+  `UnsafeOptInUsageError` entries for Media3/NextLib unstable APIs in
+  `AppRoot`, `Diagnostics`, `PlayerFactory` and `PlayerScreen`, so judge a lint
+  run by whether *new* findings appear, not by the total. Kotlin errors here are usually about
+  Media3 APIs; see the gotchas below before assuming a typo.
+* `:app:testDebugUnitTest` is plain JUnit 4 on the JVM — no Android SDK jar, no
+  Robolectric, no device. Anything that can be tested without Android belongs
+  there, so keep new protocol or formatting logic out of the UI layer:
+  `transfer/TransferServerTest` and `TransferClientTest` start a real server on a
+  loopback socket, `TransferProtocolTest` covers names/URLs/JSON, `DirectGroupPlannerTest`
+  covers the Wi-Fi Direct address rules, `PlaybackPreferencesTest` the repeat cycle,
+  `SeekPreviewPolicyTest` the frame bucketing, and `LocalizationTest` parses both
+  `strings.xml` files and fails on a missing key, a lost `%1$s` placeholder or an
+  untranslated value.
+* There is still **no device or emulator in the loop** (the emulator cannot start
+  on a machine without the hypervisor driver). A successful build proves the code
+  compiles and packages — including that FFmpeg `.so` files and the Thai strings
+  are inside the APK — but not that playback works on a phone. Say so explicitly
+  when reporting, and prove what you can statically: `aapt2 dump resources` shows
+  the `(th)` values that were packaged.
 * `apksigner verify --verbose` must report `Verified using v2 scheme: true` for
   release artifacts. Run it from
   `$ANDROID_HOME/build-tools/37.0.0/apksigner` (`.bat` on Windows).
@@ -50,8 +68,12 @@ app/src/main/java/com/nardech/vdoplayer/
 │                          LogShare (export/share/save)
 ├── playback/              PlayerFactory, PlaybackService (MediaSessionService),
 │                          PlaybackViewModel (MediaController + UI state)
-├── ui/                    AppRoot + library/player/recent/logs/settings screens
+├── transfer/              Wi-Fi send/receive: TransferProtocol (wire contract),
+│                          TransferServer, TransferClient, TransferDiscovery (mDNS),
+│                          MediaStoreReceivedFileSink, TransferManager (state for the UI)
+├── ui/                    AppRoot + library/player/recent/transfer/logs/settings screens
 └── util/                  Formatters, IntentHelpers
+app/src/test/java/         JVM unit tests (JUnit 4) — see “Build and verify”
 docs/                      user documentation (Markdown + HTML) and the Pages site
 ```
 
@@ -78,7 +100,46 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
    enums map to resources in `ui/Labels.kt` so `data/` and `logging/` stay free of
    Android resources. Log lines, diagnostics reports and the clipboard labels used
    when sharing them stay English on purpose: they are pasted into bug reports.
-6. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
+6. **The transfer is a hand-written HTTP server on the LAN, not a service.**
+   `TransferProtocol` holds the whole wire contract (paths, the `X-VDO-Code`
+   header, name sanitising, JSON); `TransferServer` is a tiny HTTP/1.1 server that
+   streams one file per request into a `ReceivedFileSink`, and `TransferClient`
+   posts one file per request. Both are deliberately free of Android APIs so the
+   protocol is testable on the JVM. Keep them that way: put anything platform
+   specific behind the sink or the event callback.
+7. **Nothing is published before it is complete.** The Android sink inserts into
+   MediaStore with `IS_PENDING = 1` and only clears it on `commit()`; a cancelled
+   or interrupted transfer calls `discard()`, so a half file never appears in the
+   gallery. The test sink does the same with a temp directory.
+8. **The four digit code is the only authorisation.** A phone on a shared network
+   cannot tell a friendly sender from a hostile one, so a request without the
+   current code gets `403` (and the code rotates by itself after repeated wrong
+   attempts). Do not relax that for convenience.
+9. **Local network access is a runtime permission on Android 17.** Since the app
+   targets SDK 37, Android 17 blocks the receiving socket, mDNS and outgoing
+   connections until `ACCESS_LOCAL_NETWORK` is granted — and a blocked TCP
+   connection surfaces as a timeout, not a permission error. `TransferManager`
+   checks `hasLocalNetworkPermission()` and the Transfer screen requests it before
+   starting a receive session or a scan. Anything new that touches the local
+   network must go through the same gate.
+10. **Repeat lives in the player, the choice lives in a `SharedPreferences`.**
+    `PlaybackPreferences` stores the repeat mode in the same `vdo_player_runtime` file
+    as the decoder preference, because `PlaybackService` has to apply it while it
+    builds the player — long before a coroutine or a DataStore read is available.
+    The UI cycles the mode with `PlaybackPreferences.nextRepeatMode`, never with its
+    own arithmetic.
+11. **Seek previews are decoded on demand and bucketed.** `SeekPreviewPolicy` decides
+    when a frame is worth taking (two-second buckets, so a slow drag reuses the frame
+    on screen), and `SeekPreviewSource` serialises the decodes behind one
+    `MediaMetadataRetriever` per media item with an LRU in front. Do not call
+    `getFrameAtTime` from composition or from the main thread: it is a full container
+    seek plus a decode.
+12. **Wi-Fi Direct is a fallback, never the default path.** `DirectTransfer` only
+    answers "what address do I dial" — a group owner receives, the joiner sends, and
+    the joiner's peer list gains the owner so the normal HTTP flow is unchanged. Every
+    framework call is guarded, and a refusal leaves `DirectState.issue` set while the
+    app keeps working over ordinary Wi-Fi.
+13. **`local.properties` uses forward slashes.** A `sdk.dir` written with escaped
    Windows backslashes makes AGP fail with a bare
    `java.io.IOException: The filename, directory name, or volume label syntax is incorrect`
    from `SdkLocator.validateSdkPath`. Use `cygpath -m` if you generate it.
@@ -86,16 +147,26 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
 ## Localisation
 
 * A language only counts as complete when its key set and its `%1$s` placeholders
-  match `values/strings.xml`. Check both before a release:
+  match `values/strings.xml`. `LocalizationTest` enforces that on every test run
+  (same keys, no duplicates, placeholders intact, and a Thai value that really
+  contains Thai text), so the usual failure is a red test rather than a manual
+  `comm`:
+
+  ```bash
+  ./gradlew :app:testDebugUnitTest --tests '*LocalizationTest'
+  ```
+
+  The old manual check, for when you want to see the difference while editing:
 
   ```bash
   # keys that exist in English but not in Thai (and vice versa)
   comm -3 <(grep -o 'name="[a-z_0-9]*"' app/src/main/res/values/strings.xml | sort) \
           <(grep -o 'name="[a-z_0-9]*"' app/src/main/res/values-th/strings.xml | sort)
-  # R.string keys used in Kotlin but missing from the resources
-  comm -23 <(grep -rho 'R\.string\.[a-z_0-9]*' app/src/main/java | sed 's/R\.string\.//' | sort -u) \
-           <(grep -o 'name="[a-z_0-9]*"' app/src/main/res/values/strings.xml | sed 's/name="//;s/"//' | sort)
   ```
+
+  Symbol-only or brand values (`app_name`, `details_uri`, `transfer_progress`, …)
+  legitimately read the same in both files and are listed in `LANGUAGE_NEUTRAL` in
+  the test.
 
 * `res/xml/locales_config.xml` plus `android:localeConfig` on `<application>` is
   what makes the Android 13 “App languages” picker offer the language. Adding a
@@ -145,12 +216,25 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
 ## Release process
 
 1. Bump `versionCode` / `versionName` in `app/build.gradle.kts`.
-2. Update `docs/CHANGELOG.md` **and** `docs/CHANGELOG.html`.
-3. `./gradlew :app:assembleRelease` and verify with `apksigner verify`.
-4. `gh release create vX.Y.Z app/build/outputs/apk/release/*.apk --title … --notes …`
-5. The download page reads the GitHub release API at runtime, so no page edit is
-   needed — it picks up the new tag automatically.
-6. Commit and push (`docs/` is the Pages source; the site redeploys from `main`).
+2. Update `docs/CHANGELOG.md` **and** `docs/CHANGELOG.html`, and add the new
+   `[X.Y.Z]: …/releases/tag/vX.Y.Z` link at the bottom of the Markdown file.
+3. Verify locally: `./gradlew :app:testDebugUnitTest :app:assembleRelease`, then
+   `apksigner verify --print-certs` on the APKs and `aapt2 dump badging` for the
+   version that was packaged.
+4. Push the commit to `main`, then push the tag: `git tag -a vX.Y.Z -m …` and
+   `git push origin main vX.Y.Z`. The tag push runs
+   `.github/workflows/release.yml`, which tests, builds, signs (when the
+   `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`
+   repository secrets exist) and opens a **draft** release with the four APKs.
+5. Publish the draft on GitHub once it looks right, and copy the `SHA-256` list
+   from the workflow run summary into the release notes. The APKs that the
+   workflow builds are *not* byte-identical to a local build, so never mix the two
+   checksum sets. There is no `gh` CLI on the development machine — Workflows and
+   the draft release are handled in the browser or through the GitHub tools.
+6. The download page reads the GitHub release API at runtime, so no page edit is
+   needed — it picks up the new tag on its own.
+7. `docs/` is the Pages source and redeploys from `main`, so the documentation
+   should already be in the commit that the tag points at.
 
 ## Style
 
@@ -167,6 +251,14 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
 ```bash
 # what is inside the APK
 unzip -l app/build/outputs/apk/debug/app-debug.apk | grep '\.so$'
+
+# the Thai strings that actually got packaged, next to the English ones
+"$ANDROID_HOME/build-tools/37.0.0/aapt2" dump resources \
+  app/build/outputs/apk/release/app-arm64-v8a-release.apk | grep -A 2 'string/tab_transfer'
+
+# permissions in the built manifest
+"$ANDROID_HOME/build-tools/37.0.0/aapt2" dump permissions \
+  app/build/outputs/apk/release/app-arm64-v8a-release.apk
 
 # release certificate fingerprint
 "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs \
