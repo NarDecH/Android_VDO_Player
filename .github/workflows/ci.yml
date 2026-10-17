@@ -113,7 +113,15 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-boot-timeout: 900
-          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+          # The logcat dump has to happen while the emulator is still alive; afterwards
+          # adb just waits for a device that is never coming back.
+          script: |
+            ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+            status=$?
+            if [ $status -ne 0 ]; then
+              adb logcat -d -t 600 | tail -250
+            fi
+            exit $status
 
       # The instrumented report says which assertion failed; logcat says what the
       # player and the decoder manager did around it.
@@ -121,14 +129,14 @@ jobs:
         if: failure()
         shell: bash
         run: |
-          for report in $(find app/build/outputs/androidTest-results app/build/reports/androidTests -name '*.xml' 2>/dev/null); do
+          # Report names contain spaces and parentheses ("TEST-test(AVD) - 14.xml"), so
+          # the paths are read NUL-separated instead of word-split.
+          find app/build/outputs/androidTest-results app/build/reports/androidTests \
+            -name '*.xml' -print0 2>/dev/null |
+          while IFS= read -r -d '' report; do
             if grep -q '<failure\|<error' "$report"; then
               echo "=== $report"
               head -c 8000 "$report"
               printf '\n'
             fi
           done
-          echo '=== playback and decoder lines'
-          timeout 60 adb logcat -d -s VDO '*:S' | tail -120 || true
-          echo '=== codec lines'
-          timeout 60 adb logcat -d | grep -iE 'MediaCodec|avc|ffmpeg|ExoPlayer' | tail -120 || true
