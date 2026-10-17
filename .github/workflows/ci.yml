@@ -69,3 +69,64 @@ jobs:
               printf '\n'
             fi
           done
+
+  # The JVM tests prove the wire protocol, the file names and the translations. They
+  # cannot prove the one thing this app exists for: that a video decodes and a picture
+  # reaches the screen. This job drives the real player on an emulator, so the platform
+  # decoder, the bundled FFmpeg libraries and the live decoder switch each have to work.
+  # It is the slowest and most valuable job in this file.
+  playback-on-an-emulator:
+    name: playback on an emulator
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37.0 build-tools;37.0.0'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # The x86_64 emulator needs KVM; the runner has it, but the runner user is not
+      # in the kvm group, so the device is made readable before the emulator starts.
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the playback smoke test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-boot-timeout: 900
+          script: ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace
+
+      # The instrumented report says which assertion failed; logcat says what the
+      # player and the decoder manager did around it.
+      - name: Show the failing instrumented tests
+        if: failure()
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for report in app/build/outputs/androidTest-results/connected/**/*.xml; do
+            if grep -q '<failure\|<error' "$report"; then
+              echo "=== $report"
+              head -c 6000 "$report"
+              printf '\n'
+            fi
+          done
+          adb logcat -d -s VDO '*:S' | tail -200

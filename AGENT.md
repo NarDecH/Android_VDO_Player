@@ -21,6 +21,8 @@ export ANDROID_HOME=/path/to/Android/Sdk
 
 ./gradlew :app:assembleDebug      # fast check that everything compiles
 ./gradlew :app:testDebugUnitTest  # JVM tests: wire protocol, file names, translations
+./gradlew :app:assembleDebugAndroidTest  # compiles the instrumented playback test
+./gradlew :app:connectedDebugAndroidTest  # that test on a device/emulator (CI does this)
 ./gradlew :app:assembleRelease    # per-ABI + universal signed APKs
 ./gradlew :app:lintDebug          # lint is configured with abortOnError = false
 ```
@@ -63,12 +65,22 @@ Verification rules that apply to this repository:
   `LocalizationTest` parses both
   `strings.xml` files and fails on a missing key, a lost `%1$s` placeholder or an
   untranslated value.
-* There is still **no device or emulator in the loop** (the emulator cannot start
-  on a machine without the hypervisor driver). A successful build proves the code
-  compiles and packages — including that FFmpeg `.so` files and the Thai strings
-  are inside the APK — but not that playback works on a phone. Say so explicitly
-  when reporting, and prove what you can statically: `aapt2 dump resources` shows
-  the `(th)` values that were packaged.
+* `:app:connectedDebugAndroidTest` is the other half: the instrumented
+  `playback/PlaybackSmokeTest` builds the real player through `PlayerFactory`, plays
+  `app/src/androidTest/assets/smoke.mp4` (2 s, 160x120 H.264 baseline, ~25 KB,
+  generated once with ffmpeg and committed so no runner needs an encoder) and insists
+  on frames arriving at a real `Surface` — once with the platform decoder, once with
+  the bundled FFmpeg decoder, and once while switching between the two. It is the
+  only automated proof that a picture is produced, that the FFmpeg `.so` files load
+  on a device, and that the live decoder switch works. Run it on an emulator through
+  CI (`api-level 34`, `google_apis`, `x86_64`) rather than locally.
+* There is still **no physical device in the loop**, and the development machine
+  cannot start an emulator (no hypervisor driver), so the only place the app really
+  runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A
+  successful build proves the code compiles and packages — including that FFmpeg
+  `.so` files and the Thai strings are inside the APK — but not that playback works
+  on a phone. Say so explicitly when reporting, and prove what you can statically:
+  `aapt2 dump resources` shows the `(th)` values that were packaged.
 * `apksigner verify --verbose` must report `Verified using v2 scheme: true` for
   release artifacts. Run it from
   `$ANDROID_HOME/build-tools/37.0.0/apksigner` (`.bat` on Windows).
