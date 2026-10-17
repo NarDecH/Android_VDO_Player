@@ -1,9 +1,7 @@
 package com.nardech.vdoplayer.playback
 
 import android.content.Context
-import android.graphics.SurfaceTexture
 import android.net.Uri
-import android.view.Surface
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -13,12 +11,10 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.nardech.vdoplayer.data.DecoderPreference
 import java.io.File
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -26,10 +22,13 @@ import org.junit.runner.RunWith
  * Playback on a real Android runtime, which is what the JVM tests next door cannot
  * reach: [PlayerFactory] builds the same player the app builds, the clip is decoded
  * by the platform decoder or by the bundled FFmpeg libraries, and the test insists on
- * frames arriving at a real [Surface] — a player that reports `READY` without ever
- * producing a picture would fail here.
- *     * The clip is `app/src/androidTest/assets/smoke.mp4`: 2 seconds of 160x120 H.264
-     * baseline, video only, ~25 KB, generated once with
+ * frames arriving at a real [android.view.Surface] — a player that reports `READY`
+ * without ever producing a picture would fail here. [CountingVideoSurface] is the
+ * consumer on the other side of that surface; it is what makes "frames keep arriving"
+ * an observable fact rather than a single first frame.
+ *
+ * The clip is `app/src/androidTest/assets/smoke.mp4`: 2 seconds of 160x120 H.264
+ * baseline, video only, ~25 KB, generated once with
  * `ffmpeg -f lavfi -i testsrc2=size=160x120:rate=10:duration=2 -c:v libx264
  *  -profile:v baseline -pix_fmt yuv420p -g 10 -movflags +faststart -an smoke.mp4`
  * and committed so that a runner needs no encoder.
@@ -45,8 +44,7 @@ class PlaybackSmokeTest {
     @Test
     fun platformDecodingRendersFrames() {
         withPlayingClip(DecoderPreference.PLATFORM_FIRST) { clip ->
-            val frames = clip.awaitFrames(1)
-            assertTrue("the platform decoder rendered no frames", frames >= 1)
+            clip.awaitFrames(STREAM_FRAMES)
             assertEquals(
                 "the clip should be decoded as H.264",
                 MimeTypes.VIDEO_H264,
@@ -59,8 +57,7 @@ class PlaybackSmokeTest {
     @Test
     fun bundledFfmpegDecodesTheClip() {
         withPlayingClip(DecoderPreference.FFMPEG_FIRST) { clip ->
-            val frames = clip.awaitFrames(1)
-            assertTrue("the bundled FFmpeg decoder rendered no frames", frames >= 1)
+            clip.awaitFrames(STREAM_FRAMES)
             assertEquals(
                 MimeTypes.VIDEO_H264,
                 clip.videoSampleMimeType(),
@@ -80,21 +77,23 @@ class PlaybackSmokeTest {
     @Test
     fun switchingDecodersKeepsFramesFlowing() {
         withPlayingClip(DecoderPreference.PLATFORM_FIRST) { clip ->
-            clip.awaitFrames(1)
+            clip.awaitFrames(STREAM_FRAMES)
 
             val beforeFfmpeg = clip.frameCount()
             assertNotNull(
                 "NextLib refused the live switch to the FFmpeg decoder",
                 clip.apply(DecoderPreference.FFMPEG_FIRST),
             )
-            clip.awaitFrames(beforeFfmpeg + 1)
+            // A switch that produces one frame and stalls would freeze the picture just
+            // as badly as one that produces none, so the stream has to come back.
+            clip.awaitFrames(beforeFfmpeg + STREAM_FRAMES)
 
             val beforePlatform = clip.frameCount()
             assertNotNull(
                 "NextLib refused the live switch back to the platform decoder",
                 clip.apply(DecoderPreference.PLATFORM_ONLY),
             )
-            clip.awaitFrames(beforePlatform + 1)
+            clip.awaitFrames(beforePlatform + STREAM_FRAMES)
 
             assertNull(clip.playbackError())
         }
@@ -121,31 +120,26 @@ class PlaybackSmokeTest {
 
     private inner class PlayingClip(private val preference: DecoderPreference) {
 
-        private val frames = AtomicInteger(0)
         private val playbackError = AtomicReference<PlaybackException?>(null)
         private var engine: PlaybackEngine? = null
-        private var surface: Surface? = null
-        private var texture: SurfaceTexture? = null
+        private var output: CountingVideoSurface? = null
 
         fun start() = onMain {
             val built = PlayerFactory.build(context, preference)
             engine = built
 
-            // A SurfaceTexture is what a SurfaceView hands the player in the app, so
-            // the frames counted here travelled the real output path.
-            val surfaceTexture = SurfaceTexture(0).apply {
-                setOnFrameAvailableListener { frames.incrementAndGet() }
-            }
-            texture = surfaceTexture
-            val output = Surface(surfaceTexture)
-            surface = output
+            // A counting surface is what a SurfaceView is to the app: the frames have
+            // to be decoded, rendered into a real output and consumed before they are
+            // counted, so a player that never draws anything cannot pass this.
+            val videoOutput = CountingVideoSurface()
+            output = videoOutput
 
             built.player.addListener(object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
                     playbackError.set(error)
                 }
             })
-            built.player.setVideoSurface(output)
+            built.player.setVideoSurface(videoOutput.surface)
             // The clip is two seconds long; looping keeps frames coming while the
             // decoder is swapped underneath a running player.
             built.player.repeatMode = Player.REPEAT_MODE_ONE
@@ -154,7 +148,7 @@ class PlaybackSmokeTest {
             built.player.play()
         }
 
-        fun frameCount(): Int = frames.get()
+        fun frameCount(): Int = output?.frameCount() ?: 0
 
         fun playbackError(): PlaybackException? = playbackError.get()
 
@@ -172,10 +166,10 @@ class PlaybackSmokeTest {
                 playbackError.get()?.let { error ->
                     throw AssertionError("the player failed before rendering a frame", error)
                 }
-                if (frames.get() >= atLeast) return frames.get()
+                if (frameCount() >= atLeast) return frameCount()
                 Thread.sleep(POLL_MILLIS)
             }
-            return frames.get().also { rendered ->
+            return frameCount().also { rendered ->
                 throw AssertionError(
                     "expected at least $atLeast rendered frame(s) within ${seconds}s, " +
                         "saw $rendered (playback error: ${playbackError.get()})",
@@ -186,10 +180,8 @@ class PlaybackSmokeTest {
         fun close() = onMain {
             engine?.release()
             engine = null
-            surface?.release()
-            surface = null
-            texture?.release()
-            texture = null
+            output?.close()
+            output = null
         }
 
         private fun <T> onMain(block: () -> T): T {
@@ -218,6 +210,13 @@ class PlaybackSmokeTest {
 
     private companion object {
         const val CLIP_NAME = "smoke.mp4"
+
+        /**
+         * How many frames count as "the picture is running". The clip plays at 10
+         * frames per second, so three frames are a third of a second of video: enough
+         * to prove a stream without turning a slow emulator into a flaky failure.
+         */
+        const val STREAM_FRAMES = 3
         const val FRAME_TIMEOUT_SECONDS = 40L
         const val POLL_MILLIS = 50L
     }

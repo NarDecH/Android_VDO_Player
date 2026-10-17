@@ -74,6 +74,24 @@ Verification rules that apply to this repository:
   only automated proof that a picture is produced, that the FFmpeg `.so` files load
   on a device, and that the live decoder switch works. Run it on an emulator through
   CI (`api-level 34`, `google_apis`, `x86_64`) rather than locally.
+* The frames are counted by `playback/CountingVideoSurface`, and that class is load
+  bearing: a plain `SurfaceTexture` consumes nothing, so its queue fills after the
+  first frame and the decoder blocks forever waiting for a free slot. That is how the
+  first CI run failed — every test that needed only one frame passed, and the switch
+  test timed out on the second (`expected at least 2 rendered frame(s), saw 1`). The
+  counting surface is a small EGL context on its own thread that calls
+  `updateTexImage()` for every frame, the way a `TextureView` does internally, so
+  "the picture keeps running" is something the test can actually observe. Keep the
+  assertions on frames *streaming* (`STREAM_FRAMES`), not on the first frame arriving.
+* The emulator job drives the test through
+  `.github/scripts/run-emulator-playback-test.sh`, which must be called from a single
+  line. `reactivecircus/android-emulator-runner` runs each line of its `script:` input
+  as its own shell invocation, so an `if`/`then`/`fi` block written in the workflow
+  YAML reaches `/bin/sh` a line at a time and dies with `Syntax error: end of file
+  unexpected (expecting "fi")`; the gradle status and the diagnostics are lost with
+  it. `adb logcat` has to run inside the script too, while the emulator is still
+  alive — in a later step `adb` waits forever for a device that is gone. The JUnit
+  XML survives, so the workflow prints that from its own step as a fallback.
 * There is still **no physical device in the loop**, and the development machine
   cannot start an emulator (no hypervisor driver), so the only place the app really
   runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A

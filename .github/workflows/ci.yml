@@ -113,36 +113,15 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-boot-timeout: 900
-          # Everything a failure needs is collected here, while the emulator is still
-          # alive: `cmd || status=$?` so a failing build does not end the script before
-          # the report and the device log have been printed.
-          script: |
-            adb_bin="${ANDROID_SDK_ROOT:-$ANDROID_HOME}/platform-tools/adb"
-            [ -x "$adb_bin" ] || adb_bin=adb
+          # Deliberately one line: this action runs every line of `script:` as its own
+          # shell invocation, so an `if`/`then`/`fi` block written here reaches `/bin/sh`
+          # a line at a time and dies with "end of file unexpected (expecting fi)".
+          # The gradle run and the intact-device diagnostics live in that script.
+          script: bash .github/scripts/run-emulator-playback-test.sh
 
-            status=0
-            ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || status=$?
-            if [ "$status" -ne 0 ]; then
-              echo "=== gradle exited with $status"
-              echo '=== failing instrumented tests'
-              find app/build/outputs/androidTest-results app/build/reports/androidTests \
-                -name '*.xml' -print0 2>/dev/null |
-              while IFS= read -r -d '' report; do
-                if grep -q '<failure\|<error' "$report"; then
-                  echo "--- $report"
-                  head -c 6000 "$report"
-                  printf '\n'
-                fi
-              done
-              echo '=== test runner lines'
-              timeout 120 "$adb_bin" logcat -d -t 3000 |
-                grep -E 'TestRunner|AndroidJUnitRunner|PlaybackSmokeTest|VDO/|ExoPlayer|MediaCodec|avcodec' |
-                tail -150 || true
-            fi
-            exit $status
-
-      # The instrumented report says which assertion failed; logcat says what the
-      # player and the decoder manager did around it.
+      # The instrumented report says which assertion failed, and unlike logcat it is
+      # still on disk once the emulator is gone, so it is printed here as well: this
+      # step survives a script that never got as far as its own diagnostics.
       - name: Show the failing instrumented tests
         if: failure()
         shell: bash
