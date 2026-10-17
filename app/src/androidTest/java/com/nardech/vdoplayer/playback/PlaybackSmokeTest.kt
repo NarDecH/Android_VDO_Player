@@ -1,6 +1,8 @@
 package com.nardech.vdoplayer.playback
 
+import android.content.Context
 import android.graphics.SurfaceTexture
+import android.net.Uri
 import android.view.Surface
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
@@ -9,6 +11,7 @@ import androidx.media3.common.Player
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.nardech.vdoplayer.data.DecoderPreference
+import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
@@ -25,9 +28,8 @@ import org.junit.runner.RunWith
  * by the platform decoder or by the bundled FFmpeg libraries, and the test insists on
  * frames arriving at a real [Surface] — a player that reports `READY` without ever
  * producing a picture would fail here.
- *
- * The clip is `app/src/androidTest/assets/smoke.mp4`: 2 seconds of 160x120 H.264
- * baseline, video only, ~25 KB, generated once with
+ *     * The clip is `app/src/androidTest/assets/smoke.mp4`: 2 seconds of 160x120 H.264
+     * baseline, video only, ~25 KB, generated once with
  * `ffmpeg -f lavfi -i testsrc2=size=160x120:rate=10:duration=2 -c:v libx264
  *  -profile:v baseline -pix_fmt yuv420p -g 10 -movflags +faststart -an smoke.mp4`
  * and committed so that a runner needs no encoder.
@@ -147,7 +149,7 @@ class PlaybackSmokeTest {
             // The clip is two seconds long; looping keeps frames coming while the
             // decoder is swapped underneath a running player.
             built.player.repeatMode = Player.REPEAT_MODE_ONE
-            built.player.setMediaItem(MediaItem.fromUri(CLIP))
+            built.player.setMediaItem(MediaItem.fromUri(localClip(context)))
             built.player.prepare()
             built.player.play()
         }
@@ -199,8 +201,23 @@ class PlaybackSmokeTest {
 
     private val context get() = instrumentation.targetContext
 
+    /**
+     * The clip is packaged in the *test* APK's assets, and the player is built with the
+     * app's context, which cannot see them — `asset:///smoke.mp4` resolves inside the
+     * app under test and would fail with "Unable to open content". Copying the file into
+     * the app's cache first keeps the player reading an ordinary local file, the same
+     * path a video already on the phone takes.
+     */
+    private fun localClip(context: Context): Uri {
+        val target = File(context.cacheDir, CLIP_NAME)
+        instrumentation.context.assets.open(CLIP_NAME).use { input ->
+            target.outputStream().use { output -> input.copyTo(output) }
+        }
+        return Uri.fromFile(target)
+    }
+
     private companion object {
-        const val CLIP = "asset:///smoke.mp4"
+        const val CLIP_NAME = "smoke.mp4"
         const val FRAME_TIMEOUT_SECONDS = 40L
         const val POLL_MILLIS = 50L
     }
