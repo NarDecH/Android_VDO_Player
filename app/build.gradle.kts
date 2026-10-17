@@ -30,6 +30,10 @@ android {
         versionCode = 4
         versionName = "1.2.0"
         vectorDrawables { useSupportLibrary = true }
+
+        // The instrumented smoke test in app/src/androidTest drives the real player on a
+        // real Android runtime; the JVM tests next door cannot prove that a decoder runs.
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     signingConfigs {
@@ -151,4 +155,9 @@ dependencies {
     implementation(libs.coil.video)
 
     testImplementation(libs.junit)
+
+    // Playback is the one thing the JVM tests cannot reach: MediaCodec, the bundled
+    // FFmpeg libraries and the decoder switch all need an Android runtime.
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
 }
