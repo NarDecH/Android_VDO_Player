@@ -21,6 +21,8 @@ export ANDROID_HOME=/path/to/Android/Sdk
 
 ./gradlew :app:assembleDebug      # fast check that everything compiles
 ./gradlew :app:testDebugUnitTest  # JVM tests: wire protocol, file names, translations
+./gradlew :app:assembleDebugAndroidTest  # compiles the instrumented playback test
+./gradlew :app:connectedDebugAndroidTest  # that test on a device/emulator (CI does this)
 ./gradlew :app:assembleRelease    # per-ABI + universal signed APKs
 ./gradlew :app:lintDebug          # lint is configured with abortOnError = false
 ```
@@ -63,12 +65,40 @@ Verification rules that apply to this repository:
   `LocalizationTest` parses both
   `strings.xml` files and fails on a missing key, a lost `%1$s` placeholder or an
   untranslated value.
-* There is still **no device or emulator in the loop** (the emulator cannot start
-  on a machine without the hypervisor driver). A successful build proves the code
-  compiles and packages — including that FFmpeg `.so` files and the Thai strings
-  are inside the APK — but not that playback works on a phone. Say so explicitly
-  when reporting, and prove what you can statically: `aapt2 dump resources` shows
-  the `(th)` values that were packaged.
+* `:app:connectedDebugAndroidTest` is the other half: the instrumented
+  `playback/PlaybackSmokeTest` builds the real player through `PlayerFactory`, plays
+  `app/src/androidTest/assets/smoke.mp4` (2 s, 160x120 H.264 baseline, ~25 KB,
+  generated once with ffmpeg and committed so no runner needs an encoder) and insists
+  on frames arriving at a real `Surface` — once with the platform decoder, once with
+  the bundled FFmpeg decoder, and once while switching between the two. It is the
+  only automated proof that a picture is produced, that the FFmpeg `.so` files load
+  on a device, and that the live decoder switch works. Run it on an emulator through
+  CI (`api-level 34`, `google_apis`, `x86_64`) rather than locally.
+* The frames are counted by `playback/CountingVideoSurface`, and that class is load
+  bearing: a plain `SurfaceTexture` consumes nothing, so its queue fills after the
+  first frame and the decoder blocks forever waiting for a free slot. That is how the
+  first CI run failed — every test that needed only one frame passed, and the switch
+  test timed out on the second (`expected at least 2 rendered frame(s), saw 1`). The
+  counting surface is a small EGL context on its own thread that calls
+  `updateTexImage()` for every frame, the way a `TextureView` does internally, so
+  "the picture keeps running" is something the test can actually observe. Keep the
+  assertions on frames *streaming* (`STREAM_FRAMES`), not on the first frame arriving.
+* The emulator job drives the test through
+  `.github/scripts/run-emulator-playback-test.sh`, which must be called from a single
+  line. `reactivecircus/android-emulator-runner` runs each line of its `script:` input
+  as its own shell invocation, so an `if`/`then`/`fi` block written in the workflow
+  YAML reaches `/bin/sh` a line at a time and dies with `Syntax error: end of file
+  unexpected (expecting "fi")`; the gradle status and the diagnostics are lost with
+  it. `adb logcat` has to run inside the script too, while the emulator is still
+  alive — in a later step `adb` waits forever for a device that is gone. The JUnit
+  XML survives, so the workflow prints that from its own step as a fallback.
+* There is still **no physical device in the loop**, and the development machine
+  cannot start an emulator (no hypervisor driver), so the only place the app really
+  runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A
+  successful build proves the code compiles and packages — including that FFmpeg
+  `.so` files and the Thai strings are inside the APK — but not that playback works
+  on a phone. Say so explicitly when reporting, and prove what you can statically:
+  `aapt2 dump resources` shows the `(th)` values that were packaged.
 * `apksigner verify --verbose` must report `Verified using v2 scheme: true` for
   release artifacts. Run it from
   `$ANDROID_HOME/build-tools/37.0.0/apksigner` (`.bat` on Windows).
