@@ -1,0 +1,1 @@
+val awsKey = "AKIAZ7Q2XK4LMNOPWXYZ"
