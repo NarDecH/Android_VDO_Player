@@ -20,6 +20,72 @@ permissions:
   contents: read
 
 jobs:
+  # A leaked token is the one failure the other jobs cannot make better, and both
+  # checks below finish in seconds, so they run before anything slower.
+  secret-scan:
+    name: no committed credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@v7
+        with:
+          # The scan reads commits, not just the checked-out tree.
+          fetch-depth: 0
+
+      # Names first: `.gitignore` keeps a credential file out of a casual `git add`,
+      # but it cannot stop `git add -f` or a file that was added before the rule
+      # existed. This looks at what is actually tracked instead of what is meant to
+      # be kept out.
+      - name: Fail on a tracked credential file
+        shell: bash
+        run: bash .github/scripts/tracked-secret-files.sh
+
+      # Then contents, because the usual accident is a key pasted into a source file
+      # rather than a file of its own. Gitleaks is a single binary, so the release is
+      # pinned and checked against the release's own SHA-256 list: a scanner whose
+      # rules float starts failing commits that changed nothing. The CLI itself needs
+      # no licence key (that applies to the GitHub Action, for organisations).
+      - name: Install gitleaks
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=8.30.1
+          asset="gitleaks_${version}_linux_x64.tar.gz"
+          base="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
+          curl -fsSLo "$asset" "$base/$asset"
+          curl -fsSLo checksums.txt "$base/gitleaks_${version}_checksums.txt"
+          grep -F "  $asset" checksums.txt | sha256sum --check -
+          tar -xzf "$asset" gitleaks
+          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+
+      # Only the commits this change adds. Re-reporting the whole history on every
+      # run would bury today's mistake in yesterday's noise, and fixing old history
+      # is a separate decision. A pull request scans against its base; a push scans
+      # the range GitHub hands it, falling back to the first commit when the branch
+      # has no `before`.
+      - name: Scan the commits this change adds
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            range="origin/${BASE_REF}..HEAD"
+          elif printf '%s' "$BEFORE" | grep -Eq '^0+$'; then
+            range="HEAD~1..HEAD"
+          else
+            range="${BEFORE}..${AFTER}"
+          fi
+          echo "scanning $range"
+          # -v names the file, line and rule the way a developer needs to fix it;
+          # --redact keeps the value out of the log, since a log that repeats the
+          # secret widens the leak this job exists to stop.
+          gitleaks git --redact=100 --exit-code 1 -v --log-opts="$range" .
+
   unit-tests:
     name: unit tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}

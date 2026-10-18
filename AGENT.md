@@ -89,6 +89,21 @@ Verification rules that apply to this repository:
   `updateTexImage()` for every frame, the way a `TextureView` does internally, so
   "the picture keeps running" is something the test can actually observe. Keep the
   assertions on frames *streaming* (`STREAM_FRAMES`), not on the first frame arriving.
+* A credential must never reach a commit, and `.gitignore` alone cannot promise
+  that: it does not cover `git add -f`, a file that was added before the rule
+  existed, or a key pasted into an ordinary source file. The `secret-scan` job in
+  `.github/workflows/ci.yml` checks both layers in seconds, before the slow jobs
+  start. `.github/scripts/tracked-secret-files.sh` fails on a tracked file whose
+  name matches the "never commit these" list in `.gitignore` (keystores, `*.pem` and
+  `*.key`, `.env` but not `.env.example`, `google-services.json`,
+  `.git-credentials*`); gitleaks (pinned 8.30.1, downloaded from its release and
+  verified against the release's SHA-256 list) then scans the commits the change
+  adds — `origin/<base>..HEAD` on a pull request, the pushed range on `main` — with
+  `--redact`, so a failure names the file, line and rule without repeating the
+  value. Both layers ignore placeholders deliberately: a check that fires on
+  `.env.example` teaches people to ignore the check. Run the file gate locally with
+  `bash .github/scripts/tracked-secret-files.sh` (staged files) or
+  `bash .github/scripts/tracked-secret-files.sh HEAD` (a revision).
 * The emulator job drives the test through
   `.github/scripts/run-emulator-playback-test.sh`, which must be called from a single
   line. `reactivecircus/android-emulator-runner` runs each line of its `script:` input
