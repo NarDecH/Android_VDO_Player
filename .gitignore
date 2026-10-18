@@ -51,6 +51,13 @@ captures/
 *.keystore
 keystore.properties
 
+# Stored git credentials
+# The credential helper used in this checkout writes a token beside the tree
+# (`.git-credentials.local`). Matched by pattern so a different suffix cannot
+# slip in, and separate from the signing-key rules above: these are passwords.
+.git-credentials*
+*.credentials
+
 # Native build output
 .externalNativeBuild
 .cxx/
