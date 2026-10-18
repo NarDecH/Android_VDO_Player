@@ -36,6 +36,29 @@ jobs:
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.tag || github.ref }}
+          # The credential scan below compares the tagged commit with its parent, and a
+          # shallow clone has no parent to compare against.
+          fetch-depth: 0
+
+      # CI on `main` has already vetted the commit a tag usually points at, but nothing
+      # enforces that a tag is cut from a commit that ran CI, and this is the job that
+      # hands APKs to the world: a secret in the tagged commit would be published next
+      # to the release, where deleting the tag later does not take it back. The same two
+      # checks as CI, run before anything is built or signed.
+      - name: Fail on a tracked credential file
+        run: bash .github/scripts/tracked-secret-files.sh
+
+      - name: Install gitleaks
+        run: bash .github/scripts/install-gitleaks.sh
+
+      # A tag push and a manual dispatch both arrive without a usable `before`, so the
+      # script scans the tagged commit itself.
+      - name: Scan the tagged commit for credentials
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: bash .github/scripts/scan-commits-for-secrets.sh
 
       - name: Set up JDK 17
         uses: actions/setup-java@v6
