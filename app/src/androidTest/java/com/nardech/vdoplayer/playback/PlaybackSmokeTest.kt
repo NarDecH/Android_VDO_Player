@@ -1,7 +1,10 @@
 package com.nardech.vdoplayer.playback
 
 import android.content.Context
+import android.media.MediaCodecList
+import android.media.MediaFormat
 import android.net.Uri
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
@@ -15,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -27,11 +31,18 @@ import org.junit.runner.RunWith
  * consumer on the other side of that surface; it is what makes "frames keep arriving"
  * an observable fact rather than a single first frame.
  *
- * The clip is `app/src/androidTest/assets/smoke.mp4`: 2 seconds of 160x120 H.264
- * baseline, video only, ~25 KB, generated once with
- * `ffmpeg -f lavfi -i testsrc2=size=160x120:rate=10:duration=2 -c:v libx264
- *  -profile:v baseline -pix_fmt yuv420p -g 10 -movflags +faststart -an smoke.mp4`
- * and committed so that a runner needs no encoder.
+ * Two clips are packaged in `app/src/androidTest/assets` and committed, so a runner
+ * needs no encoder of its own:
+ *
+ * * `smoke.mp4` — 2 seconds of 160x120 H.264 baseline, video only, ~25 KB:
+ *   `ffmpeg -f lavfi -i testsrc2=size=160x120:rate=10:duration=2 -c:v libx264
+ *   -profile:v baseline -pix_fmt yuv420p -g 10 -movflags +faststart -an smoke.mp4`
+ * * `ac3.mkv` — the same picture with an AC-3 stereo track, ~50 KB, and the only
+ *   clip here whose *audio* the platform cannot decode:
+ *   `ffmpeg -f lavfi -i testsrc2=size=160x120:rate=10:duration=2 -f lavfi
+ *   -i sine=frequency=440:sample_rate=48000:duration=2 -c:v libx264 -profile:v
+ *   baseline -pix_fmt yuv420p -g 10 -c:a ac3 -b:a 96k -ac 2 -shortest
+ *   -f matroska ac3.mkv`
  *
  * These run on an emulator in CI (`.github/workflows/ci.yml`), x86_64, so the FFmpeg
  * case also proves the four-ABI `.so` packaging actually loads on a device.
@@ -61,6 +72,42 @@ class PlaybackSmokeTest {
             assertEquals(
                 MimeTypes.VIDEO_H264,
                 clip.videoSampleMimeType(),
+            )
+            assertNull(
+                "the FFmpeg renderers should decode this clip without an error",
+                clip.playbackError(),
+            )
+        }
+    }
+
+    /**
+     * The case the whole FFmpeg extension exists for, and the one the JVM tests can
+     * only describe: `docs/RESEARCH.md` opens with it — an MKV whose video is fine but
+     * whose audio is AC-3 plays as *silent* video through the platform renderers.
+     *
+     * The picture in this clip is H.264, which the platform decodes without help, so
+     * the audio track is what separates the two decoder sets: a track is only treated
+     * as playing when a renderer reports it supports the format, and on an image with
+     * no AC-3 decoder the only renderer that can say so is NextLib's FFmpeg one.
+     *
+     * The premise is checked instead of assumed. If an image ever ships a platform
+     * AC-3 decoder there is no gap left to demonstrate on it, and the test says so by
+     * skipping rather than claiming a proof it did not make.
+     */
+    @Test
+    fun bundledFfmpegPlaysAc3AudioThePlatformCannot() {
+        assumeTrue(
+            "this image decodes AC-3 itself, so it cannot show what FFmpeg adds",
+            !platformCanDecode(MimeTypes.AUDIO_AC3),
+        )
+
+        withPlayingClip(DecoderPreference.FFMPEG_FIRST, AC3_CLIP_NAME) { clip ->
+            clip.awaitFrames(STREAM_FRAMES)
+
+            assertEquals(
+                "the AC-3 track should be the one being decoded",
+                MimeTypes.AUDIO_AC3,
+                clip.selectedAudioMimeType(),
             )
             assertNull(
                 "the FFmpeg renderers should decode this clip without an error",
@@ -107,9 +154,10 @@ class PlaybackSmokeTest {
      */
     private fun withPlayingClip(
         preference: DecoderPreference,
+        clipName: String = DEFAULT_CLIP_NAME,
         block: (PlayingClip) -> Unit,
     ) {
-        val clip = PlayingClip(preference)
+        val clip = PlayingClip(preference, clipName)
         try {
             clip.start()
             block(clip)
@@ -118,7 +166,10 @@ class PlaybackSmokeTest {
         }
     }
 
-    private inner class PlayingClip(private val preference: DecoderPreference) {
+    private inner class PlayingClip(
+        private val preference: DecoderPreference,
+        private val clipName: String,
+    ) {
 
         private val playbackError = AtomicReference<PlaybackException?>(null)
         private var engine: PlaybackEngine? = null
@@ -143,7 +194,7 @@ class PlaybackSmokeTest {
             // The clip is two seconds long; looping keeps frames coming while the
             // decoder is swapped underneath a running player.
             built.player.repeatMode = Player.REPEAT_MODE_ONE
-            built.player.setMediaItem(MediaItem.fromUri(localClip(context)))
+            built.player.setMediaItem(MediaItem.fromUri(localClip(context, clipName)))
             built.player.prepare()
             built.player.play()
         }
@@ -154,6 +205,21 @@ class PlaybackSmokeTest {
 
         fun videoSampleMimeType(): String? =
             onMain { engine?.player?.videoFormat?.sampleMimeType }
+
+        /**
+         * The mime type of the audio track that is actually playing, or `null` when no
+         * renderer could take it — which is what a platform-only build answers for
+         * AC-3, and why this is the assertion the FFmpeg case turns on.
+         */
+        fun selectedAudioMimeType(): String? = onMain {
+            engine?.player?.currentTracks?.groups
+                ?.firstOrNull { it.type == C.TRACK_TYPE_AUDIO }
+                ?.let { group ->
+                    (0 until group.length)
+                        .firstOrNull { group.isTrackSelected(it) }
+                        ?.let { index -> group.getTrackFormat(index).sampleMimeType }
+                }
+        }
 
         fun apply(target: DecoderPreference): String? = onMain {
             engine?.applyDecoderPreference(target)
@@ -200,16 +266,33 @@ class PlaybackSmokeTest {
      * the app's cache first keeps the player reading an ordinary local file, the same
      * path a video already on the phone takes.
      */
-    private fun localClip(context: Context): Uri {
-        val target = File(context.cacheDir, CLIP_NAME)
-        instrumentation.context.assets.open(CLIP_NAME).use { input ->
+    private fun localClip(context: Context, clipName: String): Uri {
+        val target = File(context.cacheDir, clipName)
+        instrumentation.context.assets.open(clipName).use { input ->
             target.outputStream().use { output -> input.copyTo(output) }
         }
         return Uri.fromFile(target)
     }
 
+    /**
+     * Whether anything in the platform — vendor codecs included — decodes [mimeType].
+     * This is the question the FFmpeg cases answer with "no", and it is asked of the
+     * device rather than hardcoded, because the answer is a property of the image.
+     */
+    private fun platformCanDecode(mimeType: String): Boolean {
+        val format = if (mimeType.startsWith("audio/")) {
+            MediaFormat.createAudioFormat(mimeType, /* sampleRate = */ 48_000, /* channelCount = */ 2)
+        } else {
+            MediaFormat.createVideoFormat(mimeType, /* width = */ 160, /* height = */ 120)
+        }
+        return MediaCodecList(MediaCodecList.ALL_CODECS).findDecoderForFormat(format) != null
+    }
+
     private companion object {
-        const val CLIP_NAME = "smoke.mp4"
+        const val DEFAULT_CLIP_NAME = "smoke.mp4"
+
+        /** The clip whose AC-3 audio only FFmpeg can decode (see the class comment). */
+        const val AC3_CLIP_NAME = "ac3.mkv"
 
         /**
          * How many frames count as "the picture is running". The clip plays at 10

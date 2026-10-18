@@ -67,13 +67,19 @@ Verification rules that apply to this repository:
   untranslated value.
 * `:app:connectedDebugAndroidTest` is the other half: the instrumented
   `playback/PlaybackSmokeTest` builds the real player through `PlayerFactory`, plays
-  `app/src/androidTest/assets/smoke.mp4` (2 s, 160x120 H.264 baseline, ~25 KB,
-  generated once with ffmpeg and committed so no runner needs an encoder) and insists
-  on frames arriving at a real `Surface` — once with the platform decoder, once with
-  the bundled FFmpeg decoder, and once while switching between the two. It is the
-  only automated proof that a picture is produced, that the FFmpeg `.so` files load
-  on a device, and that the live decoder switch works. Run it on an emulator through
-  CI (`api-level 34`, `google_apis`, `x86_64`) rather than locally.
+  the clips in `app/src/androidTest/assets` (both generated once with ffmpeg and
+  committed, so no runner needs an encoder) and insists on frames arriving at a real
+  `Surface` — once with the platform decoder, once with the bundled FFmpeg decoder,
+  once while switching between the two, and once on `ac3.mkv`, whose H.264 picture the
+  platform decodes and whose AC-3 audio it cannot. That last test is the one that
+  shows what the extension is *for*: a track only counts as playing when a renderer
+  reports it supports the format, and on an image with no AC-3 decoder the only
+  renderer that can report that is NextLib's. Its premise is asked of `MediaCodecList`
+  rather than assumed, and it skips itself if an image ever ships a platform AC-3
+  decoder — in which case there is no gap left to demonstrate there. This is the only
+  automated proof that a picture is produced, that the FFmpeg `.so` files load on a
+  device, and that the live decoder switch works. Run it on an emulator through CI
+  (`api-level 34`, `google_apis`, `x86_64`) rather than locally.
 * The frames are counted by `playback/CountingVideoSurface`, and that class is load
   bearing: a plain `SurfaceTexture` consumes nothing, so its queue fills after the
   first frame and the decoder blocks forever waiting for a free slot. That is how the
@@ -90,8 +96,20 @@ Verification rules that apply to this repository:
   YAML reaches `/bin/sh` a line at a time and dies with `Syntax error: end of file
   unexpected (expecting "fi")`; the gradle status and the diagnostics are lost with
   it. `adb logcat` has to run inside the script too, while the emulator is still
-  alive — in a later step `adb` waits forever for a device that is gone. The JUnit
-  XML survives, so the workflow prints that from its own step as a fallback.
+  alive — in a later step `adb` waits forever for a device that is gone. On failure it
+  writes logcat (whole buffer plus the filtered view it prints), `dmesg`,
+  `dumpsys media.codec` and `getprop` into `emulator-diagnostics/`, and the workflow
+  uploads that together with the report and the JUnit XML as the
+  `emulator-playback-failure` artifact: the console keeps an excerpt, so diagnosing a
+  decoding failure should not mean re-running the job to read its output. A green run
+  uploads nothing. The workflow prints the failing XML from its own step as well, since
+  that survives the emulator.
+* The emulator's system image is cached (`actions/cache`, keyed on the image rather
+  than the commit) because it is around a gigabyte of download that has nothing to do
+  with the change under test; the AVD *snapshot* is deliberately not cached, because a
+  snapshot carries the guest's CPU state and this job does not always land on a host
+  with the same CPU, which turns a saved boot into a boot failure. Judge a change like
+  that one by the step timings in the run, not by the shape of the diff.
 * There is still **no physical device in the loop**, and the development machine
   cannot start an emulator (no hypervisor driver), so the only place the app really
   runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A
