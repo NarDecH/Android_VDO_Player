@@ -25,6 +25,9 @@ local.properties
 # Log Files
 *.log
 
+# What a failing emulator run leaves behind for the CI artifact
+emulator-diagnostics/
+
 # Android Studio navigation editor temp files
 .navigation/
 

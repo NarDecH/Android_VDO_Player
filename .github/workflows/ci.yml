@@ -105,6 +105,21 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # The system image is the one part of this job that has nothing to do with the
+      # commit: sdkmanager pulls about a gigabyte of it on every run just so the
+      # emulator can boot. The key names the image, not the code, so a warm cache lasts
+      # until the image itself changes.
+      #
+      # The AVD snapshot is deliberately *not* cached here. A snapshot carries the
+      # guest's CPU state, and this job does not always land on a host with the same
+      # CPU, so restoring another machine's snapshot is a boot failure waiting to
+      # happen — the boot is paid for on every run on purpose.
+      - name: Cache the emulator's system image
+        uses: actions/cache@v6
+        with:
+          path: /usr/local/lib/android/sdk/system-images
+          key: system-image-${{ runner.os }}-api34-google_apis-x86_64
+
       - name: Run the playback smoke test
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -137,3 +152,23 @@ jobs:
               printf '\n'
             fi
           done
+
+      # The steps above print an excerpt into the console, which is enough to see
+      # *which* assertion failed. This keeps the rest — the full report, the
+      # machine-readable XML and the logcat, dmesg and decoder list the script saved
+      # while the emulator was still alive — so a failure can be diagnosed and fixed
+      # without re-running the job just to read its output. Nothing is uploaded for a
+      # green run: the artifact exists because a failure is what needs explaining.
+      - name: Upload what the failure left behind
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: emulator-playback-failure
+          path: |
+            app/build/reports/androidTests/
+            app/build/outputs/androidTest-results/
+            emulator-diagnostics/
+          # A run can die before gradle produces a report; that must not replace the
+          # real failure with a missing-file error.
+          if-no-files-found: warn
+          retention-days: 14
