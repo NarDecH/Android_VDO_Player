@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.fail
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -78,6 +79,16 @@ class PlaybackSmokeTest {
                 clip.playbackError(),
             )
         }
+    }
+
+    /**
+     * TEMPORARY PROBE - not for merging. Makes the emulator job fail on purpose so the
+     * failure path (diagnostics files, report upload, summary annotation) can be seen
+     * working once. Delete this test and the branch it lives on.
+     */
+    @Test
+    fun probeTheFailurePath() {
+        fail("temporary probe: the emulator job was supposed to fail here")
     }
 
     /**
