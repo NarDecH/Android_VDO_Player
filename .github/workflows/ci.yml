@@ -153,6 +153,50 @@ jobs:
             fi
           done
 
+      # Which test failed is in the report; what the run *did* is not: a green report
+      # and a report with three of five tests skipped look identical in the console.
+      # The per-test lines go to the job output, and one annotation is attached to the
+      # run, so the counts are readable from the checks API without downloading
+      # anything — the FFmpeg-only case is worth this much because it is the one test
+      # that skips itself when its premise stops holding.
+      - name: Summarise the instrumented run
+        if: always()
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import glob
+          import xml.etree.ElementTree as ET
+
+          results = []
+          for path in glob.glob('app/build/outputs/androidTest-results/**/TEST-*.xml', recursive=True):
+              for case in ET.parse(path).getroot().iter('testcase'):
+                  outcome = 'passed'
+                  if case.find('skipped') is not None:
+                      outcome = 'SKIPPED'
+                  elif case.find('failure') is not None:
+                      outcome = 'FAILED'
+                  elif case.find('error') is not None:
+                      outcome = 'ERROR'
+                  results.append((outcome, f"{case.get('classname', '').split('.')[-1]}.{case.get('name')}"))
+
+          for outcome, name in results:
+              print(f'{outcome:>8}  {name}')
+
+          if not results:
+              print('::warning title=Instrumented results::no results on disk')
+              raise SystemExit(0)
+
+          counts = {}
+          for outcome, _ in results:
+              counts[outcome] = counts.get(outcome, 0) + 1
+          skipped = [name for outcome, name in results if outcome == 'SKIPPED']
+          summary = ', '.join(f'{count} {outcome.lower()}' for outcome, count in sorted(counts.items()))
+          note = f'{len(results)} instrumented test(s): {summary}'
+          if skipped:
+              note += ' (skipped: ' + ', '.join(skipped) + ')'
+          print(f'::notice title=Instrumented results::{note}')
+          PY
+
       # The steps above print an excerpt into the console, which is enough to see
       # *which* assertion failed. This keeps the rest — the full report, the
       # machine-readable XML and the logcat, dmesg and decoder list the script saved
