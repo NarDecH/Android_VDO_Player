@@ -42,28 +42,17 @@ jobs:
         run: bash .github/scripts/tracked-secret-files.sh
 
       # Then contents, because the usual accident is a key pasted into a source file
-      # rather than a file of its own. Gitleaks is a single binary, so the release is
-      # pinned and checked against the release's own SHA-256 list: a scanner whose
-      # rules float starts failing commits that changed nothing. The CLI itself needs
-      # no licence key (that applies to the GitHub Action, for organisations).
+      # rather than a file of its own. The installer pins the release and checks it
+      # against the release's own SHA-256 list: a scanner whose rules float starts
+      # failing commits that changed nothing. The version lives in that script so the
+      # release workflow cannot drift from this one.
       - name: Install gitleaks
         shell: bash
-        run: |
-          set -euo pipefail
-          version=8.30.1
-          asset="gitleaks_${version}_linux_x64.tar.gz"
-          base="https://github.com/gitleaks/gitleaks/releases/download/v${version}"
-          curl -fsSLo "$asset" "$base/$asset"
-          curl -fsSLo checksums.txt "$base/gitleaks_${version}_checksums.txt"
-          grep -F "  $asset" checksums.txt | sha256sum --check -
-          tar -xzf "$asset" gitleaks
-          sudo install -m 0755 gitleaks /usr/local/bin/gitleaks
+        run: bash .github/scripts/install-gitleaks.sh
 
-      # Only the commits this change adds. Re-reporting the whole history on every
-      # run would bury today's mistake in yesterday's noise, and fixing old history
-      # is a separate decision. A pull request scans against its base; a push scans
-      # the range GitHub hands it, falling back to the first commit when the branch
-      # has no `before`.
+      # Only the commits this change adds. The range is derived in the script from the
+      # event, and the release workflow passes the tagged commit through the same one,
+      # so a pull request, a push and a tag are judged by the same rule.
       - name: Scan the commits this change adds
         shell: bash
         env:
@@ -71,20 +60,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
-        run: |
-          set -euo pipefail
-          if [ "$EVENT_NAME" = "pull_request" ]; then
-            range="origin/${BASE_REF}..HEAD"
-          elif printf '%s' "$BEFORE" | grep -Eq '^0+$'; then
-            range="HEAD~1..HEAD"
-          else
-            range="${BEFORE}..${AFTER}"
-          fi
-          echo "scanning $range"
-          # -v names the file, line and rule the way a developer needs to fix it;
-          # --redact keeps the value out of the log, since a log that repeats the
-          # secret widens the leak this job exists to stop.
-          gitleaks git --redact=100 --exit-code 1 -v --log-opts="$range" .
+        run: bash .github/scripts/scan-commits-for-secrets.sh
 
   unit-tests:
     name: unit tests (${{ matrix.os }})
