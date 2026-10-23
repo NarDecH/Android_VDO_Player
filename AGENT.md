@@ -314,8 +314,8 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
     The card's button also remembers the codec in `AppSettings.autoFfmpegCodecs`, and
     `AudioSilence.autoRescueCodec` lets that codec switch by itself the next time it is
     met — through the same audio-only command. A remembered codec does not even have to
-    go silent first: `AudioCodecProbe` reads the file's first audio MIME with
-    `MediaExtractor` before `PlayerScreen` starts playback, and when that codec is
+    go silent first: `AudioCodecProbe` reads the file's first audio MIME with Media3's
+    own extractors (`Media3Tracks`) before `PlayerScreen` starts playback, and when that codec is
     remembered the audio command is sent *before* the first item is prepared. NextLib
     treats AUTO→FFMPEG as an enable flip on its renderers and, with nothing prepared,
     never restarts the player, so the first frame already has its FFmpeg audio. Both
@@ -361,12 +361,20 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
     from a second instance, so the real file name and key are checked too.
     That the hit really skips the extractor is checked by counting, not by reading the
     code: the cache rule is `AudioCodecProbe.resolve` (no Android in it), `probe` is
-    that rule plus the real `MediaExtractor` read, and `AudioCodecProbeTest` passes a
+    that rule plus the real Media3 read, and `AudioCodecProbeTest` passes a
     read that counts opens — a second play of an unchanged file must not open it, a
     changed key and a failed read must, and a file with no audio is never remembered.
     `AudioCodecProbeDeviceTest` repeats those counts on the emulator through `probe`
-    itself, and asks the real extractor to name `ac3.mkv`'s track `AC3`, so the seam the
+    itself, and asks the real read to name `ac3.mkv`'s track `AC3`, so the seam the
     JVM tests rely on is the same one production uses.
+    The read is Media3's, not the platform's, and that is not a preference: the device run
+    that finally exercised `AudioCodecProbeDeviceTest` on API 34 got *no audio track at
+    all* from `MediaExtractor` for `ac3.mkv` — one `video/avc` track and nothing else —
+    while Media3's Matroska extractor reports the `audio/ac3` track the player then
+    selects. A probe built on the platform extractor therefore concluded "no sound" for
+    exactly the files the rescue exists for. `Media3Tracks` sniffs with
+    `DefaultExtractorsFactory`, reads until the first `format()` arrives and releases
+    everything, so the probe answers what playback will see.
     That same read answers a second question: can anything here decode this audio at
     all? A file whose tracks nothing can decode plays as a quiet picture, and the viewer
     should hear that before it opens rather than wonder about it. `AudioPreflight`

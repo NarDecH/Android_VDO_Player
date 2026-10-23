@@ -1,8 +1,6 @@
 package com.nardech.vdoplayer.playback
 
 import android.content.Context
-import android.media.MediaExtractor
-import android.media.MediaFormat
 import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -19,7 +17,7 @@ import org.junit.runner.RunWith
  * What the probe cache is worth, measured on a device instead of argued on the JVM.
  *
  * The claim the cache makes is one sentence — a file already probed is not opened
- * again — and `MediaExtractor` offers no way to observe an open from outside. So the
+ * again — and a container read offers no way to observe an open from outside. So the
  * probe takes the read as a parameter, and these tests pass a reader that counts.
  * That is the only reason the parameter exists: the counting reader still goes through
  * the real files in `androidTest/assets`, and [theRealExtractorFindsTheAc3Track] keeps
@@ -49,8 +47,7 @@ class AudioCodecProbeDeviceTest {
     fun theRealExtractorFindsTheAc3Track() {
         val ac3 = localFile(AC3_CLIP)
         assertEquals(
-            "the default reader must be the real extractor, or the counts below prove nothing; " +
-                "it said ${extractorReport(ac3.first)}",
+            "the default reader must be the player's own extractor, or the counts below prove nothing",
             "AC3",
             AudioCodecProbe.probe(context, ac3.first, ac3.second),
         )
@@ -239,7 +236,6 @@ class AudioCodecProbeDeviceTest {
     fun theDeviceCanBeAskedWhatItCannotDecode() {
         val (uri, key) = localFile(AC3_CLIP)
         assertEquals(
-            "the probe must read what the file holds; the extractor said ${extractorReport(uri)}",
             listOf("audio/ac3"),
             AudioCodecProbe.probeAudioMimes(context, uri, key),
         )
@@ -254,26 +250,6 @@ class AudioCodecProbeDeviceTest {
             AudioPreflight.outlook(listOf("audio/x-vdo-nothing-here")),
         )
     }
-
-    /**
-     * What the platform extractor reports for [uri], for the assertion messages above.
-     *
-     * A failed probe only says "nothing was read", and the two reasons for that — an open
-     * that threw, a container whose tracks were not listed — need different fixes; the
-     * report keeps the next failing run from having to guess which one it was.
-     */
-    private fun extractorReport(uri: Uri): String = runCatching {
-        val extractor = MediaExtractor()
-        try {
-            extractor.setDataSource(requireNotNull(uri.path))
-            val mimes = (0 until extractor.trackCount).map { index ->
-                extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)
-            }
-            "${extractor.trackCount} track(s) $mimes"
-        } finally {
-            runCatching { extractor.release() }
-        }
-    }.getOrElse { "an extractor that threw $it" }
 
     /**
      * Copies a clip out of the test APK's assets and describes it the way the library

@@ -32,9 +32,12 @@ All notable changes to VDO Player are documented here. The format follows
 - **Remembered codecs switch before the first frame** — a codec you already rescued
   used to cost a silent moment per video: the player had to be ready and the audio
   track already missing before the switch could be applied. The player now reads the
-  file's own audio track with `MediaExtractor` before playback starts and, when that
-  codec is remembered, picks the FFmpeg audio renderer at prepare time, so the sound
-  starts with the picture. The early and the live path share one decision and one
+  file's own audio track before playback starts and, when that codec is remembered,
+  picks the FFmpeg audio renderer at prepare time, so the sound starts with the picture.
+  The read goes through Media3's own extractors — the parser that will play the file —
+  because the platform `MediaExtractor` does not list every track: handed the AC-3 clip,
+  it reported one video track and no audio, which would have made the pre-switch give
+  up on exactly the codec it exists for. The early and the live path share one decision and one
   spelling of the codec name (`audio/ac3` → `AC3`), which `AudioCodecProbeTest` pins;
   a file the probe cannot read and a track remembered under its label keep the live
   switch, which is still there. 5 more JVM tests (92 in total).
@@ -48,12 +51,13 @@ All notable changes to VDO Player are documented here. The format follows
   The map is bounded and least-recently-used, so a long session cannot grow it. 5 more
   JVM tests (97 in total).
 - **The cache hit is measured, not argued** — the promise is that a file already
-  probed is never opened again, and `MediaExtractor` gives no way to see an open from
+  probed is never opened again, and a container read gives no way to see an open from
   outside. `AudioCodecProbe.probe` now takes the track read as a parameter and the
   cache rule lives in `AudioCodecProbe.resolve`, so the JVM tests pass a read that
   counts: the second play must not open the file, a changed key and a failed read
-  must, and a file with no audio is never remembered. Production still opens the file  with `MediaExtractor`, and `AudioCodecProbeDeviceTest` repeats the same counts on the
-  emulator against the packaged `ac3.mkv`, where the real extractor also has to name its
+  must, and a file with no audio is never remembered. Production still opens the file
+  with Media3's extractors, and `AudioCodecProbeDeviceTest` repeats the same counts on
+  the emulator against the packaged `ac3.mkv`, where the real read also has to name its
   track `AC3`. 5 more JVM tests (102 in total).
 - **Probe results survive a restart** — the cache lived in the heap, so the first play
   after every launch paid for the header read and started the picture a moment before

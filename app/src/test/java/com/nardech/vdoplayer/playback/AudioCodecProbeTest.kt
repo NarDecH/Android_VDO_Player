@@ -16,7 +16,7 @@ import org.junit.Test
  * like the name the player reports later, that both questions read one remembered MIME
  * type, and that a file already read is not read a second time.
  *
- * Nothing here touches `MediaExtractor`: the container read is the one part that needs
+ * Nothing here opens a container: the read itself is the one part that needs
  * a device ([AudioCodecProbeDeviceTest] covers it), while the cache rule is plain
  * Kotlin and is checked in every build.
  */

@@ -1,10 +1,22 @@
 package com.nardech.vdoplayer.playback
 
-import android.content.ContentResolver
 import android.content.Context
-import android.media.MediaExtractor
-import android.media.MediaFormat
 import android.net.Uri
+import androidx.media3.common.C
+import androidx.media3.common.DataReader
+import androidx.media3.common.Format
+import androidx.media3.common.util.ParsableByteArray
+import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.extractor.DefaultExtractorInput
+import androidx.media3.extractor.DefaultExtractorsFactory
+import androidx.media3.extractor.Extractor
+import androidx.media3.extractor.ExtractorInput
+import androidx.media3.extractor.ExtractorOutput
+import androidx.media3.extractor.PositionHolder
+import androidx.media3.extractor.SeekMap
+import androidx.media3.extractor.TrackOutput
 import com.nardech.vdoplayer.data.VideoItem
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
@@ -78,15 +90,15 @@ object AudioCodecProbe {
      * provider that refused) must get another chance instead of a cached "no audio".
      *
      * [readTrackMimes] is how the file is opened, and is a parameter only so a device
-     * test can count those opens — the count is the whole claim the cache makes, and
-     * `MediaExtractor` gives no way to observe it from outside. Production takes the
+     * test can count those opens — the count is the whole claim the cache makes, and a
+     * container read gives no way to observe it from outside. Production takes the
      * default, which reads the real container.
      */
     fun probeAudioMimes(
         context: Context,
         uri: Uri,
         key: String? = null,
-        readTrackMimes: (Context, Uri) -> List<String?> = MediaExtractorTracks::read,
+        readTrackMimes: (Context, Uri) -> List<String?> = Media3Tracks::read,
     ): List<String> =
         probeAudioMimesOrNull(context, uri, key, readTrackMimes).orEmpty()
 
@@ -102,7 +114,7 @@ object AudioCodecProbe {
         context: Context,
         uri: Uri,
         key: String? = null,
-        readTrackMimes: (Context, Uri) -> List<String?> = MediaExtractorTracks::read,
+        readTrackMimes: (Context, Uri) -> List<String?> = Media3Tracks::read,
     ): List<String>? {
         keepResults(context)
         return resolveAudioMimesOrNull(key, describe = "'$uri'") { readTrackMimes(context, uri) }
@@ -133,7 +145,7 @@ object AudioCodecProbe {
         context: Context,
         uri: Uri,
         key: String? = null,
-        readTrackMimes: (Context, Uri) -> List<String?> = MediaExtractorTracks::read,
+        readTrackMimes: (Context, Uri) -> List<String?> = Media3Tracks::read,
     ): String? = probeAudioMimes(context, uri, key, readTrackMimes).firstOrNull()
 
     /**
@@ -148,7 +160,7 @@ object AudioCodecProbe {
         context: Context,
         uri: Uri,
         key: String? = null,
-        readTrackMimes: (Context, Uri) -> List<String?> = MediaExtractorTracks::read,
+        readTrackMimes: (Context, Uri) -> List<String?> = Media3Tracks::read,
     ): String? = AudioSilence.codecKey(probeMime(context, uri, key, readTrackMimes))
 
     /**
@@ -228,42 +240,122 @@ object AudioCodecProbe {
 }
 
 /**
- * The single place a file is actually opened, and the reason [AudioCodecProbe.probe]'s
+ * The tracks of a file, read with Media3's own extractors — the same parser that will play
+ * it.
+ *
+ * The platform's `MediaExtractor` is the cheaper API, and it was the first implementation
+ * here. But it does not list every track a container holds: handed the AC-3 clip in the
+ * device test, it reported one video track and no audio at all, so the probe concluded the
+ * file was silent while the player was about to play its sound. Media3's own extractors
+ * report the AC-3 track the player then selects, which is the only answer a decision about
+ * playback can be built on.
+ *
+ * This is also the single place a file is opened, and the reason [AudioCodecProbe.probe]'s
  * default argument exists: a test that counts opens needs the production read to be one
  * named thing it can stand in for, not extractor calls scattered through the probe.
  *
- * The extractor is released on every path, including a `setDataSource` that throws —
- * a file the app cannot read must not leave a descriptor behind.
+ * Everything is released on every path — a file the app cannot read must not leave a
+ * descriptor behind.
  */
-private object MediaExtractorTracks {
+internal object Media3Tracks {
+
+    /** How many reads the track list may take before the file is treated as trackless. */
+    private const val MAX_READS = 64
 
     fun read(context: Context, uri: Uri): List<String?> {
-        val extractor = MediaExtractor()
-        return try {
-            open(extractor, context, uri)
-            (0 until extractor.trackCount).map { index ->
-                extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)
+        val dataSource = DefaultDataSource.Factory(context).createDataSource()
+        try {
+            val length = dataSource.open(DataSpec(uri))
+            var input = DefaultExtractorInput(dataSource, 0L, length)
+            val extractor = sniff(input) ?: return emptyList()
+            val output = CollectingOutput()
+            extractor.init(output)
+            try {
+                val position = PositionHolder()
+                repeat(MAX_READS) {
+                    if (output.mimeTypes.isNotEmpty()) return output.mimeTypes
+                    when (extractor.read(input, position)) {
+                        Extractor.RESULT_END_OF_INPUT -> return output.mimeTypes
+                        Extractor.RESULT_SEEK -> {
+                            // The extractor wants a different part of the file; only a
+                            // resumed source can give it one.
+                            dataSource.close()
+                            dataSource.open(
+                                DataSpec(uri).buildUpon().setPosition(position.position).build(),
+                            )
+                            input = DefaultExtractorInput(dataSource, position.position, length)
+                        }
+                        else -> Unit
+                    }
+                }
+                return output.mimeTypes
+            } finally {
+                extractor.release()
             }
         } finally {
-            runCatching { extractor.release() }
+            runCatching { dataSource.close() }
         }
     }
 
     /**
-     * A file this app owns is opened by its path; a `MediaStore` URI through the resolver.
-     *
-     * The path form is what makes a local file readable on every version this app supports:
-     * handing the extractor a `file://` URI asks the content resolver to resolve a scheme it
-     * has no provider for, and the device test's copy of the AC-3 clip came back with no
-     * tracks at all that way. A `content://` URI is the library's own case and keeps the
-     * resolver, which is the only way to open a provider's file.
+     * The first of Media3's extractors that recognizes the file, or `null` when none does.
+     * The peek position is rewound between candidates, exactly as the player's own loader
+     * does, because a failed sniff must leave the input where it found it.
      */
-    private fun open(extractor: MediaExtractor, context: Context, uri: Uri) {
-        val path = uri.path
-        if (uri.scheme == ContentResolver.SCHEME_FILE && path != null) {
-            extractor.setDataSource(path)
-        } else {
-            extractor.setDataSource(context, uri, null)
+    private fun sniff(input: ExtractorInput): Extractor? {
+        for (candidate in DefaultExtractorsFactory().createExtractors()) {
+            if (candidate.sniff(input)) return candidate
+            input.resetPeekPosition()
         }
+        return null
     }
+
+    /** Keeps the MIME type of every track the file declares, and nothing else. */
+    private class CollectingOutput : ExtractorOutput {
+        val mimeTypes = mutableListOf<String?>()
+
+        override fun track(id: Int, type: Int): TrackOutput = object : TrackOutput {
+            override fun format(format: Format) {
+                mimeTypes += format.sampleMimeType
+            }
+
+            override fun sampleData(
+                input: DataReader,
+                length: Int,
+                allowEndOfInput: Boolean,
+                sampleDataPart: Int,
+            ): Int = readAndDiscard(input, length, allowEndOfInput)
+
+            override fun sampleData(data: ParsableByteArray, length: Int, sampleDataPart: Int) {
+                data.skipBytes(length)
+            }
+
+            override fun sampleMetadata(
+                timeUs: Long,
+                flags: Int,
+                size: Int,
+                offset: Int,
+                cryptoData: TrackOutput.CryptoData?,
+            ) = Unit
+        }
+
+        override fun endTracks() = Unit
+
+        override fun seekMap(seekMap: SeekMap) = Unit
+    }
+
+    /** Frames are of no interest here; they are consumed only so the read can move on. */
+    private fun readAndDiscard(input: DataReader, length: Int, allowEndOfInput: Boolean): Int {
+        var remaining = length
+        while (remaining > 0) {
+            val read = input.read(scratch, 0, minOf(remaining, scratch.size))
+            if (read == C.RESULT_END_OF_INPUT) {
+                return if (allowEndOfInput) C.RESULT_END_OF_INPUT else length - remaining
+            }
+            remaining -= read
+        }
+        return length
+    }
+
+    private val scratch = ByteArray(64 * 1024)
 }
