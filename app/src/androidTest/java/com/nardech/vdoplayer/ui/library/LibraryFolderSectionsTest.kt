@@ -137,11 +137,16 @@ class LibraryFolderSectionsTest {
 
     @Test
     fun theNextFolderPushesThePinnedHeadingAway() {
-        val items = (1L..30L).map { n -> video(id = n, name = "camera-$n", folder = "Camera") } +
-            video(id = 100, name = "download-one", folder = "Download")
-        compose.setContent { Grouped(items, gridMode = false) }
+        val camera = (1L..30L).map { n -> video(id = n, name = "camera-$n", folder = "Camera") }
+        val download = (1L..30L).map { n -> video(id = 100L + n, name = "download-$n", folder = "Download") }
+        compose.setContent { Grouped(camera + download, gridMode = false) }
 
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText("download-one"))
+        // Far enough into the second folder that its own heading has to be the pinned one:
+        // reaching only its first file would leave the heading wherever the scroll stopped.
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText("download-25"))
+
+        compose.onNodeWithText("camera-1").assertDoesNotExist()
+        compose.onNodeWithText("download-1").assertDoesNotExist()
 
         // With the second section reached, its own heading is the one pinned on top.
         val heading = compose.onNodeWithText("Download").assertIsDisplayed()

@@ -1,5 +1,6 @@
 package com.nardech.vdoplayer.playback
 
+import android.content.ContentResolver
 import android.content.Context
 import android.media.MediaExtractor
 import android.media.MediaFormat
@@ -239,12 +240,30 @@ private object MediaExtractorTracks {
     fun read(context: Context, uri: Uri): List<String?> {
         val extractor = MediaExtractor()
         return try {
-            extractor.setDataSource(context, uri, null)
+            open(extractor, context, uri)
             (0 until extractor.trackCount).map { index ->
                 extractor.getTrackFormat(index).getString(MediaFormat.KEY_MIME)
             }
         } finally {
             runCatching { extractor.release() }
+        }
+    }
+
+    /**
+     * A file this app owns is opened by its path; a `MediaStore` URI through the resolver.
+     *
+     * The path form is what makes a local file readable on every version this app supports:
+     * handing the extractor a `file://` URI asks the content resolver to resolve a scheme it
+     * has no provider for, and the device test's copy of the AC-3 clip came back with no
+     * tracks at all that way. A `content://` URI is the library's own case and keeps the
+     * resolver, which is the only way to open a provider's file.
+     */
+    private fun open(extractor: MediaExtractor, context: Context, uri: Uri) {
+        val path = uri.path
+        if (uri.scheme == ContentResolver.SCHEME_FILE && path != null) {
+            extractor.setDataSource(path)
+        } else {
+            extractor.setDataSource(context, uri, null)
         }
     }
 }
