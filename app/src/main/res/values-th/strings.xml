@@ -16,13 +16,21 @@
     <string name="library_clear_search">ล้างคำค้น</string>
     <string name="library_sort">เรียงลำดับ</string>
     <string name="library_toggle_layout">สลับรูปแบบการแสดง</string>
+    <string name="library_group_folders">แยกตามโฟลเดอร์</string>
     <string name="library_folder_all">ทั้งหมด (%1$d)</string>
+    <string name="library_play_folder">เล่น %1$s</string>
+    <!-- Thai has no plural inflection: a single `other` form is correct here. -->
+    <plurals name="library_folder_count">
+        <item quantity="other">%1$d วิดีโอ</item>
+    </plurals>
     <string name="folder_external">ไฟล์ภายนอก</string>
     <!-- Thai has no plural inflection: a single `other` form is correct here. -->
     <plurals name="library_count">
         <item quantity="other">%1$d จาก %2$d วิดีโอ · อัปเดตรายการอัตโนมัติ</item>
     </plurals>
     <string name="library_meta">%1$s · %2$s</string>
+    <string name="library_no_sound">เครื่องนี้เล่นเสียงไม่ได้</string>
+    <string name="library_no_sound_hint">ไม่มีตัวถอดรหัสใดในเครื่องนี้เล่นเสียงของไฟล์นี้ได้ จึงเล่นแบบไม่มีเสียง</string>
     <string name="library_scanning">กำลังสแกนอุปกรณ์…</string>
     <string name="library_scanning_hint">กำลังค้นหาวิดีโอในคลังสื่อของเครื่อง</string>
     <string name="library_empty">ไม่พบวิดีโอที่ตรงเงื่อนไข</string>
@@ -40,6 +48,7 @@
     <string name="details_size">ขนาด</string>
     <string name="details_type">ชนิดไฟล์</string>
     <string name="details_added">เพิ่มเมื่อ</string>
+    <string name="details_audio">เสียง</string>
     <string name="details_path">ที่เก็บไฟล์</string>
     <string name="details_uri">URI</string>
     <string name="details_close">ปิด</string>
@@ -90,6 +99,21 @@
     <string name="player_decoder_current">ตัวถอดรหัส: %1$s</string>
     <string name="player_decoder_switched">ตัวถอดรหัส: %1$s</string>
     <string name="player_decoder_switched_pending">ตัวถอดรหัส: %1$s (จะมีผลเมื่อเริ่มเล่นใหม่)</string>
+    <string name="player_silent_title">ไม่มีเสียง</string>
+    <string name="player_silent_body">แทร็กเสียง (%1$s) ไม่ถูกถอดรหัส วิดีโอนี้จึงเล่นแบบไม่มีเสียง ตัวถอดรหัส FFmpeg รองรับรูปแบบเสียงมากกว่า</string>
+    <string name="player_silent_action">ใช้ FFmpeg</string>
+    <string name="player_silent_dismiss">ปิดคำแนะนำเรื่องเสียง</string>
+    <string name="player_undecodable_title">ไม่มีตัวถอดรหัสสำหรับเสียงนี้</string>
+    <string name="player_undecodable_body">ไม่มีตัวถอดรหัสใดในเครื่องนี้เล่นเสียง %1$s ของวิดีโอนี้ได้ วิดีโอจึงเล่นแบบไม่มีเสียง ส่วนภาพยังเล่นได้ตามปกติ</string>
+    <string name="player_undecodable_dismiss">ปิดคำเตือนเรื่องเสียง</string>
+    <string name="player_undecodable_next">วิดีโอถัดไป</string>
+    <string name="player_audio_not_decoded">ยังถอดรหัสไม่ได้</string>
+    <string name="player_auto_ffmpeg_remembered">จำไว้แล้ว: เสียง %1$s ใช้ FFmpeg</string>
+    <string name="player_auto_ffmpeg_applied">เสียง %1$s: สลับตัวถอดรหัสเสียงไป FFmpeg อัตโนมัติแล้ว</string>
+    <string name="player_audio_decoder_switched">ตัวถอดรหัสเสียง: FFmpeg</string>
+    <string name="player_audio_decoder_refused">เซสชันปฏิเสธการสลับตัวถอดรหัสเสียง</string>
+    <string name="player_auto_ffmpeg_forget">ลืม</string>
+    <string name="player_auto_ffmpeg_forgotten">เสียง %1$s: ปิดการสลับอัตโนมัติแล้ว</string>
     <string name="player_copy_diagnostics">คัดลอกข้อมูลวินิจฉัยทั้งหมด</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
 
@@ -157,9 +181,14 @@
     <string name="settings_dynamic_color_sub">ใช้ชุดสีจากวอลเปเปอร์ระบบ (Android 12 ขึ้นไป)</string>
     <string name="settings_columns">จำนวนคอลัมน์ในคลัง</string>
     <string name="settings_default_sort">การเรียงลำดับเริ่มต้น</string>
+    <string name="settings_group_folders">แยกตามโฟลเดอร์</string>
+    <string name="settings_group_folders_sub">แสดงคลังเป็นกลุ่มตามโฟลเดอร์ โดยใช้การเรียงลำดับที่เลือกภายในแต่ละโฟลเดอร์</string>
     <string name="settings_playback">การเล่น</string>
     <string name="settings_decoder">ลำดับความสำคัญของตัวถอดรหัส</string>
     <string name="settings_decoder_hint">ตัวถอดรหัส FFmpeg เล่นได้หลายรูปแบบกว่า แต่กินแบตเตอรี่มากกว่าฮาร์ดแวร์ในเครื่อง สลับได้ทันทีระหว่างเล่นผ่านแผงข้อมูลสตรีมในหน้าจอเล่น ไฟล์ที่ฮาร์ดแวร์ไม่รับจึงแก้ได้โดยไม่ต้องออกจากวิดีโอ</string>
+    <string name="settings_auto_ffmpeg_title">การแก้เสียงอัตโนมัติ</string>
+    <string name="settings_auto_ffmpeg_hint">รูปแบบเสียงเหล่านี้จะสลับไปใช้ตัวถอดรหัส FFmpeg เองเมื่อถอดรหัสไม่ได้ เพราะคุณเคยกดใช้ FFmpeg ในหน้าจอเล่นหนึ่งครั้ง ระดับตัวถอดรหัสที่บันทึกไว้จะไม่เปลี่ยน</string>
+    <string name="settings_auto_ffmpeg_forget">ลืม</string>
     <string name="settings_default_speed">ความเร็วเริ่มต้น</string>
     <string name="settings_seek_step">ระยะเลื่อนเมื่อแตะสองครั้ง</string>
     <string name="settings_resume">เล่นต่อจากจุดที่หยุดไว้</string>

@@ -16,6 +16,7 @@ import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 
 /**
  * Hosts the player so playback survives the UI: audio keeps going with the screen
@@ -78,6 +79,7 @@ class PlaybackService : MediaSessionService() {
                 val commands: SessionCommands = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS
                     .buildUpon()
                     .add(PlaybackCommands.setDecoderPreference)
+                    .add(PlaybackCommands.setAudioDecoder)
                     .build()
                 return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
                     .setAvailableSessionCommands(commands)
@@ -90,6 +92,9 @@ class PlaybackService : MediaSessionService() {
                 customCommand: androidx.media3.session.SessionCommand,
                 args: Bundle,
             ): ListenableFuture<SessionResult> {
+                if (customCommand.customAction == PlaybackCommands.ACTION_SET_AUDIO_DECODER) {
+                    return Futures.immediateFuture(applyAudioDecoder(args))
+                }
                 if (customCommand.customAction != PlaybackCommands.ACTION_SET_DECODER) {
                     return super.onCustomCommand(session, controller, customCommand, args)
                 }
@@ -125,6 +130,30 @@ class PlaybackService : MediaSessionService() {
             LogTag.DECODER,
             "Decoder switched live to '${preference.name}' — $applied",
         )
+        return SessionResult(SessionResult.RESULT_SUCCESS)
+    }
+
+    /**
+     * Sets the audio decoder for this session, and this session only.
+     *
+     * Called while a file is playing it swaps the audio renderer; called before the
+     * item is prepared — which is what a remembered codec does — it only decides which
+     * renderer that first prepare may use, so the sound starts with the picture.
+     *
+     * Nothing is written to [PREFS]: the fitness of an audio codec for FFmpeg is not
+     * a statement about the viewer's video preference, and the automatic rescue that
+     * follows a remembered codec has to stay undoable.
+     */
+    private fun applyAudioDecoder(args: Bundle): SessionResult {
+        val requested = args.getString(PlaybackCommands.KEY_AUDIO_DECODER)
+        val mode = DecoderMode.entries.firstOrNull { it.name == requested }
+        if (mode == null) {
+            LogBus.w(LogTag.DECODER, "Audio decoder switch asked for an unknown mode")
+            return SessionResult(SessionError.ERROR_BAD_VALUE)
+        }
+        val applied = engine?.applyAudioDecoder(mode)
+            ?: return SessionResult(SessionError.ERROR_INVALID_STATE)
+        LogBus.i(LogTag.DECODER, "Audio decoder set to '${mode.name}' — $applied")
         return SessionResult(SessionResult.RESULT_SUCCESS)
     }
 

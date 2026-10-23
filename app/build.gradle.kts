@@ -27,8 +27,8 @@ android {
         applicationId = "com.nardech.vdoplayer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 4
-        versionName = "1.2.0"
+        versionCode = 5
+        versionName = "1.3.0"
         vectorDrawables { useSupportLibrary = true }
 
         // The instrumented smoke test in app/src/androidTest drives the real player on a
@@ -160,4 +160,10 @@ dependencies {
     // FFmpeg libraries and the decoder switch all need an Android runtime.
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
+
+    // The player's snackbar host lives outside the app's Scaffold, so only a Compose
+    // test on a device can show that an announcement really reaches the screen.
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
 }

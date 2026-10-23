@@ -4,6 +4,167 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-10-23
+
+### Added
+
+- **No-sound hint** — a file whose audio track nothing decodes used to play in
+  silence with no explanation: the picture runs, nothing throws, and the track is
+  simply never selected. Once the player is ready it now notices `Tracks` reporting
+  audio groups with none of them selected, names the codec in a compact card, and
+  offers **Use FFmpeg**, which switches the audio decoder live and remembers the
+  codec. `AudioSilence` holds the
+  rules — a silent film, or any selected track, is not a failure — so the hint stays
+  away while the player is still preparing, when FFmpeg already is the choice, and
+  after it is dismissed for that video. 11 JVM tests pin those cases (83 in total).
+- **Remembered audio fixes** — the no-sound card's FFmpeg button now records the
+  codec it rescued (`AC3`, `DTS`, …). The next file with that codec switches to FFmpeg
+  by itself when nothing decodes it: no card, no tap, and the saved decoder priority is
+  left alone, so one AC-3 file does not turn the whole app into software decoding.
+  Settings → Playback lists the remembered codecs and can forget them, and the
+  automatic switch's own message carries a **Forget** action, so a codec that turns
+  out to be a one-off can stop switching without leaving the player.
+- **Audio-only rescue** — the no-sound card and the automatic switch now move just
+  the audio decoder, through a session command of their own
+  (`PlaybackCommands.setAudioDecoder`). A file whose sound needs FFmpeg keeps hardware
+  video decoding, and the saved decoder priority is untouched; the stream panel's chips
+  still change both halves, because there the viewer is choosing on purpose.
+- **Remembered codecs switch before the first frame** — a codec you already rescued
+  used to cost a silent moment per video: the player had to be ready and the audio
+  track already missing before the switch could be applied. The player now reads the
+  file's own audio track with `MediaExtractor` before playback starts and, when that
+  codec is remembered, picks the FFmpeg audio renderer at prepare time, so the sound
+  starts with the picture. The early and the live path share one decision and one
+  spelling of the codec name (`audio/ac3` → `AC3`), which `AudioCodecProbeTest` pins;
+  a file the probe cannot read and a track remembered under its label keep the live
+  switch, which is still there. 5 more JVM tests (92 in total).
+- **The probe is remembered per file** — the early switch read the header again on every
+  play, including files this session had already answered for. The codec a probe finds is
+  now kept in `AudioCodecCache` under the file's own identity (its size and the moment
+  MediaStore added it, both already on the item), so a file opened a second time costs no
+  header read at all. A re-downloaded or edited file lands on a new key and is probed
+  again rather than inheriting an old codec, an item whose size is still unknown gets no
+  key, and only findings are stored — a file that could not be read gets another chance.
+  The map is bounded and least-recently-used, so a long session cannot grow it. 5 more
+  JVM tests (97 in total).
+- **The cache hit is measured, not argued** — the promise is that a file already
+  probed is never opened again, and `MediaExtractor` gives no way to see an open from
+  outside. `AudioCodecProbe.probe` now takes the track read as a parameter and the
+  cache rule lives in `AudioCodecProbe.resolve`, so the JVM tests pass a read that
+  counts: the second play must not open the file, a changed key and a failed read
+  must, and a file with no audio is never remembered. Production still opens the file  with `MediaExtractor`, and `AudioCodecProbeDeviceTest` repeats the same counts on the
+  emulator against the packaged `ac3.mkv`, where the real extractor also has to name its
+  track `AC3`. 5 more JVM tests (102 in total).
+- **Probe results survive a restart** — the cache lived in the heap, so the first play
+  after every launch paid for the header read and started the picture a moment before
+  the sound. What a probe finds is now written down (`PrefsAudioCodecStore`, one
+  tab-separated line per entry in `SharedPreferences`) and read back when the next run
+  opens its first file. The key already carries the size and the timestamp that change
+  when the bytes do, so a re-downloaded or edited file is still probed again; the
+  written map is the same bounded LRU map the memory keeps, so the file cannot grow
+  past eight entries, and a hit — the common case — writes nothing at all. A line that
+  does not name both a key and a MIME type is dropped rather than guessed at. 8 more
+  JVM tests (110 in total).
+- **Auto-advance switches too** — an episode reached by the player itself fell back to
+  the live rescue: the next file started silent and the switch only arrived once the
+  picture was already running. The player now reads the codec of the item *after* the
+  current one while the current one plays, and on arrival applies the same audio-only
+  switch to the new item, with the same message and **Forget** action. The read costs
+  one header read per arrival, and none for a file this process already answered for.
+  One switch covers the rest of the queue — the audio decoder belongs to the session —
+  so a season does not announce the same codec every episode; choosing a decoder in
+  the stream panel clears that, because the viewer has just changed what the session
+  does. A queue played from the start still gets the switch before the first item is
+  prepared.
+- The stream panel's audio line says **not decoded** instead of "waiting for
+  tracks" when there is an audio track that nothing is playing.
+- **The silence is announced before it starts** — the no-sound card could only report
+  a file that was already playing quietly. The header read that picks the decoder now
+  also answers whether anything on this device can decode the track at all:
+  `AudioPreflight` asks the platform's own codec list and NextLib's FFmpeg build, and a
+  codec neither names gets a card that says so **before** the file is opened, with no
+  FFmpeg button — switching would be a promise the codec cannot keep. The same check
+  covers a queue from its first item and every episode the player reaches by itself,
+  and it deliberately says nothing when a list cannot be read, when the file has no
+  audio, or about a codec name left by an older cache. The value the probe remembers
+  is now the file's audio MIME types, since that is the only form either question can be
+  asked of — and every track, because one playable track is sound; entries that hold a
+  bare codec name are dropped and read again. 11 more JVM tests (121 in total).
+- **Device-level coverage for both** — the emulator job now asks the silent-audio
+  premise of a real player: `ac3.mkv` under **hardware only** must report an
+  undecoded AC-3 track through `AudioSilence`, and the same clip played by FFmpeg must
+  report none — and then that the audio-only rescue takes that same clip from silent to
+  decoded while the video decoder mode is exactly what it was before the switch; a
+  fourth AC-3 test picks the audio decoder *before* the item is prepared, the way a
+  remembered codec does, and finds it already decoded at the first ready state. A
+  Compose test renders the
+  player's snackbar host and checks that an announcement appears above the control bar,
+  which no JVM test can see.
+- **The warning is also a way out** — a file no decoder here can read used to end there:
+  the card said why the picture was quiet and offered nothing, because the decoder
+  switch it could offer would not keep its promise. When the queue holds another video
+  the card now also carries **Next video**, which skips over a file that can only ever
+  be silent; a one-item queue, or repeat-one, keeps the card alone, since skipping would
+  only restart the same file.
+- **The recall is measured on a device too** — `aRecallNeverOpensTheFile` asks for a
+  file nobody probed and finds nothing with zero opens, then probes it once and finds
+  the answer with that same single open, which is the whole claim the library badge
+  makes.
+- **The library says it before you open the file — for the whole library** — the
+  no-sound warning only arrived with the file already open, and a library badge could
+  only mark a file the player had opened, while it was still among the eight entries the
+  probe cache keeps. Both halves are fixed. A file whose audio nothing here can decode
+  now carries a muted-speaker badge on the thumbnail in grid view, an icon beside the
+  title in list view, and an **Audio** row in the details dialog that spells it out —
+  and the mark reaches files nobody has played. Drawing a row still opens nothing, and
+  a decision is now its own record: `AudioVerdictIndex` keeps one bit per file under the
+  probe's key (512 of them, least recently used out first) in a `SharedPreferences` file
+  of its own, so a badge survives both a restart and the cache evicting the file.
+  `AudioVerdictSweep` fills in the rest: on the library screen it walks the files nobody
+  has decided, off the main thread, reading a header only for a file that needs one and
+  stopping after 120 undecided files a visit, so a huge — or partly cloud-backed —
+  library cannot become one long silent read; badges appear over a few visits instead.
+  The sweep also leaves the player's probe cache alone, and nothing uncertain is written:
+  a read that failed, an unreadable decoder list or an
+  old codec name is left undecided and retried, while a file with no audio track is
+  settled so it is not re-read every visit. The mark and the player's card stay one rule
+  (`AudioVerdictSweep.decide` over `AudioPreflight.outlook`). 22 more JVM tests (145 in
+  total), and the emulator job round-trips the new verdict file through a second
+  instance.
+- **The library can be read as folder sections** — a flat grid answers "what is new"
+  but not "what is in the Camera folder": the chips could narrow the list to one folder
+  and nothing could show them all at once. A folder button in the toolbar (and the same
+  switch in Settings → Appearance) now draws the library as sections, in folder-name
+  order, with the chosen sort still ordering the files inside each one and a
+  `%1$d videos` count on every heading. Each heading is also the shortcut to its folder
+  filter, toggling the chip that was already there, and it stays pinned to the top of the
+  list while its own files scroll underneath it — giving way only when the next folder's
+  heading arrives — so a long section never leaves its tiles unnamed. A play button on the
+  heading starts that folder from its first file and queues that folder alone, so the
+  section ends where it ends instead of rolling on into the next one; being on the pinned
+  copy, it is reachable however far into the folder you have scrolled. Grouping is a
+  layout, not a filter: search and the chips still apply first, next/previous walk what
+  is on screen — folder by folder — and the setting survives a restart like the grid
+  columns and sort order.
+  The rules live in `LibrarySections`, so the order a section promises is pinned by
+  `LibrarySectionsTest` (4 more JVM tests, 149 in total) rather than argued from the
+  screen, and what a section is actually drawn as — a heading that names its folder,
+  carries its count, spans the row in grid mode and toggles the filter when tapped —
+  is covered by `LibraryFolderSectionsTest` on the emulator, including that the heading
+  is still on screen once its first files have scrolled away, that the next folder's
+  heading takes its place at the top, and that the play button hands the player that
+  folder — in drawn order, from its first file — rather than the whole library.
+
+### Fixed
+
+- **Announcements made in the player were invisible** — the player is a full-screen
+  overlay outside the `Scaffold`, so the app's `SnackbarHost` was never composed
+  while a video was open and every message (“Decoder: FFmpeg”, the repeat mode)
+  queued forever. The player now carries its own host above the control bar — and
+  above the stream panel while that is open — so those confirmations finally appear.
+  The no-sound card's FFmpeg button goes through the same switch, so its result is
+  announced too.
+
 ## [1.2.0] — 2026-10-16
 
 ### Added
@@ -232,6 +393,7 @@ First public release. Everything below is new.
 
 ---
 
+[1.3.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.3.0
 [1.2.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.2.0
 [1.1.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.1.0
 [1.0.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.0.1

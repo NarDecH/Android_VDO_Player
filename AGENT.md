@@ -61,7 +61,10 @@ Verification rules that apply to this repository:
   covers the Wi-Fi Direct address rules, `PlaybackPreferencesTest` the repeat cycle,
   `SeekPreviewPolicyTest` the frame bucketing, `SubtitleMatchingTest` the subtitle
   name rules, `DecoderPreferenceTest` the decoder mode table,
-  `TrackOptionsTest` the audio track options built from real Media3 objects, and
+  `TrackOptionsTest` the audio track options built from real Media3 objects,
+  `AudioSilenceTest` the rules behind the no-sound hint, `AudioPreflightTest` the
+  verdict behind the pre-playback warning, `AudioCodecProbeTest` that the codec read
+  from a file is the same name the player reports, and
   `LocalizationTest` parses both
   `strings.xml` files and fails on a missing key, a lost `%1$s` placeholder or an
   untranslated value.
@@ -78,8 +81,33 @@ Verification rules that apply to this repository:
   rather than assumed, and it skips itself if an image ever ships a platform AC-3
   decoder — in which case there is no gap left to demonstrate there. This is the only
   automated proof that a picture is produced, that the FFmpeg `.so` files load on a
-  device, and that the live decoder switch works. Run it on an emulator through CI
-  (`api-level 34`, `google_apis`, `x86_64`) rather than locally.
+  device, and that the live decoder switch works. It also asks the silent-audio
+  premise of a real player: `ac3.mkv` under "hardware only" must report an undecoded
+  AC-3 track through `AudioSilence`, while the FFmpeg run of the same clip must report
+  none. It then performs the rescue itself — `applyAudioDecoder(FFMPEG)` on the same
+  player — and asserts the audio is decoded while the configured video mode is still
+  `HARDWARE` and the active video renderer is the one that was there before, which is
+  the device-level guard that the rescue stayed audio-only. A fourth AC-3 test does the
+  early switch instead of the rescue — `applyAudioDecoder(FFMPEG)` before the media
+  item is set, the way `PlayerScreen` does it for a remembered codec — and asserts the
+  track is already decoded once the player is ready, with the video mode untouched.
+  `ui/player/PlayerSnackbarHostTest` covers what no playback test can see: the
+  player screen is a full-screen overlay outside the app's `Scaffold`, so it carries
+  its own `SnackbarHost`, and only a `createComposeRule()` test can show that an
+  announcement reaches the screen. Its `ui-test-manifest` activity comes from
+  `debugImplementation`, which is why that dependency belongs there rather than in
+  `androidTestImplementation`. `ui/library/LibraryFolderSectionsTest` does the same for
+  the grouped library: it drives `LibraryGrid` directly — the screen around it needs a
+  media permission, MediaStore and the settings store before it draws a tile — and
+  checks that each heading names its folder, carries that folder's count, spans the
+  row in grid mode and is the folder's filter when tapped, that its play button hands
+  the player that folder in drawn order from its first file (not the whole library,
+  which is what the flat list would have queued), then scrolls a long section to show
+  the heading is still on top with its first files gone and that the next folder's
+  heading replaces it. That last part is Compose's own `stickyHeader`: in a
+  `LazyVerticalGrid` it takes a key and no `span` parameter — it already spans every
+  column, which is why the heading stays full-width while pinned. Run these on an emulator
+  through CI (`api-level 34`, `google_apis`, `x86_64`) rather than locally.
 * The frames are counted by `playback/CountingVideoSurface`, and that class is load
   bearing: a plain `SurfaceTexture` consumes nothing, so its queue fills after the
   first frame and the decoder blocks forever waiting for a free slot. That is how the
@@ -156,9 +184,9 @@ app/src/main/java/com/nardech/vdoplayer/
 ├── logging/               LogEntry/LogBus, LogFileWriter, CrashGuard, Diagnostics,
 │                          LogShare (export/share/save)
 ├── playback/              PlayerFactory (engine + DecoderManager), PlaybackService
-│                          (MediaSessionService + session commands), PlaybackViewModel
-│                          (MediaController + UI state), PlaybackCommands,
-│                          SubtitleMatching + SubtitleDiscovery, TrackOptions
+│                          (MediaSessionService + session commands), PlaybackViewModel│                          (MediaController + UI state), PlaybackCommands,
+│                          SubtitleMatching + SubtitleDiscovery, TrackOptions, AudioSilence,
+│                          AudioPreflight (can anything here decode this audio?)
 ├── transfer/              Wi-Fi send/receive: TransferProtocol (wire contract),
 │                          TransferServer, TransferClient, TransferDiscovery (mDNS),
 │                          MediaStoreReceivedFileSink, TransferManager (state for the UI)
@@ -236,7 +264,9 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
     application thread, so the UI sends `PlaybackCommands.setDecoderPreference` and
     the session's `Callback.onConnect` grants that custom command to every
     controller. A refusal is not fatal: the preference is stored anyway and applies
-    the next time the player is built.
+    the next time the player is built. The audio rescue has its own
+    `PlaybackCommands.setAudioDecoder`, granted alongside it, because changing both
+    halves on purpose (the chips) and rescuing a silent track are different requests.
 14. **The renderer set is fixed at player build time; the decoder mode is not.**
     `DecoderPreference` therefore carries both halves — `extensionMode` for the
     renderers and `DecoderMode` for the selection — and the extension renderers stay
@@ -265,6 +295,152 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
    Windows backslashes makes AGP fail with a bare
    `java.io.IOException: The filename, directory name, or volume label syntax is incorrect`
    from `SdkLocator.validateSdkPath`. Use `cygpath -m` if you generate it.
+19. **A video that plays without sound is a failure nobody reports.** When no
+    renderer can take the file's audio, ExoPlayer raises nothing: the audio track is
+    simply left unselected and the picture runs. `AudioSilence` reads that off the
+    player's own `Tracks` — audio groups exist, none selected — and the hint is only
+    offered once the player is `STATE_READY`, because selection has not been applied
+    before that. The card stays hidden when FFmpeg already is the choice, and once
+    dismissed stays closed for that media id. `AudioSilenceTest` pins every early
+    return: a hint that fires on a silent film, or while preparing, is worse than no
+    hint.
+    The rescue changes **audio only**. `PlaybackCommands.setAudioDecoder` is a separate
+    session command from the stream panel's `setDecoderPreference`, which keeps changing
+    both halves because that is what the Settings choice means; a silent track needs
+    FFmpeg for its sound, not a software video decoder, so `PlaybackEngine`
+    `.applyAudioDecoder` never touches `selectVideoDecoder`. It is also *live only* —
+    nothing is written to the saved priority or to the service's own copy of it — so one
+    rescued AC-3 file cannot turn every later video into software decoding.
+    The card's button also remembers the codec in `AppSettings.autoFfmpegCodecs`, and
+    `AudioSilence.autoRescueCodec` lets that codec switch by itself the next time it is
+    met — through the same audio-only command. A remembered codec does not even have to
+    go silent first: `AudioCodecProbe` reads the file's first audio MIME with
+    `MediaExtractor` before `PlayerScreen` starts playback, and when that codec is
+    remembered the audio command is sent *before* the first item is prepared. NextLib
+    treats AUTO→FFMPEG as an enable flip on its renderers and, with nothing prepared,
+    never restarts the player, so the first frame already has its FFmpeg audio. Both
+    paths decide with one function and one spelling (`AudioSilence.codecKey`,
+    `audio/ac3` → `AC3`); `AudioCodecProbeTest` pins that they agree, and a probe that
+    fails or a track remembered under its label falls back to the live switch.
+    Auto-advance needs a third path, because the queue is built and probed once and the
+    player then moves on by itself: while an item plays, `PlayerScreen` reads the audio
+    header of the item after it through the same `probeKey()`, so the arrival is a cache
+    hit that opens nothing, and an effect keyed on `state.mediaId` asks the same
+    questions when that id changes: the same audio-only switch, announced with the same
+    message and **Forget** action, and the preflight verdict below. The first id is
+    skipped on purpose: the early path already decided for it. A session-wide flag (`audioSwitchedByApp`) keeps
+    a binge from announcing the same codec every episode — the decoder belongs to the
+    session, so one switch covers the rest of the queue — and the stream panel's chips
+    clear it, because they just changed what the session does.
+    The header read happens once per file, not once per play: `AudioCodecCache` keeps
+    the audio MIME types under `AudioCodecProbe.cacheKey`, which is built from the item's size and
+    `dateAddedSeconds` — the identity `VideoItem` already carries, so no extra query
+    stands in front of the probe it is meant to save. A changed size or timestamp is a
+    different key, so a re-downloaded file is probed again instead of inheriting the old
+    codec, and an item whose size is still unknown (an "open with" intent before
+    MediaStore has scanned it) gets no key at all. Only hits are stored: a file that
+    could not be read must get another chance rather than a remembered "no audio". The
+    map is bounded and LRU (8 entries), because a viewer can play through an unbounded
+    number of files. `AudioCodecCacheTest` pins those rules on the JVM.
+    The map also outlives the process: `AudioCodecCache` takes an `AudioCodecStore`,
+    `PrefsAudioCodecStore` is the `SharedPreferences` one (file `audio_codecs`, one
+    `key<TAB>mime` line per entry through `AudioCodecStoreFormat`), and `probe`
+    attaches it on its first call, because that is the first moment a `Context` exists.
+    The value is the audio MIME types, not their short names: a name is only a spelling
+    of the MIME type (`AudioSilence.codecKey`), while the preflight question below can
+    only be asked of the MIME types. It lists every audio track, comma-separated, because
+    a file with a second playable track is not silent. Lines from the build that kept
+    names are therefore dropped and the file read again — a name with no slash cannot
+    answer either question.
+    The file is read once and rewritten only by a `put` that changes the map, always as
+    the bounded snapshot, so a hit — the common case — writes nothing and the file
+    cannot outgrow the cache. `AudioCodecCacheTest` pins the restart, the bound and the
+    no-write-on-hit rule; `AudioCodecStoreFormatTest` pins the line format, including
+    that a line without both halves is dropped rather than guessed at, and
+    `AudioCodecProbeDeviceTest` writes through `PrefsAudioCodecStore` and reads it back
+    from a second instance, so the real file name and key are checked too.
+    That the hit really skips the extractor is checked by counting, not by reading the
+    code: the cache rule is `AudioCodecProbe.resolve` (no Android in it), `probe` is
+    that rule plus the real `MediaExtractor` read, and `AudioCodecProbeTest` passes a
+    read that counts opens — a second play of an unchanged file must not open it, a
+    changed key and a failed read must, and a file with no audio is never remembered.
+    `AudioCodecProbeDeviceTest` repeats those counts on the emulator through `probe`
+    itself, and asks the real extractor to name `ac3.mkv`'s track `AC3`, so the seam the
+    JVM tests rely on is the same one production uses.
+    That same read answers a second question: can anything here decode this audio at
+    all? A file whose tracks nothing can decode plays as a quiet picture, and the viewer
+    should hear that before it opens rather than wonder about it. `AudioPreflight`
+    compares every audio MIME type against two lists — the platform's audio decoders from
+    `MediaCodecList` and NextLib's FFmpeg build through `FfmpegLibrary.supportsFormat`.
+    FFmpeg counts because every `DecoderPreference` registers its renderers as the
+    fallback, so a track only has to be named by one of them, and *one playable track is
+    sound* — the verdict is over the file, not over its first line. A file with tracks in
+    neither list gets a card with **no button**: switching decoders cannot rescue a codec
+    nothing implements, which is exactly why the card also suppresses the no-sound hint —
+    that hint would offer FFmpeg for it. The verdict is taken before `playback.play` for
+    the start item and on every auto-advance arrival, and it is `UNKNOWN` — silence, no
+    card — when the file has no audio track, when a list cannot be read (`MediaCodecList`
+    refused, `FfmpegLibrary` failed to load), or when a value has no slash in it. A wrong
+    “no sound” on a playable file is worse than saying nothing, so every way of not
+    knowing ends as no claim. Both lists are read once per process and the FFmpeg answer is
+    memoised per MIME type, so after the first file the check costs nothing;
+    `AudioPreflightTest` pins the rule on the JVM, and
+    `AudioCodecProbeDeviceTest` asks the real lists on the emulator — `ac3.mkv` must come
+    back as `audio/ac3` and playable, and a codec nothing ships must be reported.
+    The verdict is also drawn where the choice is made. The library marks a file whose
+    header already proved that nothing here can decode its audio: a muted-speaker badge on
+    the thumbnail, an icon beside the title in list view, and an **Audio** row in the
+    details dialog. Drawing a row opens no file — the mark comes from `AudioVerdicts`,
+    which keeps one **bit** per file under the probe's own key, because decorating a
+    list must not cost a header read per row.
+    That index is deliberately not the probe cache. `AudioCodecCache` holds eight entries
+    because a codec answer is a list of MIME types, while a verdict is one byte for every
+    file in the library, so `AudioVerdictIndex` keeps 512 (least recently used out first)
+    in `PrefsAudioVerdictStore` — its own `SharedPreferences` file, `key<TAB>u|p|n`, since
+    the codec file is rewritten by the player and this one only when a file is decided for
+    the first time. `AudioVerdictFormatTest` pins the line format, including that an
+    unknown flag is dropped rather than guessed at, and `AudioVerdictIndexTest` pins the
+    bound, the LRU order, the restart and that a visit which decided nothing writes
+    nothing.
+    Covering the whole library needs a walk, not just a bigger map: `AudioVerdictSweep`
+    asks each undecided file once, in order, off the main thread, and the library screen
+    runs it from a `LaunchedEffect` on the video list. It stops at `DEFAULT_BUDGET` (120)
+    undecided files per visit so a huge — or partly cloud-backed — library cannot turn into
+    one long silent read, and the badges fill in over a few visits. A key with a verdict is
+    skipped before anything is read, a file the probe cache still holds becomes a verdict
+    with no read at all, and the sweep's own reads pass `key = null` so they do not evict
+    the handful of entries the player relies on. `yield()` between files keeps a scroll or
+    a screen change from queueing behind the walk, and the visit persists what it learned
+    in a `finally` with `NonCancellable`, so leaving the tab keeps the work. Nothing
+    uncertain is written: a read that failed, an `outlook` of `UNKNOWN` from an unreadable
+    decoder list, and a codec name from an older cache are all left undecided and retried;
+    only a file with no audio track is settled as `NO_AUDIO`, which is what stops a silent
+    film from being re-read on every visit. `AudioVerdictSweepTest` pins the skip, the
+    budget, the continuation on the next visit and the failures above.
+    The mark uses the same rule as the player's card — `AudioVerdictSweep.decide` is
+    `AudioPreflight.outlook` plus "say nothing when it is unknown" — so the two can never
+    disagree; `AudioCodecProbeDeviceTest` counts the opens a recall does not make and
+    round-trips the verdict file through a second instance.
+    The card is also a way out when the queue has more to offer: `state.hasNext` plus a
+    queue longer than one item put **Next video** on it, so a file that can only ever be
+    silent can be skipped instead of watched in silence; a single-item queue and
+    repeat-one leave the card without that action, since skipping would only restart it.
+    The undo is in the switch's own message: it carries a **Forget** action that drops
+    the codec straight away, because a switch nobody asked for must be reversible where
+    it happened. Settings → Playback lists the remembered codecs and offers the same
+    undo later.
+
+    The library can also be read as folder sections — the toolbar's folder button, or the
+    switch in Settings → Appearance (`AppSettings.groupByFolder`). Grouping is a layout,
+    not a filter: search and the folder chips still apply first, and the chosen sort still
+    orders the files *inside* each section. Sections are sorted by folder name (not by the
+    first file in them, which would make them move on every refresh), and each heading
+    carries the folder's count and toggles that folder's chip. The screen draws both
+    layouts from one `LazyVerticalGrid`, with the heading as `GridItemSpan(maxLineSpan)`,
+    so list and grid look the same as they do when flat. Next/previous walk the drawn
+    order, so a grouped library plays folder by folder; that rule, and the section order,
+    live in `LibrarySections` and are pinned by `LibrarySectionsTest` — the helper is
+    generic in the item because a `VideoItem` needs an Android `Uri` just to exist.
 
 ## Localisation
 

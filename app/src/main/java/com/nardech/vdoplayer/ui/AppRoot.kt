@@ -132,6 +132,15 @@ fun AppRoot(
                     // player, and the setting decides what the next player uses.
                     scope.launch { container.settings.setDecoderPreference(preference) }
                 },
+                onRememberAudioCodec = { codec ->
+                    // The next file with this codec switches by itself (see AudioSilence).
+                    scope.launch { container.settings.rememberFfmpegCodec(codec) }
+                },
+                onForgetAudioCodec = { codec ->
+                    // Undo from the player's own message: the switch stays this time,
+                    // but the codec stops switching by itself from now on.
+                    scope.launch { container.settings.forgetFfmpegCodec(codec) }
+                },
                 onClose = {
                     LogBus.i(LogTag.UI, "Closing player screen")
                     playback.stop()

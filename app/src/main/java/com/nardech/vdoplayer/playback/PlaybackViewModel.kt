@@ -20,6 +20,7 @@ import com.nardech.vdoplayer.data.VideoItem
 import com.nardech.vdoplayer.logging.Diagnostics
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -52,12 +53,13 @@ data class PlayerUiState(
     val audioCodec: String? = null,
     val textCodec: String? = null,
     val subtitleCount: Int = 0,
-    val audioTrackCount: Int = 0,
     val queueIndex: Int = 0,
     val queueSize: Int = 0,
     val repeatMode: Int = Player.REPEAT_MODE_OFF,
     /** Audio tracks of the current item, for the track picker in the player. */
     val audioTracks: List<TrackChoice> = emptyList(),
+    /** Set when the file has an audio track that nothing is decoding. */
+    val silentAudio: SilentAudio? = null,
 ) {
     val isBuffering: Boolean get() = playbackState == Player.STATE_BUFFERING
     val isEnded: Boolean get() = playbackState == Player.STATE_ENDED
@@ -94,6 +96,9 @@ class PlaybackViewModel(private val app: Application) {
 
     /** Media ids already searched for subtitles, so the scan runs once per video. */
     private val subtitleSearchDone = mutableSetOf<String>()
+
+    /** Media id the silent-audio warning was last logged for, so it is logged once. */
+    private var silentAudioLoggedFor: String? = null
     private var subtitleJob: Job? = null
     private val subtitleResolver by lazy { SubtitleResolver(app) }
 
@@ -346,6 +351,35 @@ class PlaybackViewModel(private val app: Application) {
         }.getOrDefault(false)
     }
 
+    /**
+     * Asks the service to decode audio with FFmpeg, leaving video alone.
+     *
+     * This is the no-sound rescue: the picture keeps whatever decoder it had, and the
+     * audio preference is not saved, so a single AC-3 file cannot turn every later
+     * video into software decoding. Returns whether the session accepted the command.
+     *
+     * Sent before [play], the same command is a prepare-time choice rather than a
+     * rescue: NextLib treats an AUTO→FFMPEG change as an enable flip on its renderers
+     * and, with no media item prepared, never restarts the player, so the item the
+     * caller is about to prepare already starts on the FFmpeg audio renderer.
+     */
+    fun rescueAudioWithFfmpeg(): Boolean {
+        val player = controller ?: run {
+            LogBus.w(LogTag.DECODER, "No playback session to rescue the audio for yet")
+            return false
+        }
+        val args = Bundle().apply {
+            putString(PlaybackCommands.KEY_AUDIO_DECODER, DecoderMode.FFMPEG.name)
+        }
+        return runCatching {
+            player.sendCustomCommand(PlaybackCommands.setAudioDecoder, args)
+            LogBus.i(LogTag.DECODER, "Asked the playback service for the FFmpeg audio decoder")
+            true
+        }.onFailure {
+            LogBus.w(LogTag.DECODER, "The session refused the audio decoder switch", it)
+        }.getOrDefault(false)
+    }
+
     /** Picks one of the audio tracks [PlayerUiState.audioTracks] currently lists. */
     fun selectAudioTrack(index: Int) {
         val choice = _state.value.audioTracks.getOrNull(index) ?: return
@@ -444,6 +478,9 @@ class PlaybackViewModel(private val app: Application) {
         val player = controller ?: return
         val tracks = player.currentTracks
         val selected = selectedFormats(tracks)
+        val mediaId = player.currentMediaItem?.mediaId
+        val silentAudio = AudioSilence.detect(tracks)
+        logSilentAudio(silentAudio, mediaId)
 
         _state.value = PlayerUiState(
             isPlaying = player.isPlaying,
@@ -456,7 +493,7 @@ class PlaybackViewModel(private val app: Application) {
             videoHeight = videoSize?.height ?: 0,
             title = player.mediaMetadata.title?.toString()
                 ?: player.currentMediaItem?.mediaId.orEmpty(),
-            mediaId = player.currentMediaItem?.mediaId,
+            mediaId = mediaId,
             errorMessage = _state.value.errorMessage,
             hasNext = player.hasNextMediaItem(),
             hasPrevious = player.hasPreviousMediaItem(),
@@ -465,14 +502,32 @@ class PlaybackViewModel(private val app: Application) {
             textCodec = selected.text,
             subtitleCount = player.currentMediaItem?.localConfiguration
                 ?.subtitleConfigurations?.size ?: 0,
-            audioTrackCount = countSelectedGroup(tracks, C.TRACK_TYPE_AUDIO),
             queueIndex = player.currentMediaItemIndex,
             queueSize = player.mediaItemCount,
             repeatMode = player.repeatMode,
             audioTracks = TrackOptions.audioTracks(tracks, Diagnostics::describe),
+            silentAudio = silentAudio,
         )
 
         scheduleSubtitleDiscovery()
+    }
+
+    /**
+     * Records the silent-audio state once per video. Refresh runs twice a second, so
+     * logging there unconditionally would bury everything else in the file.
+     */
+    private fun logSilentAudio(silentAudio: SilentAudio?, mediaId: String?) {
+        if (silentAudio == null) {
+            silentAudioLoggedFor = null
+            return
+        }
+        if (silentAudioLoggedFor == mediaId) return
+        silentAudioLoggedFor = mediaId
+        LogBus.w(
+            LogTag.DECODER,
+            "No audio track is decoded for '$mediaId' (${silentAudio.codec}); " +
+                "the file plays silently until the decoder changes",
+        )
     }
 
     private fun repeatModeName(mode: Int): String = when (mode) {
@@ -501,11 +556,6 @@ class PlaybackViewModel(private val app: Application) {
         }
         return SelectedFormats(video, audio, text)
     }
-
-    private fun countSelectedGroup(tracks: Tracks, type: Int): Int =
-        tracks.groups.count { group ->
-            group.type == type && (0 until group.length).any { group.isTrackSelected(it) }
-        }
 
     private fun VideoItem.toMediaItem(): MediaItem = MediaItem.Builder()
         .setMediaId(id.toString())

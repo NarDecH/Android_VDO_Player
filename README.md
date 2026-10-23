@@ -47,8 +47,8 @@ developer when something refuses to play.
 
 | | |
 |---|---|
-| **Library** | MediaStore scan with live updates, thumbnails, search, folder filter chips, sort by date/name/duration/size, grid or list layout |
-| **Playback** | Media3 ExoPlayer, FFmpeg software fallback decoders, decoder priority switchable **while a video plays** (hardware ⇄ FFmpeg), audio track picker, playlists with next/previous, resume where you stopped, repeat off / whole queue / one video (remembered), background audio through a media notification |
+| **Library** | MediaStore scan with live updates, thumbnails, search, folder filter chips, sort by date/name/duration/size, grid or list layout, a folder-sections view, a badge on files whose audio this device is known not to decode (decided once per file, with a bounded background sweep for the rest of the library) |
+| **Playback** | Media3 ExoPlayer, FFmpeg software fallback decoders, decoder priority switchable **while a video plays** (hardware ⇄ FFmpeg), audio track picker, a no-sound hint that switches a silent audio track to FFmpeg and remembers that codec, a warning before playback when nothing on the device can decode a file's audio at all, playlists with next/previous, resume where you stopped, repeat off / whole queue / one video (remembered), background audio through a media notification |
 | **Controls** | Tap to show controls, double tap ±seek, swipe for brightness / volume / seek with a frame preview of the target position, pinch-free zoom modes, long press for 3× speed, control lock, screen rotation, picture-in-picture |
 | **Format support** | Platform hardware decoders plus FFmpeg: H.264, HEVC, VP8, VP9, AV1 (dav1d), AAC, AC-3, E-AC-3, FLAC, OPUS, Vorbis, DTS, TrueHD, MLP and more |
 | **Subtitles** | Embedded text tracks, side-loaded `.srt` / `.vtt` / `.ass` picker, subtitle on/off toggle, and automatic loading of a subtitle file that sits next to the video under the same name (or a language tag, `Movie.th.srt`) |

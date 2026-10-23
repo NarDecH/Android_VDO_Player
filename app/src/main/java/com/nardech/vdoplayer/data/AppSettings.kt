@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import com.nardech.vdoplayer.logging.LogExportFormat
@@ -80,8 +81,15 @@ data class AppSettings(
     val seekPreviewEnabled: Boolean = true,
     /** Looks for a `.srt` / `.vtt` / `.ass` next to the video and loads it automatically. */
     val subtitleAutoDiscovery: Boolean = true,
+    /**
+     * Audio codecs the viewer already rescued by hand. When one of them cannot be
+     * decoded again, the player switches to FFmpeg without asking.
+     */
+    val autoFfmpegCodecs: Set<String> = emptySet(),
     val gridColumns: Int = 2,
     val sortOrder: SortOrder = SortOrder.DATE_NEWEST,
+    /** Draws the library as folder sections instead of one flat list. */
+    val groupByFolder: Boolean = false,
     val logLevel: LogLevel = LogLevel.DEBUG,
     val logExportFormat: LogExportFormat = LogExportFormat.ZIP,
     val includeDiagnosticsInExport: Boolean = true,
@@ -109,8 +117,10 @@ class SettingsRepository(private val context: Context) {
         val rememberBrightness = booleanPreferencesKey("remember_brightness")
         val seekPreview = booleanPreferencesKey("seek_preview")
         val subtitleAutoDiscovery = booleanPreferencesKey("subtitle_auto_discovery")
+        val autoFfmpegCodecs = stringSetPreferencesKey("auto_ffmpeg_audio_codecs")
         val gridColumns = intPreferencesKey("grid_columns")
         val sortOrder = stringPreferencesKey("sort_order")
+        val groupByFolder = booleanPreferencesKey("group_by_folder")
         val logLevel = stringPreferencesKey("log_level")
         val logExportFormat = stringPreferencesKey("log_export_format")
         val diagnosticsInExport = booleanPreferencesKey("diagnostics_in_export")
@@ -138,10 +148,12 @@ class SettingsRepository(private val context: Context) {
             seekPreviewEnabled = prefs[Keys.seekPreview] ?: defaults.seekPreviewEnabled,
             subtitleAutoDiscovery = prefs[Keys.subtitleAutoDiscovery]
                 ?: defaults.subtitleAutoDiscovery,
+            autoFfmpegCodecs = prefs[Keys.autoFfmpegCodecs] ?: defaults.autoFfmpegCodecs,
             gridColumns = prefs[Keys.gridColumns] ?: defaults.gridColumns,
             sortOrder = prefs[Keys.sortOrder]
                 ?.let { name -> SortOrder.entries.firstOrNull { it.name == name } }
                 ?: defaults.sortOrder,
+            groupByFolder = prefs[Keys.groupByFolder] ?: defaults.groupByFolder,
             logLevel = prefs[Keys.logLevel]
                 ?.let { LogLevel.fromName(it) }
                 ?: defaults.logLevel,
@@ -172,8 +184,20 @@ class SettingsRepository(private val context: Context) {
     suspend fun setSeekPreview(value: Boolean) = edit { it[Keys.seekPreview] = value }
     suspend fun setSubtitleAutoDiscovery(value: Boolean) =
         edit { it[Keys.subtitleAutoDiscovery] = value }
+
+    /** Remembers a codec the viewer fixed by hand, so the next file needs no tap. */
+    suspend fun rememberFfmpegCodec(codec: String) = edit { prefs ->
+        if (codec.isNotBlank()) {
+            prefs[Keys.autoFfmpegCodecs] = prefs[Keys.autoFfmpegCodecs].orEmpty() + codec
+        }
+    }
+
+    suspend fun forgetFfmpegCodec(codec: String) = edit { prefs ->
+        prefs[Keys.autoFfmpegCodecs] = prefs[Keys.autoFfmpegCodecs].orEmpty() - codec
+    }
     suspend fun setGridColumns(value: Int) = edit { it[Keys.gridColumns] = value }
     suspend fun setSortOrder(value: SortOrder) = edit { it[Keys.sortOrder] = value.name }
+    suspend fun setGroupByFolder(value: Boolean) = edit { it[Keys.groupByFolder] = value }
     suspend fun setLogLevel(value: LogLevel) = edit { it[Keys.logLevel] = value.name }
     suspend fun setLogExportFormat(value: LogExportFormat) =
         edit { it[Keys.logExportFormat] = value.name }

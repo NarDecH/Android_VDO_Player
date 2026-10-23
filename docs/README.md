@@ -42,7 +42,15 @@ device that will play it.
 - Thumbnails rendered from the video itself (no sidecar files needed)
 - Search across titles and folder names, folder filter chips
 - Sort by date, name, duration or size; grid (1–4 columns) or list layout
+- Folder sections: the toolbar's folder button (or the switch in Settings) draws the
+  library grouped by folder, with the chosen sort inside each one and a count per
+  heading; tapping a heading narrows the list to that folder, and its play button queues
+  that folder alone — the heading stays pinned at the top while its files scroll
 - Long press for file details: folder, resolution, duration, size, MIME type, URI
+- A muted-speaker badge marks a file whose audio this device has already proved it
+  cannot decode — drawing the grid opens no file at all, because every decision is kept
+  in a per-file index, and a bounded background sweep fills in the files nobody has
+  played yet
 
 **Playback**
 
@@ -55,6 +63,14 @@ device that will play it.
   settings the Settings screen offers
 - **Audio track picker**: the control row lists every audio track of the current
   file with its codec, channels and language, and switching keeps the position
+- **No-sound hint**: when the file has an audio track that nothing decodes, a card
+  in the player names the codec and switches the **audio decoder** to FFmpeg in one tap,
+  leaving the picture on hardware decoding — and remembers that codec, so the next file
+  that needs it switches by itself (the switch's message has a **Forget** action, and
+  Settings → Playback lists the remembered codecs too)
+- **The silence is announced before it starts**: a file whose audio no decoder on the
+  device names gets the warning as it opens rather than after a stretch of picture, and
+  the card's **Next video** skips past a file that can only ever be silent
 - Playlists: next/previous within the filtered library view
 - Resume where you stopped, per video, remembered across restarts
 - Background audio with a media notification (play/pause/seek from the shade)
@@ -204,7 +220,7 @@ clears all history (this also removes resume positions).
 ### Settings tab
 
 - **Appearance** — theme (system/light/dark), Material You palette, library
-  columns, default sort order
+  columns, default sort order, folder grouping
 - **Playback** — decoder priority, default speed, double-tap seek step, resume,
   gesture controls, keep screen on, auto rotate, remember brightness, seek preview,
   autoplay next, background playback
@@ -278,7 +294,8 @@ identifiers, and the app's own events.
 |---|---|
 | Empty library | Grant video access in Settings → Apps → VDO Player → Permissions; on Android 9 and below also make sure the file is in a scanned media folder |
 | "This file could not be played" | Tap the info button and switch the decoder to **FFmpeg** right there — no need to leave the video. If it still fails, export a log: the start of the error entry names the failing codec |
-| Video plays but audio is silent | Usually an unsupported audio codec (DTS/TrueHD/AC-3 variants). Try **Prefer FFmpeg**, and check the Audio line in the info panel |
+| Video plays but audio is silent | The player offers **Use FFmpeg** in a card as soon as it sees an audio track nothing decodes — accept it, or set **Prefer FFmpeg** yourself if you dismissed it. Accepting also remembers the codec, so later files with it switch by themselves; the Audio line in the info panel names the codec being decoded. If nothing on the device can decode the track at all, a card says so **before** the video starts, with no FFmpeg button — switching decoders cannot rescue a codec nothing implements |
+| A silent file has no muted-speaker badge | Badges are decided in the background, a batch at a time, so a file is marked once its audio has actually been checked — reopen the library and give it a moment. The badge only marks a file **nothing** on the device can decode; a file that is quiet because the decoder is set to hardware only gets the player's **Use FFmpeg** card instead |
 | Subtitles never appear | Use the subtitle button to pick the `.srt`/`.vtt`/`.ass` file; embedded tracks show up automatically when the container has them. Automatic loading looks for a file with the video's own name in the same folder, and on Android 13+ it can only see files this app owns — check the `SUBTITLE` lines in the log to see what it searched |
 | Decoder switch does something unexpected | The chips apply immediately and are stored, so the next video starts with them. **Hardware only** refuses FFmpeg and software decoders; **FFmpeg** decodes with FFmpeg even when the chip could do it |
 | Choppy software decoding | Prefer hardware decoding, or pick a lower resolution source. FFmpeg decoding is CPU work, not free |

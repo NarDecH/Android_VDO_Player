@@ -9,6 +9,7 @@ import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.logging.LogBus
 import com.nardech.vdoplayer.logging.LogTag
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderManager
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.NextRenderersFactory
 import java.util.Locale
 
@@ -26,6 +27,19 @@ class PlaybackEngine(
 ) {
 
     /**
+     * The mode each half is running, as NextLib reports it once the switch lands.
+     *
+     * Nullable because NextLib clears both while a mode pair that needs a restart is
+     * being applied. Read them from the player's application thread; they are also
+     * what the device test uses to prove the audio rescue left video alone.
+     */
+    val activeVideoMode: DecoderMode? get() = decoderManager.activeVideoMode
+    val activeAudioMode: DecoderMode? get() = decoderManager.activeAudioMode
+
+    /** The configured video mode, which is what a rescue must leave alone. */
+    val videoMode: DecoderMode get() = decoderManager.videoMode
+
+    /**
      * Switches decoding while the player keeps running. Returns the modes now in
      * effect for the log, or `null` when NextLib refused the change.
      */
@@ -35,6 +49,24 @@ class PlaybackEngine(
         "video=${decoderManager.activeVideoMode} audio=${decoderManager.activeAudioMode}"
     }.onFailure {
         LogBus.e(LogTag.DECODER, "NextLib refused the decoder switch to '${preference.name}'", it)
+    }.getOrNull()
+
+    /**
+     * Switches only the audio decoder, leaving video where it is.
+     *
+     * A silent file needs its sound rescued, not its picture moved onto a software
+     * decoder: [applyDecoderPreference] changes both halves because that is what the
+     * Settings choice means, while this exists for a track the platform cannot decode.
+     */
+    fun applyAudioDecoder(mode: DecoderMode): String? = runCatching {
+        decoderManager.selectAudioDecoder(mode)
+        "audio=${decoderManager.activeAudioMode} video=${decoderManager.activeVideoMode}"
+    }.onFailure {
+        LogBus.e(
+            LogTag.DECODER,
+            "NextLib refused the audio decoder switch to '${mode.name}'",
+            it,
+        )
     }.getOrNull()
 
     /** Detaches the decoder manager first: it holds a listener on the player. */

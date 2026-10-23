@@ -16,13 +16,22 @@
     <string name="library_clear_search">Clear search</string>
     <string name="library_sort">Sort order</string>
     <string name="library_toggle_layout">Toggle layout</string>
+    <string name="library_group_folders">Group by folder</string>
     <string name="library_folder_all">All (%1$d)</string>
+    <!-- The folder name is the heading's own label, so the action names its folder. -->
+    <string name="library_play_folder">Play %1$s</string>
+    <plurals name="library_folder_count">
+        <item quantity="one">%1$d video</item>
+        <item quantity="other">%1$d videos</item>
+    </plurals>
     <string name="folder_external">External</string>
     <plurals name="library_count">
         <item quantity="one">%1$d of %2$d video · library updates automatically</item>
         <item quantity="other">%1$d of %2$d videos · library updates automatically</item>
     </plurals>
     <string name="library_meta">%1$s · %2$s</string>
+    <string name="library_no_sound">No sound on this device</string>
+    <string name="library_no_sound_hint">No decoder on this device can play this file\'s audio, so it plays without sound.</string>
     <string name="library_scanning">Scanning your device…</string>
     <string name="library_scanning_hint">Looking through the device media library.</string>
     <string name="library_empty">No videos matched</string>
@@ -40,6 +49,7 @@
     <string name="details_size">Size</string>
     <string name="details_type">Type</string>
     <string name="details_added">Added</string>
+    <string name="details_audio">Audio</string>
     <string name="details_path">Path</string>
     <string name="details_uri">URI</string>
     <string name="details_close">Close</string>
@@ -90,6 +100,21 @@
     <string name="player_decoder_current">Decoder: %1$s</string>
     <string name="player_decoder_switched">Decoder: %1$s</string>
     <string name="player_decoder_switched_pending">Decoder: %1$s (takes effect on the next playback)</string>
+    <string name="player_silent_title">No sound</string>
+    <string name="player_silent_body">The audio track (%1$s) is not being decoded, so this video plays silently. The FFmpeg decoder handles more audio formats.</string>
+    <string name="player_silent_action">Use FFmpeg</string>
+    <string name="player_silent_dismiss">Dismiss the no-sound hint</string>
+    <string name="player_undecodable_title">No decoder for this audio</string>
+    <string name="player_undecodable_body">No decoder on this device can play this video\'s %1$s audio, so it will play silently. The picture is unaffected.</string>
+    <string name="player_undecodable_dismiss">Dismiss the audio warning</string>
+    <string name="player_undecodable_next">Next video</string>
+    <string name="player_audio_not_decoded">not decoded</string>
+    <string name="player_auto_ffmpeg_remembered">FFmpeg for %1$s audio — remembered</string>
+    <string name="player_auto_ffmpeg_applied">%1$s audio: audio decoder switched to FFmpeg automatically</string>
+    <string name="player_audio_decoder_switched">Audio decoder: FFmpeg</string>
+    <string name="player_audio_decoder_refused">The session refused the audio decoder switch</string>
+    <string name="player_auto_ffmpeg_forget">Forget</string>
+    <string name="player_auto_ffmpeg_forgotten">%1$s audio: automatic switching off</string>
     <string name="player_copy_diagnostics">Copy full diagnostics</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
 
@@ -159,9 +184,14 @@
     <string name="settings_dynamic_color_sub">Follow the system wallpaper palette on Android 12 and newer</string>
     <string name="settings_columns">Library columns</string>
     <string name="settings_default_sort">Default sort</string>
+    <string name="settings_group_folders">Group by folder</string>
+    <string name="settings_group_folders_sub">Show the library as folder sections, with the chosen sort inside each folder</string>
     <string name="settings_playback">Playback</string>
     <string name="settings_decoder">Decoder priority</string>
     <string name="settings_decoder_hint">FFmpeg software decoders play more formats, but they use more battery than the hardware decoders in the device. The player\'s track panel switches this while a video is playing, so a file the hardware refuses can be rescued without leaving it.</string>
+    <string name="settings_auto_ffmpeg_title">Automatic audio fixes</string>
+    <string name="settings_auto_ffmpeg_hint">These audio codecs switch to the FFmpeg decoder by themselves when nothing can decode them, because you asked for FFmpeg once in the player. The saved decoder priority is not changed.</string>
+    <string name="settings_auto_ffmpeg_forget">Forget</string>
     <string name="settings_default_speed">Default speed</string>
     <string name="settings_seek_step">Double tap seek</string>
     <string name="settings_resume">Resume where I stopped</string>

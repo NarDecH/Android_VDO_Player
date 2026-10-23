@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -86,6 +87,12 @@ fun SettingsScreen(
                     options = sortLabels,
                     selectedIndex = SortOrder.entries.indexOf(settings.sortOrder),
                     onPick = { scope.launch { repository.setSortOrder(SortOrder.entries[it]) } },
+                )
+                SwitchRow(
+                    title = stringResource(R.string.settings_group_folders),
+                    subtitle = stringResource(R.string.settings_group_folders_sub),
+                    checked = settings.groupByFolder,
+                    onChange = { scope.launch { repository.setGroupByFolder(it) } },
                 )
             }
         }
@@ -185,6 +192,37 @@ fun SettingsScreen(
                     checked = settings.backgroundPlayback,
                     onChange = { scope.launch { repository.setBackgroundPlayback(it) } },
                 )
+                // Only listed once the player has rescued a codec by hand: the block is
+                // the undo for an automatic behaviour nobody asked for in Settings.
+                if (settings.autoFfmpegCodecs.isNotEmpty()) {
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(R.string.settings_auto_ffmpeg_title),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_auto_ffmpeg_hint),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    settings.autoFfmpegCodecs.sorted().forEach { codec ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                text = codec,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(
+                                onClick = { scope.launch { repository.forgetFfmpegCodec(codec) } },
+                            ) {
+                                Text(stringResource(R.string.settings_auto_ffmpeg_forget))
+                            }
+                        }
+                    }
+                }
             }
         }
 

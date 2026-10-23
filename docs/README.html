@@ -54,7 +54,14 @@
       <li>Thumbnails decoded from the video frames themselves</li>
       <li>Search across titles and folders, folder filter chips</li>
       <li>Sort by date, name, duration or size · grid (1–4 columns) or list</li>
+      <li>Folder sections: the toolbar's folder button (or the switch in Settings) draws the
+        library grouped by folder, with the chosen sort inside each one and a count per heading;
+        tapping a heading narrows the list to that folder, and its play button queues that folder
+        alone — the heading stays pinned at the top while its files scroll</li>
       <li>Long press for details: folder, resolution, duration, size, MIME type, relative path, URI</li>
+      <li>A muted-speaker badge marks a file whose audio this device has already proved it cannot
+        decode — drawing the grid opens no file at all, because every decision is kept in a per-file
+        index, and a bounded background sweep fills in the files nobody has played yet</li>
     </ul>
 
     <h3>Playback</h3>
@@ -65,6 +72,14 @@
       <li>Decoder switching <strong>while a video plays</strong> — the info panel's chips rescue a file
         the hardware refuses without stopping it, and the choice is remembered for the next time</li>
       <li>Audio track picker: every track of the current file with its codec, channels and language</li>
+      <li><strong>No-sound hint</strong>: when the file has an audio track that nothing decodes, a card in the
+        player names the codec and switches the <strong>audio decoder</strong> to FFmpeg in one tap, leaving the
+        picture on hardware decoding — and remembers that codec, so the next file that needs it switches by
+        itself (the switch's message has a <strong>Forget</strong> action, and Settings → Playback lists the
+        remembered codecs too)</li>
+      <li><strong>The silence is announced before it starts</strong>: a file whose audio no decoder on the
+        device names is warned about as it opens rather than after a stretch of picture, and the card's
+        <strong>Next video</strong> skips past a file that can only ever be silent</li>
       <li>Playlists following the filtered library order, with next/previous</li>
       <li>Resume per video, remembered across restarts</li>
       <li>Background audio with a media notification; playback survives leaving the app</li>
@@ -204,7 +219,8 @@
       <tbody>
         <tr><td>Empty library</td><td>Grant video access in system Settings → Apps → VDO Player → Permissions</td></tr>
         <tr><td>“This file could not be played”</td><td>Tap the info button and switch the decoder to <em>FFmpeg</em> right there — no need to leave the video. If it still fails, export a log: the error entry names the failing codec</td></tr>
-        <tr><td>Video plays, no audio</td><td>Usually an unsupported audio codec (DTS/TrueHD/AC-3 variants). Prefer FFmpeg, then check the Audio line in the info panel</td></tr>
+        <tr><td>Video plays, no audio</td><td>The player offers <em>Use FFmpeg</em> in a card as soon as it sees an audio track nothing decodes — accept it, or set <em>Prefer FFmpeg</em> yourself if you dismissed it. Accepting also remembers the codec, so later files with it switch by themselves; the Audio line in the info panel names the codec being decoded</td></tr>
+        <tr><td>A silent file has no muted-speaker badge</td><td>Badges are decided in the background, a batch at a time, so a file is marked once its audio has actually been checked — come back to the library and give it a moment. The badge only marks a file <em>nothing</em> on the device can decode; a file that is quiet because the decoder is set to hardware only gets the player's <em>Use FFmpeg</em> card instead</td></tr>
         <tr><td>No subtitles</td><td>Use the subtitle button to pick the file; embedded tracks appear automatically. Automatic loading looks for a file named after the video in the same folder, and on Android 13+ it can only see files this app owns — the <code>SUBTITLE</code> log lines show what it searched</td></tr>
         <tr><td>Choppy playback</td><td>Prefer hardware decoding, or use a lower resolution source — FFmpeg decoding is CPU work</td></tr>
         <tr><td>Battery drain while idle</td><td>Check the notification is gone; background playback may still be enabled</td></tr>

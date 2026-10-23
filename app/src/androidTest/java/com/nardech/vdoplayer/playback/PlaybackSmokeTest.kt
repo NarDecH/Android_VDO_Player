@@ -12,12 +12,14 @@ import androidx.media3.common.Player
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.nardech.vdoplayer.data.DecoderPreference
+import io.github.anilbeesetti.nextlib.media3ext.ffdecoder.DecoderMode
 import java.io.File
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -113,6 +115,123 @@ class PlaybackSmokeTest {
                 "the FFmpeg renderers should decode this clip without an error",
                 clip.playbackError(),
             )
+            assertNull(
+                "this file has sound, so the no-sound hint must stay away",
+                clip.silentAudio(),
+            )
+        }
+    }
+
+    /**
+     * The premise the no-sound hint rests on, asked of a real player rather than
+     * assumed: with decoding limited to hardware, nothing can take the AC-3 track, so
+     * the picture keeps running and the audio is left unselected — the exact state
+     * [AudioSilence] turns into the card in the player.
+     *
+     * This proves the data the card is built from on the image CI runs; the rules
+     * themselves are unit tested in `AudioSilenceTest`, and that the player screen can
+     * actually display a message is `ui/player/PlayerSnackbarHostTest`'s job.
+     */
+    @Test
+    fun silentAc3IsDetectedWhenOnlyHardwareDecodersAreAllowed() {
+        assumeTrue(
+            "this image decodes AC-3 itself, so nothing is left silent",
+            !platformCanDecode(MimeTypes.AUDIO_AC3),
+        )
+
+        withPlayingClip(DecoderPreference.PLATFORM_ONLY, AC3_CLIP_NAME) { clip ->
+            clip.awaitFrames(STREAM_FRAMES)
+            clip.awaitState(Player.STATE_READY)
+
+            val silent = clip.silentAudio()
+            assertEquals(
+                "the AC-3 track nothing decodes should be reported as silent audio",
+                SilentAudio(codec = "AC3"),
+                silent,
+            )
+            assertTrue(
+                "the hint should be offered for this state",
+                AudioSilence.shouldOfferFfmpeg(
+                    silent = silent,
+                    preference = DecoderPreference.PLATFORM_ONLY,
+                    playbackState = clip.playbackState(),
+                    dismissed = false,
+                ),
+            )
+        }
+    }
+
+    /**
+     * The rescue is audio-only, and that has to hold on a real player: the sound of
+     * `ac3.mkv` needs FFmpeg, but its H.264 picture does not, so a file rescued for its
+     * sound must come out of the switch with the same video decoder and a running
+     * stream.
+     *
+     * This pins the difference against the pre-1.3 behaviour, where the rescue applied
+     * `FFMPEG_FIRST` and moved both halves. The check compares NextLib's own active
+     * modes, so it would also catch a future refactor that quietly widened the switch.
+     */
+    @Test
+    fun audioRescueLeavesTheVideoDecoderAlone() {
+        assumeTrue(
+            "this image decodes AC-3 itself, so there is nothing to rescue",
+            !platformCanDecode(MimeTypes.AUDIO_AC3),
+        )
+
+        withPlayingClip(DecoderPreference.PLATFORM_ONLY, AC3_CLIP_NAME) { clip ->
+            clip.awaitFrames(STREAM_FRAMES)
+            clip.awaitState(Player.STATE_READY)
+
+            assertEquals(
+                "the AC-3 track should start undecodable",
+                SilentAudio(codec = "AC3"),
+                clip.silentAudio(),
+            )
+            assertEquals(
+                "hardware-only should start on the platform video decoder",
+                DecoderMode.HARDWARE,
+                clip.videoMode(),
+            )
+
+            val beforeRescue = clip.frameCount()
+            // "Unchanged" is the point, not a particular mode: an emulator decodes
+            // H.264 with a software MediaCodec even when only platform decoders are
+            // allowed, so the reported renderer must be compared with itself.
+            val videoRendererBefore = clip.activeVideoMode()
+            assertNotNull(
+                "NextLib refused the audio-only switch",
+                clip.rescueAudioWithFfmpeg(),
+            )
+            clip.awaitAudioDecoded()
+            // The audio renderer was replaced while the picture kept running: frames
+            // that stop here would mean the rescue interrupted the video.
+            clip.awaitFrames(beforeRescue + STREAM_FRAMES)
+
+            assertEquals(
+                "the configured video mode must survive the audio rescue",
+                DecoderMode.HARDWARE,
+                clip.videoMode(),
+            )
+            assertEquals(
+                "the video decoder the player is using must not have changed",
+                videoRendererBefore,
+                clip.activeVideoMode(),
+            )
+            assertEquals(
+                "the audio half should be on FFmpeg",
+                DecoderMode.FFMPEG,
+                clip.activeAudioMode(),
+            )
+            assertEquals(
+                "the rescued track should now be the one being decoded",
+                MimeTypes.AUDIO_AC3,
+                clip.selectedAudioMimeType(),
+            )
+            assertNull(
+                "the rescue should leave the file with sound",
+                clip.silentAudio(),
+            )
+            assertNull(clip.playbackError())
         }
     }
 
@@ -147,6 +266,50 @@ class PlaybackSmokeTest {
     }
 
     /**
+     * The early switch, on a real player: the player screen reads the file's audio
+     * codec before it starts and hands the decoder manager FFmpeg audio first, so the
+     * very first prepared state already decodes the AC-3 track. This is the same
+     * `applyAudioDecoder` call the screen makes, only without a rescue to wait for.
+     */
+    @Test
+    fun audioChosenBeforePrepareIsNeverLeftSilent() {
+        assumeTrue(
+            "this image decodes AC-3 itself, so there is nothing to rescue",
+            !platformCanDecode(MimeTypes.AUDIO_AC3),
+        )
+
+        withPlayingClip(
+            preference = DecoderPreference.PLATFORM_ONLY,
+            clipName = AC3_CLIP_NAME,
+            beforePrepare = { engine -> engine.applyAudioDecoder(DecoderMode.FFMPEG) },
+        ) { clip ->
+            clip.awaitState(Player.STATE_READY)
+            clip.awaitFrames(STREAM_FRAMES)
+
+            assertNull(
+                "a codec chosen before prepare must leave no undecoded audio behind",
+                clip.silentAudio(),
+            )
+            assertEquals(
+                "the AC-3 track should be decoded from the first prepared state",
+                MimeTypes.AUDIO_AC3,
+                clip.selectedAudioMimeType(),
+            )
+            assertEquals(
+                "the audio half should be on FFmpeg",
+                DecoderMode.FFMPEG,
+                clip.activeAudioMode(),
+            )
+            assertEquals(
+                "choosing the audio decoder early must not move the picture",
+                DecoderMode.HARDWARE,
+                clip.videoMode(),
+            )
+            assertNull(clip.playbackError())
+        }
+    }
+
+    /**
      * Runs [block] with a clip already playing through [preference] and shuts the
      * player down afterwards. The ExoPlayer is built and touched on the main thread
      * only: the instrumentation thread has no Looper, and every Media3 call has to
@@ -155,9 +318,10 @@ class PlaybackSmokeTest {
     private fun withPlayingClip(
         preference: DecoderPreference,
         clipName: String = DEFAULT_CLIP_NAME,
+        beforePrepare: (PlaybackEngine) -> Unit = {},
         block: (PlayingClip) -> Unit,
     ) {
-        val clip = PlayingClip(preference, clipName)
+        val clip = PlayingClip(preference, clipName, beforePrepare)
         try {
             clip.start()
             block(clip)
@@ -169,6 +333,7 @@ class PlaybackSmokeTest {
     private inner class PlayingClip(
         private val preference: DecoderPreference,
         private val clipName: String,
+        private val beforePrepare: (PlaybackEngine) -> Unit,
     ) {
 
         private val playbackError = AtomicReference<PlaybackException?>(null)
@@ -178,6 +343,9 @@ class PlaybackSmokeTest {
         fun start() = onMain {
             val built = PlayerFactory.build(context, preference)
             engine = built
+            // What the player screen does before play(): a decoder chosen here is the
+            // one the first prepare uses, so nothing has to be rescued afterwards.
+            beforePrepare(built)
 
             // A counting surface is what a SurfaceView is to the app: the frames have
             // to be decoded, rendered into a real output and consumed before they are
@@ -203,6 +371,31 @@ class PlaybackSmokeTest {
 
         fun playbackError(): PlaybackException? = playbackError.get()
 
+        fun playbackState(): Int = onMain { engine?.player?.playbackState ?: Player.STATE_IDLE }
+
+        /**
+         * What the player's own track list says about the audio, through the helper the
+         * player screen uses — so this is the same verdict the card would act on.
+         */
+        fun silentAudio(): SilentAudio? = onMain {
+            engine?.player?.currentTracks?.let(AudioSilence::detect)
+        }
+
+        /** Waits for [target], so a state transition is never mistaken for a bug. */
+        fun awaitState(target: Int, seconds: Long = STATE_TIMEOUT_SECONDS): Int {
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds)
+            while (System.nanoTime() < deadline) {
+                val state = playbackState()
+                if (state == target) return state
+                Thread.sleep(POLL_MILLIS)
+            }
+            return playbackState().also { reached ->
+                throw AssertionError(
+                    "expected player state $target within ${seconds}s, saw $reached",
+                )
+            }
+        }
+
         fun videoSampleMimeType(): String? =
             onMain { engine?.player?.videoFormat?.sampleMimeType }
 
@@ -223,6 +416,39 @@ class PlaybackSmokeTest {
 
         fun apply(target: DecoderPreference): String? = onMain {
             engine?.applyDecoderPreference(target)
+        }
+
+        /** The same call the no-sound card makes, on the player's own thread. */
+        fun rescueAudioWithFfmpeg(): String? = onMain {
+            engine?.applyAudioDecoder(DecoderMode.FFMPEG)
+        }
+
+        fun activeVideoMode(): DecoderMode? = onMain { engine?.activeVideoMode }
+
+        fun activeAudioMode(): DecoderMode? = onMain { engine?.activeAudioMode }
+
+        fun videoMode(): DecoderMode? = onMain { engine?.videoMode }
+
+
+        /**
+         * Waits for the audio switch to land: NextLib reports the new audio mode and
+         * the file stops looking silent. Both are checked together, because either one
+         * alone would pass while the rescue had not actually taken effect.
+         */
+        fun awaitAudioDecoded(seconds: Long = AUDIO_TIMEOUT_SECONDS) {
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds)
+            while (System.nanoTime() < deadline) {
+                playbackError.get()?.let { error ->
+                    throw AssertionError("the player failed during the audio rescue", error)
+                }
+                if (activeAudioMode() == DecoderMode.FFMPEG && silentAudio() == null) return
+                Thread.sleep(POLL_MILLIS)
+            }
+            throw AssertionError(
+                "audio still not decoded after ${seconds}s " +
+                    "(audio mode ${activeAudioMode()}, silent ${silentAudio()}, " +
+                    "playback error: ${playbackError.get()})",
+            )
         }
 
         /** Waits for [atLeast] rendered frames, and fails with the player error if one shows up. */
@@ -301,6 +527,12 @@ class PlaybackSmokeTest {
          */
         const val STREAM_FRAMES = 3
         const val FRAME_TIMEOUT_SECONDS = 40L
+
+        /** A state change on a local file should not need 40 seconds. */
+        const val STATE_TIMEOUT_SECONDS = 10L
+
+        /** Long enough for a renderer swap on a slow emulator, short enough to fail. */
+        const val AUDIO_TIMEOUT_SECONDS = 30L
         const val POLL_MILLIS = 50L
     }
 }
