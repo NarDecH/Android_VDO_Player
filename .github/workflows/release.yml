@@ -120,29 +120,24 @@ jobs:
       - name: Build release APKs
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
-      - name: Verify the APK signatures
+      # The draft's body is built from the APKs that are about to be uploaded, so the
+      # sizes, digests and certificate on the release page are the files' own values —
+      # not numbers retyped out of this run's summary. The script also fails the job
+      # when the four files disagree on version or key, or are not v2 signed.
+      - name: Verify the APKs and write the release notes
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
         run: |
-          set -e
-          for apk in app/build/outputs/apk/release/*.apk; do
-            echo "--- $apk"
-            "$ANDROID_HOME/build-tools/37.0.0/apksigner" verify --print-certs "$apk"
-          done
-
-      - name: Checksums
-        run: |
-          cd app/build/outputs/apk/release
-          {
-            echo '### SHA-256'
-            echo '```'
-            sha256sum ./*.apk
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
+          bash .github/scripts/write-release-notes.sh \
+            app/build/outputs/apk/release "$TAG" release-notes.md
+          cat release-notes.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish the release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.event.inputs.tag || github.ref_name }}
           name: VDO Player ${{ github.event.inputs.tag || github.ref_name }}
+          body_path: release-notes.md
           draft: true
           generate_release_notes: true
           files: app/build/outputs/apk/release/*.apk

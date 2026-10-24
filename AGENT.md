@@ -138,6 +138,19 @@ Verification rules that apply to this repository:
   teaches people to ignore the check. Run the file gate locally with
   `bash .github/scripts/tracked-secret-files.sh` (staged files) or
   `bash .github/scripts/tracked-secret-files.sh HEAD` (a revision).
+* The release page's numbers come from the APKs, not from whoever published the
+  release: `.github/scripts/write-release-notes.sh` reads each file with
+  `aapt2 dump badging` and `apksigner verify --verbose --print-certs`, and writes
+  the table (file, native ABIs, byte size, SHA-256), the certificate paragraph and
+  a `SHA256SUMS` block — the same digests in the two-line format
+  `sha256sum -c` reads, so a download can be checked instead of compared by eye —
+  that become the draft's body, above the `What's Changed` notes GitHub appends. It
+  fails on an APK that is not v2 signed, on more than one signer, and on a set that
+  disagrees about version or certificate — the ways a release page could describe
+  files that are not the files. Run it after `assembleRelease` to see what
+  a page would say: `bash .github/scripts/write-release-notes.sh
+  app/build/outputs/apk/release vX.Y.Z /tmp/notes.md` (the tag only selects the
+  prose file).
 * The emulator job drives the test through
   `.github/scripts/run-emulator-playback-test.sh`, which must be called from a single
   line. `reactivecircus/android-emulator-runner` runs each line of its `script:` input
@@ -522,8 +535,13 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
 ## Release process
 
 1. Bump `versionCode` / `versionName` in `app/build.gradle.kts`.
-2. Update `docs/CHANGELOG.md` **and** `docs/CHANGELOG.html`, and add the new
-   `[X.Y.Z]: …/releases/tag/vX.Y.Z` link at the bottom of the Markdown file.
+2. Update `docs/CHANGELOG.md` **and** `docs/CHANGELOG.html`, add the new
+   `[X.Y.Z]: …/releases/tag/vX.Y.Z` link at the bottom of the Markdown file, and
+   write the release page's opening prose in `docs/releases/vX.Y.Z.md`: what
+   changed, in the words a user reads first. The workflow puts that file above the
+   APK table it generates, so it is the release's own voice; without it the page
+   opens on the table. Do not repeat sizes or checksums there — those are read from
+   the APKs.
 3. Verify locally: `./gradlew :app:testDebugUnitTest :app:assembleRelease`, then
    `apksigner verify --print-certs` on the APKs and `aapt2 dump badging` for the
    version that was packaged.
@@ -533,18 +551,23 @@ docs/                      user documentation (Markdown + HTML) and the Pages si
    `.github/workflows/release.yml`, which tests, builds, signs (when the
    `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`
    repository secrets exist) and opens a **draft** release with the four APKs.
-5. Publish the draft on GitHub once it looks right, and copy the `SHA-256` list
-   from the workflow run summary into the release notes. The APKs that the
-   workflow builds are *not* byte-identical to a local build, so never mix the two
-   checksum sets. There is no `gh` CLI on the development machine — Workflows and
-   the draft release are handled in the browser or through the GitHub tools.
+5. The draft's body is already written. `.github/scripts/write-release-notes.sh`
+   read the version, the native ABIs, the byte sizes, the SHA-256 of each APK and
+   the signing certificate out of the four files that were just uploaded, and
+   failed the job if they disagreed or were not v2 signed, so nothing is copied
+   out of the run summary by hand. Read the draft and publish it. The APKs the
+   workflow builds are *not* byte-identical to a local build, so never mix a local
+   checksum set into the page. Editing the body in the browser is fine, but a
+   re-run of the workflow replaces it with the generated one: the prose belongs in
+   `docs/releases/`. There is no `gh` CLI on the development machine — Workflows
+   and the draft release are handled in the browser or through the GitHub tools.
    Open the draft **from the Releases page** and edit it there
    (`/releases/edit/untagged-…`). `/releases/edit/<tag>` is the *new release* form:
    it is prefilled with the tag message, and submitting it while a draft for that tag
    already exists creates a **second** release for the same tag — that duplicate
    carries only the source archives, so it takes over the download page and the site
    lists no APKs until it is deleted from its own release page. Publishing from the
-   draft's form keeps the four APKs and the checksums together.
+   draft's form keeps the four APKs and the generated table together.
 6. The download page reads the GitHub release API at runtime, so no page edit is
    needed — it picks up the new tag on its own.
 7. `docs/` is the Pages source and redeploys from `main`, so the documentation

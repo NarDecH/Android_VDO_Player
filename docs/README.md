@@ -150,7 +150,10 @@ device that will play it.
 
 Upgrades install over the previous version as long as the same signing key is
 used. Every release published from this repository is signed with the project
-key; the certificate SHA-256 is printed in each release note.
+key; each release note is built from the APKs that were uploaded and carries the
+certificate SHA-256, every file's size and every file's SHA-256 — quoted in a table
+and again as a `SHA256SUMS` block you can paste beside the downloads and check with
+`sha256sum -c SHA256SUMS`.
 
 ## Using the app
 
