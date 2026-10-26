@@ -151,6 +151,11 @@ Verification rules that apply to this repository:
   a page would say: `bash .github/scripts/write-release-notes.sh
   app/build/outputs/apk/release vX.Y.Z /tmp/notes.md` (the tag only selects the
   prose file).
+  Those refusals are tested, not assumed: `.github/scripts/test-release-notes.sh`
+  builds throwaway APKs with `aapt2` and `apksigner` — no Gradle build — and feeds
+  the script the good set and then one broken set per guard, checking the failure
+  and the message it fails with. CI runs it on Ubuntu, the runner the release job
+  uses; run it the same way locally with `ANDROID_HOME` set.
 * The emulator job drives the test through
   `.github/scripts/run-emulator-playback-test.sh`, which must be called from a single
   line. `reactivecircus/android-emulator-runner` runs each line of its `script:` input

@@ -112,6 +112,34 @@ jobs:
             fi
           done
 
+  # The release page's numbers come from this script, so the script is tested like
+  # code: one broken set of APKs per guard. The fixtures are built with aapt2 and
+  # apksigner rather than Gradle, which keeps the job under a minute and makes each
+  # mismatch exact — a second version, a second key, a signature scheme left out.
+  # Linux only on purpose: it is the runner the release job uses, and the script
+  # reads `stat -c` and the SDK's Linux tools.
+  release-notes:
+    name: release notes from the APKs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the revision
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platforms;android-37.0 build-tools;37.0.0'
+
+      - name: Prove each guard refuses the APKs it is meant to refuse
+        run: bash .github/scripts/test-release-notes.sh
+
   # The JVM tests prove the wire protocol, the file names and the translations. They
   # cannot prove the one thing this app exists for: that a video decodes and a picture
   # reaches the screen. This job drives the real player on an emulator, so the platform
