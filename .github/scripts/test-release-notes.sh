@@ -4,20 +4,24 @@
 #
 # That script is the last thing between a mistake and the download page: it refuses
 # a set of APKs that disagree on version or key, one that is not v2 signed or
-# carries more than one signer, and an empty directory. A check nobody has seen fail is a check nobody knows works, so
+# carries more than one signer, and an empty directory. It also writes the table
+# out of the files themselves, which is why some sets here are good on purpose: the
+# listing and the native-code column have to match the APK they describe, not the
+# name it was given. A check nobody has seen fail is a check nobody knows works, so
 # this builds small APKs of its own and feeds the real script one broken set at a
-# time — plus the good set, which has to pass.
+# time — plus the good sets, which have to pass.
 #
 # The fixtures are made here rather than taken from a Gradle build so the test
-# needs nothing compiled: aapt2 turns a three-line manifest into a valid APK and
-# apksigner signs it with a throwaway key. That is a few seconds on the SDK the
-# release job already installs, and it lets the mismatches be exact — a second
-# version, a second key, a signature scheme left out.
+# needs nothing compiled: aapt2 turns a three-line manifest into a valid APK,
+# apksigner signs it with a throwaway key, and the JDK's jar adds the lib/<abi>/
+# entries that give an APK native code. That is a few seconds on the SDK the release
+# job already installs, and it lets the mismatches be exact — a second version, a
+# second key, a signature scheme left out.
 #
 # Usage: test-release-notes.sh
 #
-# Requires ANDROID_HOME with build-tools 37.0.0 and a platform, plus keytool (on
-# PATH, or under $JAVA_HOME/bin).
+# Requires ANDROID_HOME with build-tools 37.0.0 and a platform, plus a full JDK
+# (keytool and jar; on PATH, or under $JAVA_HOME/bin).
 set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
@@ -56,6 +60,18 @@ if [[ -z $keytool_bin && -n ${JAVA_HOME:-} && -x $JAVA_HOME/bin/keytool ]]; then
 fi
 if [[ -z $keytool_bin ]]; then
   echo "no keytool on PATH or under JAVA_HOME — a JDK is required" >&2
+  exit 1
+fi
+
+# jar sits beside keytool in every JDK; neither `zip` nor any other archiver is
+# assumed, because the release job's images and a developer's machine need not
+# agree on one.
+jar_bin="$(dirname "$keytool_bin")/jar"
+if [[ ! -x $jar_bin && -x $jar_bin.exe ]]; then
+  jar_bin="$jar_bin.exe"
+fi
+if [[ ! -x $jar_bin ]]; then
+  echo "no jar beside $keytool_bin — a full JDK is required" >&2
   exit 1
 fi
 
@@ -110,6 +126,28 @@ make_apk() {
     --ks-key-alias "$alias" --out "$out" "$@" "$dir/unsigned.apk" >/dev/null
 }
 
+# make_apk_with_libs <out> <version-code> <version-name> <keystore> <alias> <abi>...
+#
+# The native-code line of `aapt2 dump badging` comes from the lib/<abi>/ entries in
+# the archive, so an APK that should look like a per-ABI split needs entries there.
+# A few bytes named like a library are enough: the column is the directory name.
+# jar updates the zip in place and appends nothing else, so the file stays an APK.
+make_apk_with_libs() {
+  local out=$1 code=$2 name=$3 keystore=$4 alias=$5
+  shift 5
+  local dir abi
+  dir=$(mktemp -d "$work/build.XXXXXX")
+  make_unsigned "$dir/unsigned.apk" "$code" "$name"
+  for abi in "$@"; do
+    mkdir -p "$dir/lib/$abi"
+    printf 'fixture' >"$dir/lib/$abi/libfixture.so"
+  done
+  "$jar_bin" --update --file "$dir/unsigned.apk" -C "$dir" lib
+  "$zipalign" -f -p 4 "$dir/unsigned.apk" "$dir/aligned.apk"
+  "$apksigner" sign --ks "$keystore" --ks-pass "pass:$store_pass" \
+    --ks-key-alias "$alias" --out "$out" "$dir/aligned.apk" >/dev/null
+}
+
 # The four names the release publishes. Every fixture set below differs from the
 # good one in exactly one of them, so the failure is never ambiguous.
 release_variants=(arm64-v8a armeabi-v7a x86_64 universal)
@@ -158,6 +196,19 @@ fill "$work/v1-only" "$work/one.apk" "universal=$work/v1-only.apk"
 fill "$work/two-signers" "$work/one.apk" "universal=$work/two-signers.apk"
 fill "$work/unlisted" "$work/one.apk"
 cp "$work/one.apk" "$work/unlisted/app-mystery-release.apk"
+
+# Native code: the shape the real release has, one ABI per split and three in the
+# universal file. The universal one is the file no variant name can imply, which is
+# what makes the column worth checking at all.
+make_apk_with_libs "$work/arm64.apk" 1 1.0 "$work/a.p12" fixture-a arm64-v8a
+make_apk_with_libs "$work/v7a.apk" 1 1.0 "$work/a.p12" fixture-a armeabi-v7a
+make_apk_with_libs "$work/x86.apk" 1 1.0 "$work/a.p12" fixture-a x86_64
+make_apk_with_libs "$work/universal.apk" 1 1.0 "$work/a.p12" fixture-a \
+  arm64-v8a armeabi-v7a x86_64
+fill "$work/abis" "$work/one.apk" \
+  "arm64-v8a=$work/arm64.apk" "armeabi-v7a=$work/v7a.apk" \
+  "x86_64=$work/x86.apk" "universal=$work/universal.apk"
+
 mkdir -p "$work/empty"
 
 run() { # <apk-dir> <tag> <out>; leaves combined output in $output, returns the status
@@ -221,6 +272,35 @@ if expect_pass 'four APKs from one build and key pass' "$good" v9.9.9; then
     pass 'the SHA256SUMS block verifies against the files'
   else
     fail 'the SHA256SUMS block verifies against the files' "$(cat "$work/SHA256SUMS" 2>/dev/null)"
+  fi
+
+  # These fixtures carry no native code at all, so the column has to say so
+  # instead of leaving an empty cell a reader would take for a bug.
+  if grep -qF '| `app-arm64-v8a-release.apk` | none |' "$notes"; then
+    pass 'an APK without native code says none'
+  else
+    fail 'an APK without native code says none' "$(grep arm64 "$notes")"
+  fi
+fi
+
+# The column is read out of the archive, so it has to follow the file it is in and
+# not the name the workflow gave it.
+if expect_pass 'APKs that carry native code pass' "$work/abis" v9.9.9; then
+  wrong=''
+  while IFS='|' read -r file native; do
+    if ! grep -qF "| \`$file\` | $native |" "$notes"; then
+      wrong+=" ${file}: wanted '$native'"
+    fi
+  done <<'EOF'
+app-arm64-v8a-release.apk|arm64-v8a
+app-armeabi-v7a-release.apk|armeabi-v7a
+app-x86_64-release.apk|x86_64
+app-universal-release.apk|arm64-v8a, armeabi-v7a, x86_64
+EOF
+  if [[ -n $wrong ]]; then
+    fail 'the native-code column follows each APK' "$wrong"
+  else
+    pass 'the native-code column follows each APK'
   fi
 fi
 
