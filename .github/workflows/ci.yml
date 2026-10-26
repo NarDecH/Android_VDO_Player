@@ -117,7 +117,8 @@ jobs:
   # apksigner rather than Gradle, which keeps the job under a minute and makes each
   # mismatch exact — a second version, a second key, a second signer, a scheme left out.
   # Linux only on purpose: it is the runner the release job uses, and the script
-  # reads `stat -c` and the SDK's Linux tools.
+  # reads `stat -c` and the SDK's Linux tools. The release workflow runs this same
+  # suite again before it builds and signs, so a tag is never the first run.
   release-notes:
     name: release notes from the APKs
     runs-on: ubuntu-latest

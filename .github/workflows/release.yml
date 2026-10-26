@@ -71,6 +71,13 @@ jobs:
         with:
           packages: 'platforms;android-37.0 build-tools;37.0.0'
 
+      # A tag does not have to point at a commit that ran CI, and this is the script
+      # that writes the page the APKs are published with. Its guards are tested on
+      # `main`, but running the same suite here — before the keystore is restored —
+      # means a broken guard cannot ride a tag into a release.
+      - name: Prove the release-notes guards still fire
+        run: bash .github/scripts/test-release-notes.sh
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 

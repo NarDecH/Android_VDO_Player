@@ -154,8 +154,10 @@ Verification rules that apply to this repository:
   Those refusals are tested, not assumed: `.github/scripts/test-release-notes.sh`
   builds throwaway APKs with `aapt2` and `apksigner` — no Gradle build — and feeds
   the script the good set and then one broken set per guard, checking the failure
-  and the message it fails with. CI runs it on Ubuntu, the runner the release job
-  uses; run it the same way locally with `ANDROID_HOME` set.
+  and the message it fails with. CI runs it on Ubuntu — the runner the release job
+  uses — and the release workflow runs it again before it builds, because a tag need
+  not point at a commit that ran CI; run it the same way locally with `ANDROID_HOME`
+  set.
 * The emulator job drives the test through
   `.github/scripts/run-emulator-playback-test.sh`, which must be called from a single
   line. `reactivecircus/android-emulator-runner` runs each line of its `script:` input
