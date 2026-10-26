@@ -4,6 +4,20 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Smaller downloads** — release builds are minified with R8 and have their
+  resources shrunk, which takes the 64-bit ARM APK from ~24 MB to ~11 MB and the
+  universal one from ~51 MB to ~37 MB. The keep rules now name only what is reached
+  by name at runtime: NextLib's JNI classes, native method names, and the class names
+  the log screen prints, with Media3's own consumer rules covering the renderer
+  constructors it loads reflectively. The previous rules kept every class of this app
+  and every Media3 class in full, which left the shrinker almost nothing to remove.
+  CI builds the release variant on every change, so a keep rule the shrinker rejects
+  fails on the commit that changed it rather than on the tag that publishes it.
+
 ## [1.3.0] — 2026-10-23
 
 ### Added
@@ -397,6 +411,7 @@ First public release. Everything below is new.
 
 ---
 
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.3.0...HEAD
 [1.3.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.3.0
 [1.2.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.2.0
 [1.1.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.1.0

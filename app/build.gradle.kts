@@ -64,11 +64,12 @@ android {
             versionNameSuffix = "-debug"
         }
         release {
-            // Minification stays off on purpose: the shipped APK is meant to be
-            // installed directly from GitHub Releases and is never smoke tested on
-            // a device by CI, so we prefer the predictably working build.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 shrinks and renames the shipped build. The dex files unpack to
+            // ~52 MB — more than twice the APK — and most of that is library code
+            // this app never calls. proguard-rules.pro names what is reached by name
+            // only — NextLib's JNI classes and every native method.
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

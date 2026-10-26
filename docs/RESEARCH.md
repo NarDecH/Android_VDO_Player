@@ -191,14 +191,16 @@ required for `@Composable` compilation.
 
 ## 6. Packaging and APK size
 
-Measured on the build machine (`assembleRelease`, x86_64 host, Gradle 9.8.1):
+Measured on the build machine (`assembleRelease`, x86_64 host, Gradle 9.8.1). The
+first column is 1.0.0–1.3.0, which shipped unminified; the second is the same commit
+with R8 on, which is what release builds do now:
 
-| Artefact | Size |
-|---|---|
-| `app-arm64-v8a-release.apk` | 24 MB |
-| `app-armeabi-v7a-release.apk` | 23 MB |
-| `app-x86_64-release.apk` | 28 MB |
-| `app-universal-release.apk` | 51 MB |
+| Artefact | Unminified | R8 |
+|---|---|---|
+| `app-arm64-v8a-release.apk` | 24 MB | 11 MB |
+| `app-armeabi-v7a-release.apk` | 23 MB | 10 MB |
+| `app-x86_64-release.apk` | 28 MB | 14 MB |
+| `app-universal-release.apk` | 51 MB | 37 MB |
 
 Inside a debug APK, `unzip -l` reports per-ABI native libraries including
 `libavcodec.so` (5.6 MB for arm64), `libavutil.so`, `libswscale.so`,
@@ -207,10 +209,19 @@ path, and the reason `splits { abi { … isUniversalApk = true } }` is enabled: 
 phone downloads roughly half of the universal size, while the universal APK remains
 available for anything unusual.
 
-Minification is deliberately **off** for 1.0.0. R8 with Media3 plus a native
-library is usually fine, but there is no device in the verification loop here, so
-the predictable build wins over a smaller one, and `proguard-rules.pro` documents
-what would be needed to turn it back on.
+Minification was deliberately **off** for 1.0.0–1.3.0. R8 with Media3 plus a native
+library is usually fine, but there is no device in the verification loop here, so the
+predictable build won over a smaller one.
+
+It is on now, because the measurement said the caution was buying less than it cost:
+the four dex files unpacked to 52 MB inside a 24 MB APK, and the keep rules had
+grown into `-keep class androidx.media3.**` plus `-keep class com.nardech.vdoplayer.**`,
+which kept the whole app and left the shrinker almost nothing to remove. The rules
+now name only what is reached by name — NextLib's JNI classes, every native method's
+name, and the class names the log screen prints — while Media3's own consumer rules
+cover the renderer constructors it loads reflectively. The app itself resolves
+nothing by name (`grep` for `Class.forName` and friends is empty), so R8 can rename
+and remove it. The dex went from 52 MB unpacked to 4.75 MB.
 
 ## 7. Licensing
 
@@ -259,7 +270,7 @@ real phone — see the release notes for the list of what remains unproven.
 | Exposing only a "software decoding" toggle | Hides a real CPU/battery trade-off from the user; three explicit modes are clearer |
 | Grid/list as two screens | Unnecessary duplication; layout is a property of the library screen |
 | Room for playback history | A `DataStore` JSON blob is a few hundred entries of cheap writes; a database is overhead at this scale |
-| R8 minification in 1.0.0 | Unverifiable without a device in the loop; documented as a future switch |
+| R8 minification in 1.0.0 | Unverifiable without a device in the loop at the time; enabled once the keep rules had been cut back to what is reached by name |
 | `INTERNET` permission (1.0.0) | Not needed while the app only played local files, so it was left out. 1.1.0's Wi-Fi transfer needs a socket, so the manifest declares it and the manual explains what it is for |
 | Nearby Connections / Wi-Fi Direct for the transfer | Play Services and a second permission dance for phones that are usually in the same room. A hand-written HTTP server needs no dependency and can be driven with `curl` |
 | A cloud or relay server for the transfer | Requires a backend and an account to move a file ten metres. The LAN path also keeps working with no internet connection at all |

@@ -53,6 +53,9 @@ Verification rules that apply to this repository:
   answering on one platform and not the other. Found on a commit, that costs a CI run;
   found by a release tag, it costs a version. The release workflow runs the same test
   task on the machine that builds the APKs, so tag a commit whose CI run has passed.
+  The Ubuntu job also runs `:app:assembleRelease` on every change: R8 only runs for
+  release, so a keep rule the shrinker rejects should fail on the commit that
+  changed it, not on the tag that publishes the APKs.
 * `:app:testDebugUnitTest` is plain JUnit 4 on the JVM — no Android SDK jar, no
   Robolectric, no device. Anything that can be tested without Android belongs
   there, so keep new protocol or formatting logic out of the UI layer:

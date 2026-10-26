@@ -97,6 +97,17 @@ jobs:
         shell: bash
         run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
 
+      # R8 runs only for the release variant, so a keep rule the shrinker rejects — or
+      # one whose absence only fails at dex time — would otherwise first appear on the
+      # tag that publishes the APKs. Building the variant on every change puts the
+      # shrinker in the gate. The runner has no keystore, so the APK falls back to the
+      # debug key and nothing is uploaded. Linux only: R8's output does not depend on
+      # the host, and this matrix exists for the socket tests.
+      - name: Build the minified release APK
+        if: runner.os == 'Linux'
+        shell: bash
+        run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
+
       # A failed test run is only diagnosable from the JUnit XML: the Gradle console
       # output says which test failed, but not why.
       - name: Show the failing tests
