@@ -3,8 +3,8 @@
 # Proves the guards in write-release-notes.sh actually fire.
 #
 # That script is the last thing between a mistake and the download page: it refuses
-# a set of APKs that disagree on version or key, one that is not v2 signed, and an
-# empty directory. A check nobody has seen fail is a check nobody knows works, so
+# a set of APKs that disagree on version or key, one that is not v2 signed or
+# carries more than one signer, and an empty directory. A check nobody has seen fail is a check nobody knows works, so
 # this builds small APKs of its own and feeds the real script one broken set at a
 # time — plus the good set, which has to pass.
 #
@@ -72,9 +72,9 @@ fail() {
   failures=$((failures + 1))
 }
 
-make_keystore() { # <file> <distinguished-name>
+make_keystore() { # <file> <distinguished-name> <alias>
   "$keytool_bin" -genkeypair -keystore "$1" -storetype PKCS12 \
-    -storepass "$store_pass" -keypass "$store_pass" -alias fixture \
+    -storepass "$store_pass" -keypass "$store_pass" -alias "$3" \
     -keyalg RSA -keysize 2048 -validity 3650 -dname "$2" >/dev/null 2>&1
 }
 
@@ -82,11 +82,9 @@ make_keystore() { # <file> <distinguished-name>
 # from 30 up, apksigner rejects the signing request before the script is reached.
 fixture_target_sdk=37
 
-# make_apk <out> <version-code> <version-name> <keystore> [extra apksigner args...]
-make_apk() {
-  local out=$1 code=$2 name=$3 keystore=$4
-  shift 4
-  local dir
+# make_unsigned <out> <version-code> <version-name>
+make_unsigned() {
+  local out=$1 code=$2 name=$3 dir
   dir=$(mktemp -d "$work/build.XXXXXX")
   cat >"$dir/AndroidManifest.xml" <<EOF
 <?xml version="1.0" encoding="utf-8"?>
@@ -98,9 +96,18 @@ EOF
   "$aapt2" link -o "$dir/unaligned.apk" -I "$android_jar" \
     --manifest "$dir/AndroidManifest.xml" \
     --version-code "$code" --version-name "$name"
-  "$zipalign" -f -p 4 "$dir/unaligned.apk" "$dir/aligned.apk"
+  "$zipalign" -f -p 4 "$dir/unaligned.apk" "$out"
+}
+
+# make_apk <out> <version-code> <version-name> <keystore> <alias> [extra apksigner args...]
+make_apk() {
+  local out=$1 code=$2 name=$3 keystore=$4 alias=$5
+  shift 5
+  local dir
+  dir=$(mktemp -d "$work/build.XXXXXX")
+  make_unsigned "$dir/unsigned.apk" "$code" "$name"
   "$apksigner" sign --ks "$keystore" --ks-pass "pass:$store_pass" \
-    --ks-key-alias fixture --out "$out" "$@" "$dir/aligned.apk" >/dev/null
+    --ks-key-alias "$alias" --out "$out" "$@" "$dir/unsigned.apk" >/dev/null
 }
 
 # The four names the release publishes. Every fixture set below differs from the
@@ -123,21 +130,32 @@ fill() { # <dir> <apk> [<overrides: file=apk> ...]
 }
 
 echo "fixtures in $work"
-make_keystore "$work/a.p12" "CN=Fixture A,O=Release Notes Test"
-make_keystore "$work/b.p12" "CN=Fixture B,O=Release Notes Test"
-make_apk "$work/one.apk" 1 1.0 "$work/a.p12"
-make_apk "$work/two.apk" 2 2.0 "$work/a.p12"
-make_apk "$work/other-key.apk" 1 1.0 "$work/b.p12"
+make_keystore "$work/a.p12" "CN=Fixture A,O=Release Notes Test" fixture-a
+make_keystore "$work/b.p12" "CN=Fixture B,O=Release Notes Test" fixture-b
+make_apk "$work/one.apk" 1 1.0 "$work/a.p12" fixture-a
+make_apk "$work/two.apk" 2 2.0 "$work/a.p12" fixture-a
+make_apk "$work/other-key.apk" 1 1.0 "$work/b.p12" fixture-b
 # v1 only: the signature a stock `apksigner sign` does not produce, and the one
 # this project has never shipped — but a hand-signed file can arrive that way.
-fixture_target_sdk=26 make_apk "$work/v1-only.apk" 1 1.0 "$work/a.p12" \
+fixture_target_sdk=26 make_apk "$work/v1-only.apk" 1 1.0 "$work/a.p12" fixture-a \
   --v1-signing-enabled true --v2-signing-enabled false --v3-signing-enabled false
+# Two signers in one file: the v2 scheme carries both, but v3 refuses two
+# certificates without a rotation lineage and v1 insists the signer names differ,
+# so the other schemes are turned off to build the file at all.
+make_unsigned "$work/two-signers-unsigned.apk" 1 1.0
+"$apksigner" sign \
+  --ks "$work/a.p12" --ks-pass "pass:$store_pass" --ks-key-alias fixture-a \
+  --next-signer \
+  --ks "$work/b.p12" --ks-pass "pass:$store_pass" --ks-key-alias fixture-b \
+  --v1-signing-enabled false --v3-signing-enabled false --v4-signing-enabled false \
+  --out "$work/two-signers.apk" "$work/two-signers-unsigned.apk" >/dev/null
 
 good="$work/good"
 fill "$good" "$work/one.apk"
 fill "$work/other-key" "$work/one.apk" "universal=$work/other-key.apk"
 fill "$work/other-version" "$work/one.apk" "universal=$work/two.apk"
 fill "$work/v1-only" "$work/one.apk" "universal=$work/v1-only.apk"
+fill "$work/two-signers" "$work/one.apk" "universal=$work/two-signers.apk"
 fill "$work/unlisted" "$work/one.apk"
 cp "$work/one.apk" "$work/unlisted/app-mystery-release.apk"
 mkdir -p "$work/empty"
@@ -231,6 +249,8 @@ expect_refusal 'APKs from two versions are refused' \
   'not all built from the same version' "$work/other-version" v9.9.9
 expect_refusal 'an APK without a v2 signature is refused' \
   'is not signed with the v2 scheme' "$work/v1-only" v9.9.9
+expect_refusal 'an APK with more than one signer is refused' \
+  'has 2 signers, expected 1' "$work/two-signers" v9.9.9
 expect_refusal 'an empty APK directory is refused' \
   'no APKs in' "$work/empty" v9.9.9
 

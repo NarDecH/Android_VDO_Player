@@ -115,7 +115,7 @@ jobs:
   # The release page's numbers come from this script, so the script is tested like
   # code: one broken set of APKs per guard. The fixtures are built with aapt2 and
   # apksigner rather than Gradle, which keeps the job under a minute and makes each
-  # mismatch exact — a second version, a second key, a signature scheme left out.
+  # mismatch exact — a second version, a second key, a second signer, a scheme left out.
   # Linux only on purpose: it is the runner the release job uses, and the script
   # reads `stat -c` and the SDK's Linux tools.
   release-notes:
