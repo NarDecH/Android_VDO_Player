@@ -76,11 +76,12 @@
     <string name="player_subtitles">Subtitles</string>
     <string name="player_audio_tracks">Audio track</string>
     <string name="player_speed">Speed %1$s</string>
-    <string name="player_repeat_off">Repeat off</string>
-    <string name="player_repeat_all">Repeat the whole queue</string>
-    <string name="player_repeat_one">Repeat this video</string>
+    <string name="player_repeat_off">off</string>
+    <string name="player_repeat_all">the whole queue</string>
+    <string name="player_repeat_one">this video</string>
     <string name="player_repeat_announce">Repeat: %1$s</string>
     <string name="player_seek_preview">Preview frame for the seek position</string>
+    <string name="player_seek_state">%1$s of %2$s</string>
     <string name="player_aspect">Aspect ratio</string>
     <string name="player_controls_move_top">Move the control bar to the top</string>
     <string name="player_controls_move_bottom">Move the control bar to the bottom</string>
@@ -119,6 +120,7 @@
     <string name="player_auto_ffmpeg_forgotten">%1$s audio: automatic switching off</string>
     <string name="player_copy_diagnostics">Copy full diagnostics</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
+    <string name="player_queued_position">Video %1$d of %2$d</string>
 
     <string name="dialog_speed_title">Playback speed</string>
     <string name="dialog_aspect_title">Aspect ratio</string>

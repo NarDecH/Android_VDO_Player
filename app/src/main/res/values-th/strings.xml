@@ -75,11 +75,12 @@
     <string name="player_subtitles">คำบรรยาย</string>
     <string name="player_audio_tracks">แทร็กเสียง</string>
     <string name="player_speed">ความเร็ว %1$s</string>
-    <string name="player_repeat_off">ไม่เล่นซ้ำ</string>
-    <string name="player_repeat_all">เล่นซ้ำทั้งคิว</string>
-    <string name="player_repeat_one">เล่นซ้ำวิดีโอนี้</string>
+    <string name="player_repeat_off">ปิด</string>
+    <string name="player_repeat_all">ทั้งคิว</string>
+    <string name="player_repeat_one">วิดีโอนี้</string>
     <string name="player_repeat_announce">เล่นซ้ำ: %1$s</string>
     <string name="player_seek_preview">ภาพตัวอย่างของตำแหน่งที่กำลังเลื่อนไป</string>
+    <string name="player_seek_state">%1$s จาก %2$s</string>
     <string name="player_aspect">อัตราส่วนภาพ</string>
     <string name="player_controls_move_top">ย้ายแถบควบคุมขึ้นด้านบน</string>
     <string name="player_controls_move_bottom">ย้ายแถบควบคุมลงด้านล่าง</string>
@@ -118,6 +119,7 @@
     <string name="player_auto_ffmpeg_forgotten">เสียง %1$s: ปิดการสลับอัตโนมัติแล้ว</string>
     <string name="player_copy_diagnostics">คัดลอกข้อมูลวินิจฉัยทั้งหมด</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
+    <string name="player_queued_position">วิดีโอที่ %1$d จาก %2$d</string>
 
     <string name="dialog_speed_title">ความเร็วในการเล่น</string>
     <string name="dialog_aspect_title">อัตราส่วนภาพ</string>

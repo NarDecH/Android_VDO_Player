@@ -93,6 +93,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -1075,6 +1080,29 @@ internal fun PlayerControls(
     val panelEdge = if (controlsOnTop) Alignment.TopCenter else Alignment.BottomCenter
     val headerEdge = if (controlsOnTop) Alignment.BottomStart else Alignment.TopStart
 
+    // What a screen reader hears for the times on the bar. Left as two loose numbers
+    // they arrive as "0:30" and "1:30" with nothing joining them, and the slider itself
+    // would report a bare percentage, which says nothing about where in the video a
+    // seek is about to land. Both now speak the same sentence, and while a thumb is on
+    // the bar the sentence follows the target rather than the position playing behind it.
+    val shownPositionMs = if (scrubProgress >= 0f && state.durationMs > 0L) {
+        (scrubProgress * state.durationMs).toLong()
+    } else {
+        state.positionMs
+    }
+    val positionLabel = Formatters.duration(shownPositionMs)
+    val durationLabel = if (state.durationMs > 0L) {
+        Formatters.duration(state.durationMs)
+    } else {
+        stringResource(R.string.player_unknown_duration)
+    }
+    val seekLabel = stringResource(R.string.player_seek_state, positionLabel, durationLabel)
+    val queueLabel = stringResource(
+        R.string.player_queued_position,
+        state.queueIndex + 1,
+        state.queueSize,
+    )
+
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -1156,6 +1184,7 @@ internal fun PlayerControls(
                     value = if (scrubProgress >= 0f) scrubProgress else state.progress,
                     onValueChange = onScrub,
                     onValueChangeFinished = onScrubFinished,
+                    modifier = Modifier.semantics { stateDescription = seekLabel },
                     colors = SliderDefaults.colors(
                         thumbColor = MaterialTheme.colorScheme.primary,
                         activeTrackColor = MaterialTheme.colorScheme.primary,
@@ -1170,21 +1199,19 @@ internal fun PlayerControls(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = Formatters.duration(state.positionMs),
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = if (state.durationMs > 0L) {
-                        Formatters.duration(state.durationMs)
-                    } else {
-                        stringResource(R.string.player_unknown_duration)
-                    },
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelMedium,
-                )
+                Row(modifier = Modifier.clearAndSetSemantics { contentDescription = seekLabel }) {
+                    Text(
+                        text = positionLabel,
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = durationLabel,
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
                 if (state.bufferedMs > state.positionMs) {
                     Spacer(Modifier.width(8.dp))
                     Text(
@@ -1204,6 +1231,9 @@ internal fun PlayerControls(
                             state.queueIndex + 1,
                             state.queueSize,
                         ),
+                        // Drawn as "1/3"; spoken, that is "one slash three". Replacing
+                        // the text keeps the number from being read twice.
+                        modifier = Modifier.clearAndSetSemantics { contentDescription = queueLabel },
                         color = Color.White.copy(alpha = 0.8f),
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -1269,12 +1299,18 @@ internal fun PlayerControls(
                         } else {
                             Icons.Filled.Repeat
                         },
+                        // "Repeat this video" alone is a sentence, not a state: with the
+                        // mode named after the colon, the button says which of the three
+                        // it is in and the snackbar says the same thing when it moves.
                         contentDescription = stringResource(
-                            when (state.repeatMode) {
-                                Player.REPEAT_MODE_ALL -> R.string.player_repeat_all
-                                Player.REPEAT_MODE_ONE -> R.string.player_repeat_one
-                                else -> R.string.player_repeat_off
-                            },
+                            R.string.player_repeat_announce,
+                            stringResource(
+                                when (state.repeatMode) {
+                                    Player.REPEAT_MODE_ALL -> R.string.player_repeat_all
+                                    Player.REPEAT_MODE_ONE -> R.string.player_repeat_one
+                                    else -> R.string.player_repeat_off
+                                },
+                            ),
                         ),
                         tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) {
                             Color.White.copy(alpha = 0.55f)
@@ -1645,7 +1681,13 @@ private fun ChoiceDialog(
             Column {
                 val selectedMark = stringResource(R.string.dialog_selected)
                 options.forEachIndexed { index, label ->
-                    TextButton(onClick = { onPick(index) }) {
+                    TextButton(
+                        onClick = { onPick(index) },
+                        // The ✓ in the label is ink only; this is what a screen reader
+                        // uses to say which row is the one already chosen. `this` is the
+                        // semantics property — the bare name is the parameter above.
+                        modifier = Modifier.semantics { this.selected = label == selected },
+                    ) {
                         Text(
                             text = if (label == selected) {
                                 selectedMark.format(label)
