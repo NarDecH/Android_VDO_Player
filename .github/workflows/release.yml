@@ -127,6 +127,16 @@ jobs:
       - name: Build release APKs
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
+      # The manuals' sizes, dex total and decoder library are checked on `main`, but
+      # a tag does not have to point at a commit that ran CI, and these are the files
+      # a reader downloads. The check runs again here on the *signed* APKs, before the
+      # notes are written and before anything is uploaded. Every figure is compared
+      # against the nearest MB, so the few kilobytes a signature block adds cannot
+      # move one; the dex and native-library entries are zip entries, which signing
+      # does not touch at all.
+      - name: Check the documented figures against the signed APKs
+        run: bash .github/scripts/check-doc-figures.sh app/build/outputs/apk/release
+
       # The draft's body is built from the APKs that are about to be uploaded, so the
       # sizes, digests and certificate on the release page are the files' own values —
       # not numbers retyped out of this run's summary. The script also fails the job
