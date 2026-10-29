@@ -7,7 +7,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
-import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasAnySibling
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
@@ -91,11 +90,9 @@ class SettingsControlsPositionTest {
         // node that does not exist yet.
         compose.onNode(hasScrollAction()).performScrollToNode(hasText(label))
 
-        // The switch sits beside the label's column rather than inside it, so the row is
-        // found from the switch's side: a toggle whose sibling carries the title.
-        val row = compose.onNode(
-            isToggleable() and hasAnySibling(hasAnyDescendant(hasText(label))),
-        )
+        // The label's Column carries no semantics of its own, so its Texts hang off the
+        // same row as the switch: the switch is a toggle with the title as a sibling.
+        val row = compose.onNode(isToggleable() and hasAnySibling(hasText(label)))
         row.assertIsOff()
         row.performClick()
 
