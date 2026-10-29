@@ -27,8 +27,8 @@ android {
         applicationId = "com.nardech.vdoplayer"
         minSdk = 26
         targetSdk = 37
-        versionCode = 7
-        versionName = "1.5.0"
+        versionCode = 8
+        versionName = "1.5.1"
         vectorDrawables { useSupportLibrary = true }
 
         // The instrumented smoke test in app/src/androidTest drives the real player on a

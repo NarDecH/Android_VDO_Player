@@ -235,7 +235,7 @@ clears all history (this also removes resume positions).
   columns, default sort order, folder grouping
 - **Playback** — decoder priority, default speed, double-tap seek step, resume,
   gesture controls, keep screen on, auto rotate, remember brightness, seek preview,
-  autoplay next, background playback
+  control bar position (top or bottom), autoplay next, background playback
 - **Diagnostics and logs** — file log level, export format, whether exports
   include the device report
 - **About** — version and licence note

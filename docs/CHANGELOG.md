@@ -4,6 +4,15 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] — 2026-10-29
+
+### Added
+
+- **The control bar position can be set before you play** — Settings → Playback carries
+  the switch the player's title bar already had, so the bar can be put on the top edge
+  without opening a video first. Both write the same stored preference, so they cannot
+  disagree about where it is.
+
 ## [1.5.0] — 2026-10-29
 
 ### Added
@@ -432,7 +441,8 @@ First public release. Everything below is new.
 
 ---
 
-[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.1
 [1.5.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.0
 [1.4.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.4.0
 [1.3.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.3.0
