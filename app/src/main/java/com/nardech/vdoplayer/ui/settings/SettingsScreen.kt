@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -24,6 +25,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.BuildConfig
@@ -325,9 +327,14 @@ private fun SwitchRow(
     onChange: (Boolean) -> Unit,
     subtitle: String? = null,
 ) {
+    // The whole row is the switch, not just the control on its right: a thumb can hit
+    // the label without aiming, and TalkBack reads one node that carries both the title
+    // and the state. The Switch keeps no toggle action of its own for that reason — two
+    // focusable toggles in one row would be announced twice.
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .toggleable(value = checked, onValueChange = onChange, role = Role.Switch)
             .padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -341,7 +348,7 @@ private fun SwitchRow(
                 )
             }
         }
-        Switch(checked = checked, onCheckedChange = onChange)
+        Switch(checked = checked, onCheckedChange = null)
     }
 }
 
