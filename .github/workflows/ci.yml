@@ -108,6 +108,18 @@ jobs:
         shell: bash
         run: ./gradlew :app:assembleRelease --no-daemon --stacktrace
 
+      # The APKs above are the only source of truth for the numbers both manuals print,
+      # and nothing used to read them together: 1.4.0 went to the release page with a
+      # research page whose dex figure named a different unit and whose libavcodec.so
+      # size no build produced, and both were found by downloading the assets and
+      # measuring them by hand, after publishing. Here the sizes, the dex file and the
+      # decoder library of this build are compared with docs/README.* and docs/RESEARCH.*,
+      # so a version bump that forgets the prose fails on this commit, not on the tag.
+      - name: Check the documented figures against the APKs
+        if: runner.os == 'Linux'
+        shell: bash
+        run: bash .github/scripts/check-doc-figures.sh app/build/outputs/apk/release
+
       # A failed test run is only diagnosable from the JUnit XML: the Gradle console
       # output says which test failed, but not why.
       - name: Show the failing tests
