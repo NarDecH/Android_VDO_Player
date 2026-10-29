@@ -36,6 +36,12 @@
 
   <article class="prose">
 
+    <h2 id="v1-5-2">1.5.2 — 2026-10-29</h2>
+    <ul>
+      <li><span class="tag changed">changed</span> <strong>A Settings switch answers anywhere on its row</strong> — the title, the subtitle and the control are one tap target, so a thumb no longer has to land on the small switch. TalkBack reads the row once, with the setting's name and its state, instead of announcing a second toggle beside it</li>
+      <li><span class="tag changed">changed</span> The row is covered on the emulator: the control bar position is written through the app's settings and read back, and a tap on the row in Settings → Playback has to reach the stored value (31 instrumented tests)</li>
+    </ul>
+
     <h2 id="v1-5-1">1.5.1 — 2026-10-29</h2>
     <ul>
       <li><span class="tag added">added</span> <strong>The control bar position can be set before you play</strong> — Settings → Playback carries the switch the player's title bar already had, so the bar can be put on the top edge without opening a video first. Both write the same stored preference, so they cannot disagree about where it is</li>

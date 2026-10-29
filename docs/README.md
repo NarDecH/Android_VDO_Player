@@ -240,6 +240,9 @@ clears all history (this also removes resume positions).
   include the device report
 - **About** — version and licence note
 
+Every switch in these cards toggles from its whole row — the title and subtitle as
+well as the control on the right — and a screen reader reads it as one item.
+
 ## Permissions and privacy
 
 | Permission | Why |

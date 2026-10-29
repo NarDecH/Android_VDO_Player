@@ -4,6 +4,18 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] — 2026-10-29
+
+### Changed
+
+- **A Settings switch answers anywhere on its row** — the title, the subtitle and the
+  control are one tap target, so a thumb no longer has to land on the small switch.
+  TalkBack reads the row once, with the setting's name and its state, instead of
+  announcing a second toggle beside it.
+- The row is covered on the emulator: the control bar position is written through the
+  app's settings and read back, and a tap on the row in Settings → Playback has to reach
+  the stored value (31 instrumented tests).
+
 ## [1.5.1] — 2026-10-29
 
 ### Added
@@ -441,7 +453,8 @@ First public release. Everything below is new.
 
 ---
 
-[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.1...HEAD
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.2...HEAD
+[1.5.2]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.2
 [1.5.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.1
 [1.5.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.0
 [1.4.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.4.0
