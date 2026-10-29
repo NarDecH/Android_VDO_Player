@@ -9,12 +9,12 @@ import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasAnyDescendant
 import androidx.compose.ui.test.hasAnySibling
+import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
@@ -86,7 +86,10 @@ class SettingsControlsPositionTest {
         }
 
         val label = compose.activity.getString(R.string.settings_controls_on_top)
-        compose.onNodeWithText(label).performScrollTo()
+        // The Playback card is the second in the list, so its rows are not composed until
+        // the list scrolls: the scroll happens on the list, to the node, rather than on a
+        // node that does not exist yet.
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(label))
 
         // The switch sits beside the label's column rather than inside it, so the row is
         // found from the switch's side: a toggle whose sibling carries the title.
