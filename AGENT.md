@@ -56,6 +56,14 @@ Verification rules that apply to this repository:
   The Ubuntu job also runs `:app:assembleRelease` on every change: R8 only runs for
   release, so a keep rule the shrinker rejects should fail on the commit that
   changed it, not on the tag that publishes the APKs.
+* Release builds are minified since 1.4.0 (`isMinifyEnabled` and
+  `isShrinkResources` are on): `proguard-rules.pro` keeps only what is reached by
+  name — NextLib's JNI classes, native method names and the class names the log
+  screen prints — with Media3's consumer rules covering the renderer constructors
+  it loads reflectively. A class looked up by a string needs a rule of its own;
+  `app/build/outputs/mapping/release/usage.txt` lists what was removed, and
+  `mapping.txt` shows the names that survived. Measure the APKs again after adding
+  a native library.
 * `:app:testDebugUnitTest` is plain JUnit 4 on the JVM — no Android SDK jar, no
   Robolectric, no device. Anything that can be tested without Android belongs
   there, so keep new protocol or formatting logic out of the UI layer:

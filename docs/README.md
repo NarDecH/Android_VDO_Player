@@ -138,10 +138,10 @@ device that will play it.
 
 | File | Architectures | Size | When to pick it |
 |---|---|---|---|
-| `app-arm64-v8a-release.apk` | 64-bit ARM | ~24 MB | Almost every phone made since 2016 |
-| `app-armeabi-v7a-release.apk` | 32-bit ARM | ~23 MB | Older or budget devices |
-| `app-x86_64-release.apk` | x86_64 | ~28 MB | Emulators and x86 tablets |
-| `app-universal-release.apk` | all of the above | ~51 MB | When you are not sure |
+| `app-arm64-v8a-release.apk` | 64-bit ARM | ~11 MB | Almost every phone made since 2016 |
+| `app-armeabi-v7a-release.apk` | 32-bit ARM | ~10 MB | Older or budget devices |
+| `app-x86_64-release.apk` | x86_64 | ~14 MB | Emulators and x86 tablets |
+| `app-universal-release.apk` | all of the above | ~37 MB | When you are not sure |
 
 3. Android will ask you to allow installing from this source; approve it, then
    open the downloaded file.
@@ -150,10 +150,12 @@ device that will play it.
 
 Upgrades install over the previous version as long as the same signing key is
 used. Every release published from this repository is signed with the project
-key. From 1.4.0 on, each release note is written from the APKs that were
-uploaded: the sizes and SHA-256 values in its table are read out of the files
-themselves, and the same digests appear again as a `SHA256SUMS` block you can
-save beside the downloads and check with `sha256sum -c SHA256SUMS`.
+key. Release builds have been minified with R8 since 1.4.0, which is why the
+APKs are about half the size the 1.3.0 files were. From 1.4.0 on, each release
+note is written from the APKs that were uploaded: the sizes and SHA-256 values
+in its table are read out of the files themselves, and the same digests appear
+again as a `SHA256SUMS` block you can save beside the downloads and check with
+`sha256sum -c SHA256SUMS`.
 
 ## Using the app
 

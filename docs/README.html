@@ -150,16 +150,19 @@
         <table>
           <thead><tr><th>File</th><th>Architecture</th><th>Approx. size</th><th>When</th></tr></thead>
           <tbody>
-            <tr><td><code>app-arm64-v8a-release.apk</code></td><td>64-bit ARM</td><td>24 MB</td><td>Almost every phone since 2016</td></tr>
-            <tr><td><code>app-armeabi-v7a-release.apk</code></td><td>32-bit ARM</td><td>23 MB</td><td>Older or entry-level devices</td></tr>
-            <tr><td><code>app-x86_64-release.apk</code></td><td>x86_64</td><td>28 MB</td><td>Emulators, x86 tablets</td></tr>
-            <tr><td><code>app-universal-release.apk</code></td><td>all</td><td>51 MB</td><td>When unsure</td></tr>
+            <tr><td><code>app-arm64-v8a-release.apk</code></td><td>64-bit ARM</td><td>11 MB</td><td>Almost every phone since 2016</td></tr>
+            <tr><td><code>app-armeabi-v7a-release.apk</code></td><td>32-bit ARM</td><td>10 MB</td><td>Older or entry-level devices</td></tr>
+            <tr><td><code>app-x86_64-release.apk</code></td><td>x86_64</td><td>14 MB</td><td>Emulators, x86 tablets</td></tr>
+            <tr><td><code>app-universal-release.apk</code></td><td>all</td><td>37 MB</td><td>When unsure</td></tr>
           </tbody>
         </table>
       </li>
       <li>Allow installation from this source when Android asks, then open the file.</li>
       <li>Grant video access on first launch — without it the library stays empty rather than crashing.</li>
     </ol>
+    <p>Release builds have been minified with R8 since 1.4.0, which is why these files are about half
+      the size the 1.3.0 APKs were. Upgrades install over the previous version as long as the same
+      signing key is used; every release published from this repository is signed with the project key.</p>
 
     <h2 id="permissions-and-privacy">Permissions and privacy</h2>
     <table>

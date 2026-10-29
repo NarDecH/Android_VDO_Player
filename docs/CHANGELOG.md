@@ -4,7 +4,7 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.4.0] — 2026-10-29
 
 ### Changed
 
@@ -411,7 +411,8 @@ First public release. Everything below is new.
 
 ---
 
-[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.4.0
 [1.3.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.3.0
 [1.2.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.2.0
 [1.1.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.1.0
