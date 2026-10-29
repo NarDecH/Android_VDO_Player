@@ -222,7 +222,7 @@ now name only what is reached by name — NextLib's JNI classes, every native me
 name, and the class names the log screen prints — while Media3's own consumer rules
 cover the renderer constructors it loads reflectively. The app itself resolves
 nothing by name (`grep` for `Class.forName` and friends is empty), so R8 can rename
-and remove it. The published APK carries a single dex file of 4.53 MB, where 1.3.0
+and remove it. The published APK carries a single dex file of 4.54 MB, where 1.3.0
 shipped four that unpacked to 52 MB.
 
 ## 7. Licensing
