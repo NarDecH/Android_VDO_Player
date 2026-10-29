@@ -144,10 +144,11 @@
         <tr><td><code>app-universal-release.apk</code></td><td>51 MB</td><td>37 MB</td></tr>
       </tbody>
     </table>
-    <p>Native libraries inside the APK include <code>libavcodec.so</code> (5.6 MB for arm64),
-      <code>libavutil.so</code>, <code>libswscale.so</code>, <code>libswresample.so</code> and
-      <code>libmedia3ext.so</code> per ABI. That is why ABI splits are enabled with a universal APK
-      kept as a safety net.</p>
+    <p>Native libraries inside the published arm64 APK include <code>libavcodec.so</code> (5,679,760
+      bytes, 5.4 MB), <code>libavutil.so</code> (0.7 MB), <code>libswscale.so</code> (1.1 MB),
+      <code>libswresample.so</code> and <code>libmedia3ext.so</code> per ABI — byte-identical to the
+      ones 1.3.0 shipped, so minification changed none of the decoder cost. That is why ABI splits
+      are enabled with a universal APK kept as a safety net.</p>
     <p>Minification was deliberately off for 1.0.0–1.3.0: at the time no device was in the verification
       loop, so the predictable build won over a smaller one. It is on from 1.4.0, because the measurement said the
       caution was buying less than it cost: the four dex files unpacked to 52 MB inside a 24 MB APK,
@@ -155,8 +156,8 @@
       <code>-keep class com.nardech.vdoplayer.**</code>, which kept the whole app and left the shrinker
       almost nothing to remove. The rules now name only what is reached by name — NextLib's JNI classes,
       every native method's name, and the class names the log screen prints — while Media3's own
-      consumer rules cover the renderer constructors it loads reflectively. The dex went from 52 MB
-      unpacked to 4.75 MB.</p>
+      consumer rules cover the renderer constructors it loads reflectively. The published APK carries a
+      single dex file of 4.53 MB, where 1.3.0 shipped four that unpacked to 52 MB.</p>
 
     <h2 id="licensing">6 · Licensing</h2>
     <table>

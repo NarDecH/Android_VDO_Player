@@ -202,9 +202,10 @@ rebuilt with R8 on, which is what 1.4.0 ships:
 | `app-x86_64-release.apk` | 28 MB | 14 MB |
 | `app-universal-release.apk` | 51 MB | 37 MB |
 
-Inside a debug APK, `unzip -l` reports per-ABI native libraries including
-`libavcodec.so` (5.6 MB for arm64), `libavutil.so`, `libswscale.so`,
-`libswresample.so` and `libmedia3ext.so`. That is the cost of the software decoder
+Inside the published arm64 APK, `unzip -l` reports per-ABI native libraries including
+`libavcodec.so` (5,679,760 bytes, 5.4 MB), `libavutil.so` (0.7 MB), `libswscale.so`
+(1.1 MB), `libswresample.so` and `libmedia3ext.so` — byte-identical to the ones 1.3.0
+shipped, so minification changed none of the decoder cost. That is the cost of the software decoder
 path, and the reason `splits { abi { … isUniversalApk = true } }` is enabled: a
 phone downloads roughly half of the universal size, while the universal APK remains
 available for anything unusual.
@@ -221,7 +222,8 @@ now name only what is reached by name — NextLib's JNI classes, every native me
 name, and the class names the log screen prints — while Media3's own consumer rules
 cover the renderer constructors it loads reflectively. The app itself resolves
 nothing by name (`grep` for `Class.forName` and friends is empty), so R8 can rename
-and remove it. The dex went from 52 MB unpacked to 4.75 MB.
+and remove it. The published APK carries a single dex file of 4.53 MB, where 1.3.0
+shipped four that unpacked to 52 MB.
 
 ## 7. Licensing
 
