@@ -210,8 +210,8 @@ phone downloads roughly half of the universal size, while the universal APK rema
 available for anything unusual.
 
 Minification was deliberately **off** for 1.0.0–1.3.0. R8 with Media3 plus a native
-library is usually fine, but there is no device in the verification loop here, so the
-predictable build won over a smaller one.
+library is usually fine, but at the time no device was in the verification loop, so
+the predictable build won over a smaller one.
 
 It is on now, because the measurement said the caution was buying less than it cost:
 the four dex files unpacked to 52 MB inside a 24 MB APK, and the keep rules had
@@ -241,23 +241,31 @@ different decoder stack entirely.
 ## 8. Screenshots
 
 The documentation uses vector mockups (`docs/assets/screen-*.svg`) rather than
-device captures. No Android device or emulator participated in building this
-release, so presenting renders as screenshots would be dishonest. The emulator
-cannot start on the build machine at all: CPU virtualisation is disabled in the
-firmware (`Virtualization Enabled In Firmware: No` in `systeminfo`), so Google's
-Android Emulator hypervisor driver installs but never loads and `emulator` exits
-with `x86_64 emulation currently requires hardware acceleration!`. The mockups
+device captures, because no screenshot of the running app has been taken for
+publication and presenting renders as captures would be dishonest. The mockups
 reproduce the shipped layouts — component order, iconography and the information
 each screen shows — and are labelled as mockups wherever they appear.
 
-What *is* verified without a device, and how: `./gradlew :app:testDebugUnitTest`
-runs 40 JVM tests that stand up the real receiving server on a loopback socket and
-drive it with the real client (upload, wrong code, no length, truncated body,
-chunked body, three concurrent uploads, code rotation, hostile file names,
-cancellation), `:app:lintDebug` keeps the build free of errors, and
-`aapt2 dump resources` shows the `(th)` values that actually got packaged. That is
-evidence about the protocol and the resources, not about pixels or MediaStore on a
-real phone — see the release notes for the list of what remains unproven.
+The Windows build machine cannot supply one: CPU virtualisation is disabled in the
+firmware (`Virtualization Enabled In Firmware: No` in `systeminfo`), so Google's
+Android Emulator hypervisor driver installs but never loads and `emulator` exits
+with `x86_64 emulation currently requires hardware acceleration!`.
+
+CI is a different machine. GitHub's Ubuntu runners have KVM, so every push to
+`main` and every pull request boots an API 34 x86_64 emulator and runs
+`:app:connectedDebugAndroidTest`: the playback smoke test plays the bundled clips
+through the platform decoder and through FFmpeg — including AC-3 audio the platform
+cannot decode — and checks how a silent file is detected. That emulator runs
+headless and only asserts; it is not a source of screenshots.
+
+What else is verified, and how: `./gradlew :app:testDebugUnitTest` runs 149 JVM
+tests that stand up the real receiving server on a loopback socket and drive it
+with the real client (upload, wrong code, no length, truncated body, chunked body,
+three concurrent uploads, code rotation, hostile file names, cancellation),
+`:app:lintDebug` keeps the build free of errors, and `aapt2 dump resources` shows
+the `(th)` values that actually got packaged. That is evidence about the protocol
+and the resources, not about pixels or MediaStore on a real phone — see the release
+notes for the list of what remains unproven.
 
 ## 9. Rejected alternatives
 

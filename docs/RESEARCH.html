@@ -148,8 +148,8 @@
       <code>libavutil.so</code>, <code>libswscale.so</code>, <code>libswresample.so</code> and
       <code>libmedia3ext.so</code> per ABI. That is why ABI splits are enabled with a universal APK
       kept as a safety net.</p>
-    <p>Minification was deliberately off for 1.0.0–1.3.0: no device participated in verification, so the
-      predictable build won over a smaller one. It is on from 1.4.0, because the measurement said the
+    <p>Minification was deliberately off for 1.0.0–1.3.0: at the time no device was in the verification
+      loop, so the predictable build won over a smaller one. It is on from 1.4.0, because the measurement said the
       caution was buying less than it cost: the four dex files unpacked to 52 MB inside a 24 MB APK,
       and the keep rules had grown into <code>-keep class androidx.media3.**</code> plus
       <code>-keep class com.nardech.vdoplayer.**</code>, which kept the whole app and left the shrinker
@@ -173,18 +173,25 @@
       extension yourself or moving to another decoder stack.</p>
 
     <h2 id="screenshots">7 · Why the screenshots are vector mockups</h2>
-    <p>No Android device or emulator took part in building this release, so the documentation shows
-      mockups that reproduce the shipped layouts instead of claiming to be device captures. The
-      emulator cannot start on the build machine: CPU virtualisation is disabled in the firmware
+    <p>The pages show mockups that reproduce the shipped layouts — component order, iconography and the
+      information each screen presents — and label them as mockups rather than claiming to be device
+      captures, because no screenshot of the running app has been taken for publication.</p>
+    <p>The Windows build machine cannot supply one: CPU virtualisation is disabled in the firmware
       (<code>Virtualization Enabled In Firmware: No</code>), so Google's Android Emulator hypervisor
       driver installs but never loads and the emulator exits with
       <code>x86_64 emulation currently requires hardware acceleration!</code>.</p>
-    <p>What is verified without a device: 40 JVM tests stand up the real receiving server on a
-      loopback socket and drive it with the real client — upload, wrong code, missing length,
-      truncated body, chunked body, three concurrent uploads, code rotation, hostile file names and
-      cancellation — lint reports no errors, and <code>aapt2 dump resources</code> lists the
-      <code>(th)</code> values that were packaged. That is evidence about the protocol and the
-      resources, not about pixels or MediaStore on a real phone.</p>
+    <p>CI is a different machine. GitHub's Ubuntu runners have KVM, so every push to <code>main</code> and
+      every pull request boots an API 34 x86_64 emulator and runs
+      <code>:app:connectedDebugAndroidTest</code>: the playback smoke test plays the bundled clips through
+      the platform decoder and through FFmpeg — including AC-3 audio the platform cannot decode — and
+      checks how a silent file is detected. That emulator runs headless and only asserts; it is not a
+      source of screenshots.</p>
+    <p>What else is verified: 149 JVM tests stand up the real receiving server on a loopback socket and
+      drive it with the real client — upload, wrong code, missing length, truncated body, chunked body,
+      three concurrent uploads, code rotation, hostile file names and cancellation — lint reports no
+      errors, and <code>aapt2 dump resources</code> lists the <code>(th)</code> values that were
+      packaged. That is evidence about the protocol and the resources, not about pixels or MediaStore
+      on a real phone.</p>
 
     <h2 id="rejected">8 · Rejected alternatives</h2>
     <table>
