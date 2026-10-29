@@ -141,6 +141,15 @@ fun AppRoot(
                     // but the codec stops switching by itself from now on.
                     scope.launch { container.settings.forgetFfmpegCodec(codec) }
                 },
+                onSetControlsOnTop = { onTop ->
+                    // Remembered, so a viewer who moved the bar out of the way of their
+                    // hand finds it there on the next video too.
+                    LogBus.i(
+                        LogTag.UI,
+                        "Control bar moved to the ${if (onTop) "top" else "bottom"} edge",
+                    )
+                    scope.launch { container.settings.setControlsOnTop(onTop) }
+                },
                 onClose = {
                     LogBus.i(LogTag.UI, "Closing player screen")
                     playback.stop()

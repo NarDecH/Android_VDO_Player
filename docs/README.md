@@ -75,6 +75,11 @@ device that will play it.
 - Resume where you stopped, per video, remembered across restarts
 - Background audio with a media notification (play/pause/seek from the shade)
 - Long press for 3× temporary speed-up; 0.25×–3× permanent speed choices
+- **The control bar can change edges**: the arrow button in the title bar moves the
+  seek bar and buttons above the picture, and the title bar takes the bottom edge — the
+  choice is remembered for the next video
+- **Back returns to the library**: it closes the stream panel when that is open, then
+  goes back to the list the video came from instead of leaving the app
 
 **Player screen**
 
@@ -184,6 +189,8 @@ again as a `SHA256SUMS` block you can save beside the downloads and check with
 | Audio button | Lists the audio tracks of the current file (codec, channels, language) and switches between them without losing the position |
 | Seek preview | While you scrub (swipe or progress bar) a frame of the target position is decoded into the heads-up display; turn it off in Settings if you prefer the plain time label |
 | Lock button | Hide all controls until you unlock them |
+| Back | Closes the stream panel if it is open, otherwise returns to the library list instead of leaving the app |
+| Position button | Moves the control bar to the top edge or back to the bottom, and remembers the choice |
 | Info button (top right) | Stream details for the current file, plus the decoder chips (hardware first / FFmpeg / hardware only) that switch decoding while the video keeps playing |
 | PiP button | Continue in a floating window |
 | Subtitle button | Turns subtitles on, or opens a file picker if none are loaded |

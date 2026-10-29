@@ -84,6 +84,11 @@
       <li>Resume per video, remembered across restarts</li>
       <li>Background audio with a media notification; playback survives leaving the app</li>
       <li>Speed from 0.25× to 3×, plus a 3× long-press boost</li>
+      <li><strong>The control bar can change edges</strong>: the arrow button in the title bar moves the
+        seek bar and buttons above the picture, and the title bar takes the bottom edge; the choice is
+        remembered for the next video</li>
+      <li><strong>Back returns to the library</strong>: it closes the stream panel if it is open, then goes
+        back to the list the video came from instead of leaving the app</li>
     </ul>
 
     <h3>Player screen</h3>
@@ -100,6 +105,8 @@
         <tr><td>Audio button</td><td>Lists the audio tracks of the current file (codec, channels, language) and switches between them without losing the position</td></tr>
         <tr><td>Seek preview</td><td>While scrubbing, a frame of the target position is decoded into the heads-up display (switchable in Settings)</td></tr>
         <tr><td>Lock</td><td>Hide every control until unlocked</td></tr>
+        <tr><td>Back</td><td>Closes the stream panel if it is open, otherwise returns to the library list instead of leaving the app</td></tr>
+        <tr><td>Position button</td><td>Moves the control bar to the top edge or back to the bottom, and remembers the choice</td></tr>
         <tr><td>Info (top right)</td><td>Stream details for the current file, the decoder chips (hardware first / FFmpeg / hardware only) that switch decoding live, plus “copy full diagnostics”</td></tr>
         <tr><td>PiP</td><td>Continue in a floating window, using the video's real aspect ratio</td></tr>
         <tr><td>Language</td><td>English or Thai, chosen per app on Android 13+ (system setting, not an in-player button)</td></tr>

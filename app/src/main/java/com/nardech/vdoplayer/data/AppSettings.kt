@@ -69,6 +69,11 @@ data class AppSettings(
     val dynamicColor: Boolean = true,
     val decoderPreference: DecoderPreference = DecoderPreference.PLATFORM_FIRST,
     val gesturesEnabled: Boolean = true,
+    /**
+     * Puts the seek bar and the buttons along the top edge, above the picture, instead
+     * of the bottom one. The title bar takes the other edge, so the two never overlap.
+     */
+    val controlsOnTop: Boolean = false,
     val seekStepMs: Long = 10_000L,
     val defaultSpeed: Float = 1f,
     val resumePlayback: Boolean = true,
@@ -107,6 +112,7 @@ class SettingsRepository(private val context: Context) {
         val dynamicColor = booleanPreferencesKey("dynamic_color")
         val decoder = stringPreferencesKey("decoder_preference")
         val gestures = booleanPreferencesKey("gestures")
+        val controlsOnTop = booleanPreferencesKey("controls_on_top")
         val seekStep = longPreferencesKey("seek_step_ms")
         val speed = floatPreferencesKey("default_speed")
         val resumePlayback = booleanPreferencesKey("resume_playback")
@@ -137,6 +143,7 @@ class SettingsRepository(private val context: Context) {
             decoderPreference = DecoderPreference.fromName(prefs[Keys.decoder])
                 ?: defaults.decoderPreference,
             gesturesEnabled = prefs[Keys.gestures] ?: defaults.gesturesEnabled,
+            controlsOnTop = prefs[Keys.controlsOnTop] ?: defaults.controlsOnTop,
             seekStepMs = prefs[Keys.seekStep] ?: defaults.seekStepMs,
             defaultSpeed = prefs[Keys.speed] ?: defaults.defaultSpeed,
             resumePlayback = prefs[Keys.resumePlayback] ?: defaults.resumePlayback,
@@ -172,6 +179,7 @@ class SettingsRepository(private val context: Context) {
         edit { it[Keys.decoder] = value.name }
 
     suspend fun setGestures(value: Boolean) = edit { it[Keys.gestures] = value }
+    suspend fun setControlsOnTop(value: Boolean) = edit { it[Keys.controlsOnTop] = value }
     suspend fun setSeekStep(value: Long) = edit { it[Keys.seekStep] = value }
     suspend fun setDefaultSpeed(value: Float) = edit { it[Keys.speed] = value }
     suspend fun setResumePlayback(value: Boolean) = edit { it[Keys.resumePlayback] = value }

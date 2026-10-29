@@ -82,6 +82,8 @@
     <string name="player_repeat_announce">Repeat: %1$s</string>
     <string name="player_seek_preview">Preview frame for the seek position</string>
     <string name="player_aspect">Aspect ratio</string>
+    <string name="player_controls_move_top">Move the control bar to the top</string>
+    <string name="player_controls_move_bottom">Move the control bar to the bottom</string>
     <string name="player_rotate">Rotate</string>
     <string name="player_unknown_duration">unknown</string>
     <string name="player_buffered">+%1$s buffered</string>

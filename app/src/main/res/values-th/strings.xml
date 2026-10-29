@@ -81,6 +81,8 @@
     <string name="player_repeat_announce">เล่นซ้ำ: %1$s</string>
     <string name="player_seek_preview">ภาพตัวอย่างของตำแหน่งที่กำลังเลื่อนไป</string>
     <string name="player_aspect">อัตราส่วนภาพ</string>
+    <string name="player_controls_move_top">ย้ายแถบควบคุมขึ้นด้านบน</string>
+    <string name="player_controls_move_bottom">ย้ายแถบควบคุมลงด้านล่าง</string>
     <string name="player_rotate">หมุนจอ</string>
     <string name="player_unknown_duration">ไม่ทราบ</string>
     <string name="player_buffered">บัฟเฟอร์เพิ่ม %1$s</string>

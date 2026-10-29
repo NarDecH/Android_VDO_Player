@@ -12,6 +12,7 @@ import android.os.Build
 import android.util.Rational
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -54,6 +55,8 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.VerticalAlignBottom
+import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
@@ -153,6 +156,8 @@ private val SPEED_PRESETS = listOf(0.25f, 0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2
  * Scaffold to lay the snackbar out against, so the offset is stated once here.
  */
 private val CONTROL_BAR_CLEARANCE = 140.dp
+/** The title bar's height plus a little: the clearance left when the bar moved to the top. */
+private val HEADER_CLEARANCE = 88.dp
 private val STREAM_PANEL_CLEARANCE = 300.dp
 
 /**
@@ -209,6 +214,7 @@ fun PlayerScreen(
     onSetDecoderPreference: (DecoderPreference) -> Unit,
     onRememberAudioCodec: (String) -> Unit,
     onForgetAudioCodec: (String) -> Unit,
+    onSetControlsOnTop: (Boolean) -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -216,6 +222,7 @@ fun PlayerScreen(
     val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
     val state by playback.state.collectAsStateWithLifecycle()
+    val controlsOnTop = settings.controlsOnTop
 
     var controlsVisible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
@@ -345,6 +352,22 @@ fun PlayerScreen(
     }
 
     val currentItem = queue.getOrNull(state.queueIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0)))
+
+    // Back belongs to the overlay, not to the Activity. Without this the press reached
+    // the Activity and finished it, so leaving a video also left the app; here it closes
+    // whatever the player opened, and only then returns to the list the video came from.
+    BackHandler {
+        when {
+            showInfo -> showInfo = false
+            showSpeedDialog -> showSpeedDialog = false
+            showAspectDialog -> showAspectDialog = false
+            showAudioDialog -> showAudioDialog = false
+            else -> {
+                LogBus.i(LogTag.UI, "Back pressed in the player: returning to the list")
+                onClose()
+            }
+        }
+    }
 
     // Set when this file's audio codec was rescued by hand before: the card is then not
     // shown and the switch below happens by itself. A refusal puts the card back.
@@ -774,9 +797,13 @@ fun PlayerScreen(
                         LogBus.i(LogTag.DECODER, "Silent audio hint dismissed by the viewer")
                     },
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
+                        // Opposite the control bar, so a hint never lands under it.
+                        .align(if (controlsOnTop) Alignment.BottomCenter else Alignment.TopCenter)
                         .padding(horizontal = 16.dp)
-                        .padding(top = 72.dp),
+                        .padding(
+                            top = if (controlsOnTop) 0.dp else 72.dp,
+                            bottom = if (controlsOnTop) 72.dp else 0.dp,
+                        ),
                 )
             }
 
@@ -806,9 +833,13 @@ fun PlayerScreen(
                         )
                     },
                     modifier = Modifier
-                        .align(Alignment.TopCenter)
+                        // Opposite the control bar, so a hint never lands under it.
+                        .align(if (controlsOnTop) Alignment.BottomCenter else Alignment.TopCenter)
                         .padding(horizontal = 16.dp)
-                        .padding(top = 72.dp),
+                        .padding(
+                            top = if (controlsOnTop) 0.dp else 72.dp,
+                            bottom = if (controlsOnTop) 72.dp else 0.dp,
+                        ),
                 )
             }
 
@@ -826,6 +857,7 @@ fun PlayerScreen(
                     state = state,
                     title = currentItem?.title ?: state.title,
                     folder = currentItem?.let { folderLabel(it.folder) }.orEmpty(),
+                    controlsOnTop = controlsOnTop,
                     locked = locked,
                     scrubProgress = scrubProgress,
                     onScrub = { fraction ->
@@ -865,6 +897,7 @@ fun PlayerScreen(
                         }
                     },
                     onToggleLock = { locked = !locked },
+                    onToggleControlsPosition = { onSetControlsOnTop(!controlsOnTop) },
                     onClose = onClose,
                     onPlayPause = { playback.togglePlayPause() },
                     onPrevious = {
@@ -910,7 +943,10 @@ fun PlayerScreen(
                     onPickDecoder = { preference -> applyDecoderChoice(preference) },
                     onCopyDiagnostics = { copyDiagnostics(context, playback) },
                     modifier = Modifier
-                        .align(Alignment.BottomCenter)
+                        // Same edge as the control bar: this panel is what replaces it
+                        // while it is open, and the title bar on the other edge stays
+                        // reachable, so the panel can always be closed again.
+                        .align(if (controlsOnTop) Alignment.TopCenter else Alignment.BottomCenter)
                         .padding(16.dp),
                 )
             }
@@ -918,6 +954,7 @@ fun PlayerScreen(
             PlayerSnackbarHost(
                 hostState = snackbarHost,
                 showInfo = showInfo,
+                controlsOnTop = controlsOnTop,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -965,16 +1002,26 @@ fun PlayerScreen(
     }
 }
 
+/**
+ * The overlay above the picture: the title bar on one edge, the seek bar and the
+ * buttons on the other. [controlsOnTop] swaps the two places — it is what the button
+ * in the title bar changes — so the bar can move out of the way of a hand or a stand.
+ *
+ * Not private only so a device test can measure which edge each half lands on; there
+ * is no other caller.
+ */
 @Composable
-private fun PlayerControls(
+internal fun PlayerControls(
     state: PlayerUiState,
     title: String,
     folder: String,
+    controlsOnTop: Boolean,
     locked: Boolean,
     scrubProgress: Float,
     onScrub: (Float) -> Unit,
     onScrubFinished: () -> Unit,
     onToggleLock: () -> Unit,
+    onToggleControlsPosition: () -> Unit,
     onClose: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
@@ -988,10 +1035,13 @@ private fun PlayerControls(
     onRotate: () -> Unit,
     onPip: () -> Unit,
 ) {
+    val panelEdge = if (controlsOnTop) Alignment.TopCenter else Alignment.BottomCenter
+    val headerEdge = if (controlsOnTop) Alignment.BottomStart else Alignment.TopStart
+
     Box(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
-                .align(Alignment.TopStart)
+                .align(headerEdge)
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.45f))
                 .padding(8.dp),
@@ -1022,6 +1072,25 @@ private fun PlayerControls(
                     )
                 }
             }
+            IconButton(onClick = onToggleControlsPosition) {
+                Icon(
+                    // The arrow points at the edge the bar is on now, so the icon is
+                    // the state; the description below says what a tap will do.
+                    if (controlsOnTop) {
+                        Icons.Filled.VerticalAlignBottom
+                    } else {
+                        Icons.Filled.VerticalAlignTop
+                    },
+                    contentDescription = stringResource(
+                        if (controlsOnTop) {
+                            R.string.player_controls_move_bottom
+                        } else {
+                            R.string.player_controls_move_top
+                        },
+                    ),
+                    tint = Color.White,
+                )
+            }
             IconButton(onClick = onInfo) {
                 Icon(
                     Icons.Filled.Info,
@@ -1040,7 +1109,7 @@ private fun PlayerControls(
 
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
+                .align(panelEdge)
                 .fillMaxWidth()
                 .background(Color.Black.copy(alpha = 0.5f))
                 .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1360,20 +1429,30 @@ private fun InfoLine(label: String, value: String) {
  * is never composed while a video is open: without this one, every announcement made
  * in the player — repeat mode, decoder switch — waits for a host that does not exist.
  * It sits above the control bar, and higher while the stream panel is open, because
- * that panel is anchored to the same edge. Kept as its own composable so a device
- * test can prove that it really renders a message.
+ * that panel is anchored to the same edge. When the bar was moved to the top, the only
+ * thing at this edge is the title bar, so the message drops closer to it. Kept as its
+ * own composable so a device test can prove that it really renders a message.
  */
 @Composable
 fun PlayerSnackbarHost(
     hostState: SnackbarHostState,
     showInfo: Boolean,
+    controlsOnTop: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     SnackbarHost(
         hostState = hostState,
         modifier = modifier
             .padding(horizontal = 16.dp)
-            .padding(bottom = if (showInfo) STREAM_PANEL_CLEARANCE else CONTROL_BAR_CLEARANCE),
+            .padding(
+                bottom = when {
+                    // With the bar at the top the stream panel follows it there, so the
+                    // only thing left at this edge is the title bar.
+                    controlsOnTop -> HEADER_CLEARANCE
+                    showInfo -> STREAM_PANEL_CLEARANCE
+                    else -> CONTROL_BAR_CLEARANCE
+                },
+            ),
     )
 }
 
