@@ -194,6 +194,7 @@ again as a `SHA256SUMS` block you can save beside the downloads and check with
 | Info button (top right) | Stream details for the current file, plus the decoder chips (hardware first / FFmpeg / hardware only) that switch decoding while the video keeps playing |
 | PiP button | Continue in a floating window |
 | Subtitle button | Turns subtitles on, or opens a file picker if none are loaded |
+| Screen reader | Every control is announced by name. The seek bar says the time the seek would land on, the repeat button says which mode it is in, the queue counter says "Video 1 of 3", and the pickers say which option is already chosen |
 
 ### Transfer tab
 

@@ -36,6 +36,12 @@
 
   <article class="prose">
 
+    <h2 id="v1-5-3">1.5.3 — 2026-10-29</h2>
+    <ul>
+      <li><span class="tag changed">changed</span> <strong>Every control in the player says what it does</strong> — all fourteen icons already had a spoken label; what was wrong was what some of them said. The seek bar reports the time a seek would land on ("0:30 of 1:30") instead of a bare percentage, the two times under it are one sentence rather than two loose numbers, the repeat button names the mode it is in ("Repeat: the whole queue"), the queue counter says "Video 1 of 3" instead of being read as "one slash three", and the speed, aspect and audio pickers announce which row is already chosen instead of marking it with a tick alone</li>
+      <li><span class="tag changed">changed</span> <strong>A test keeps the labels honest</strong> — an instrumented case fails if a control is added to the player without a spoken label, and pins the four wordings above (35 instrumented tests)</li>
+    </ul>
+
     <h2 id="v1-5-2">1.5.2 — 2026-10-29</h2>
     <ul>
       <li><span class="tag changed">changed</span> <strong>A Settings switch answers anywhere on its row</strong> — the title, the subtitle and the control are one tap target, so a thumb no longer has to land on the small switch. TalkBack reads the row once, with the setting's name and its state, instead of announcing a second toggle beside it</li>

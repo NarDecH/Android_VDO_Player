@@ -4,6 +4,21 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.3] — 2026-10-29
+
+### Changed
+
+- **Every control in the player says what it does** — all fourteen icons already had a
+  spoken label; what was wrong was what some of them said. The seek bar reports the time
+  a seek would land on ("0:30 of 1:30") instead of a bare percentage, the two times
+  under it are one sentence rather than two loose numbers, the repeat button names the
+  mode it is in ("Repeat: the whole queue"), the queue counter says "Video 1 of 3"
+  instead of being read as "one slash three", and the speed, aspect and audio pickers
+  announce which row is already chosen instead of marking it with a tick alone.
+- **A test keeps the labels honest** — an instrumented case fails if a control is added
+  to the player without a spoken label, and pins the four wordings above (35
+  instrumented tests).
+
 ## [1.5.2] — 2026-10-29
 
 ### Changed
@@ -453,7 +468,8 @@ First public release. Everything below is new.
 
 ---
 
-[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.2...HEAD
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.3...HEAD
+[1.5.3]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.3
 [1.5.2]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.2
 [1.5.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.1
 [1.5.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.0
