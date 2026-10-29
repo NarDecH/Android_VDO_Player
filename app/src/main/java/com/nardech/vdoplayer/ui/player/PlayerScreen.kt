@@ -353,21 +353,39 @@ fun PlayerScreen(
 
     val currentItem = queue.getOrNull(state.queueIndex.coerceIn(0, (queue.size - 1).coerceAtLeast(0)))
 
-    // Back belongs to the overlay, not to the Activity. Without this the press reached
-    // the Activity and finished it, so leaving a video also left the app; here it closes
-    // whatever the player opened, and only then returns to the list the video came from.
-    BackHandler {
-        when {
-            showInfo -> showInfo = false
-            showSpeedDialog -> showSpeedDialog = false
-            showAspectDialog -> showAspectDialog = false
-            showAudioDialog -> showAudioDialog = false
-            else -> {
-                LogBus.i(LogTag.UI, "Back pressed in the player: returning to the list")
-                onClose()
+    // Back belongs to the overlay, not to the Activity: one press closes one thing the
+    // player opened, and the last one returns to the list the video came from.
+    PlayerBackHandler(
+        onDismiss = {
+            when {
+                showInfo -> {
+                    showInfo = false
+                    true
+                }
+
+                showSpeedDialog -> {
+                    showSpeedDialog = false
+                    true
+                }
+
+                showAspectDialog -> {
+                    showAspectDialog = false
+                    true
+                }
+
+                showAudioDialog -> {
+                    showAudioDialog = false
+                    true
+                }
+
+                else -> false
             }
-        }
-    }
+        },
+        onClose = {
+            LogBus.i(LogTag.UI, "Back pressed in the player: returning to the list")
+            onClose()
+        },
+    )
 
     // Set when this file's audio codec was rescued by hand before: the card is then not
     // shown and the switch below happens by itself. A refusal puts the card back.
@@ -999,6 +1017,25 @@ fun PlayerScreen(
             },
             onDismiss = { showAudioDialog = false },
         )
+    }
+}
+
+/**
+ * Back while the player overlay is up.
+ *
+ * The press used to reach the Activity, which then finished: leaving a video also left
+ * the app. This takes the press instead, asks [onDismiss] to close one thing at a time —
+ * the stream panel, a picker — and calls [onClose] only when nothing is left to close, so
+ * the overlay really leaves for the list it came from. [onDismiss] answers whether it
+ * closed something.
+ *
+ * Hoisted out of [PlayerScreen] so a device test can press the button the system presses
+ * and watch a host activity survive it.
+ */
+@Composable
+internal fun PlayerBackHandler(onDismiss: () -> Boolean, onClose: () -> Unit) {
+    BackHandler {
+        if (!onDismiss()) onClose()
     }
 }
 
