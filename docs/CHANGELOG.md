@@ -4,6 +4,27 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] — 2026-10-29
+
+### Added
+
+- **The control bar can change edges** — the seek bar and the buttons can move to the top
+  of the picture, for a hand or a desk stand that covers the bottom of the screen. The
+  arrow button in the title bar swaps the two halves, so the title bar takes the bottom
+  edge and the close button never ends up behind the slider. The choice is stored, so the
+  next video opens the same way, and everything else that lived on an edge — the no-sound
+  cards, the stream panel, the player's own snackbars — follows the bar instead of
+  staying put.
+
+### Fixed
+
+- **Back returns to the library** — the press while a video played finished the Activity,
+  because nothing in the player handled it: leaving a video also left the app. The player
+  now takes the press, closes the stream panel or a picker first, and only then returns to
+  the list the video came from. Both behaviours are measured on the emulator — a host
+  activity presses back and the test watches it survive, and the two halves of the overlay
+  are asserted above and below the middle of the screen (29 instrumented tests).
+
 ## [1.4.0] — 2026-10-29
 
 ### Changed
@@ -411,7 +432,8 @@ First public release. Everything below is new.
 
 ---
 
-[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.0
 [1.4.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.4.0
 [1.3.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.3.0
 [1.2.0]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.2.0

@@ -36,6 +36,13 @@
 
   <article class="prose">
 
+    <h2 id="v1-5-0">1.5.0 — 2026-10-29</h2>
+    <ul>
+      <li><span class="tag added">added</span> <strong>The control bar can change edges</strong> — the seek bar and the buttons can move to the top of the picture, for a hand or a desk stand that covers the bottom of the screen. The arrow button in the title bar swaps the two halves, so the title bar takes the bottom edge and the close button never ends up behind the slider. The choice is stored, so the next video opens the same way, and everything else that lived on an edge — the no-sound cards, the stream panel, the player's own snackbars — follows the bar instead of staying put</li>
+      <li><span class="tag fixed">fixed</span> <strong>Back returns to the library</strong> — the press while a video played finished the Activity, because nothing in the player handled it: leaving a video also left the app. The player now takes the press, closes the stream panel or a picker first, and only then returns to the list the video came from</li>
+      <li><span class="tag added">added</span> Both behaviours are measured on the emulator: a host activity presses back and the test watches it survive, and the two halves of the overlay are asserted above and below the middle of the screen (29 instrumented tests)</li>
+    </ul>
+
     <h2 id="v1-4-0">1.4.0 — 2026-10-29</h2>
     <ul>
       <li><span class="tag changed">changed</span> <strong>Smaller downloads</strong> — release builds are minified with R8 and have their resources shrunk, which takes the 64-bit ARM APK from about 24 MB to about 11 MB and the universal one from about 51 MB to about 37 MB. The keep rules now name only what is reached by name at runtime — NextLib's JNI classes, native method names and the class names the log screen prints — while Media3's own consumer rules cover the renderer constructors it loads reflectively. The old rules kept every class of this app and every Media3 class in full, which left the shrinker almost nothing to remove</li>

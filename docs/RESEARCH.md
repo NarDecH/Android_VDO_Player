@@ -193,9 +193,9 @@ required for `@Composable` compilation.
 
 Measured on the build machine (`assembleRelease`, x86_64 host, Gradle 9.8.1). The
 first column is 1.0.0–1.3.0, which shipped unminified; the second is that same commit
-rebuilt with R8 on, which is what 1.4.0 ships:
+rebuilt with R8 on, which is what 1.4.0 and later ship:
 
-| Artefact | 1.0.0–1.3.0 (unminified) | 1.4.0 (R8) |
+| Artefact | 1.0.0–1.3.0 (unminified) | 1.4.0 onwards (R8) |
 |---|---|---|
 | `app-arm64-v8a-release.apk` | 24 MB | 11 MB |
 | `app-armeabi-v7a-release.apk` | 23 MB | 10 MB |
