@@ -203,6 +203,8 @@
     <string name="settings_remember_brightness_sub">ถ้าปิดไว้ จะคืนค่าความสว่างของระบบเมื่อออกจากหน้าจอเล่น</string>
     <string name="settings_seek_preview">พรีวิวตอนเลื่อนหา</string>
     <string name="settings_seek_preview_sub">ถอดภาพตัวอย่างขึ้นมาให้เห็นตอนลากแถบเลื่อน รู้เลยว่าเลื่อนไปตรงไหน</string>
+    <string name="settings_controls_on_top">แถบควบคุมอยู่ด้านบน</string>
+    <string name="settings_controls_on_top_sub">ย้ายแถบเลื่อนกับปุ่มขึ้นไปเหนือภาพ แล้วให้แถบชื่อเรื่องอยู่ขอบล่างแทน กดปุ่มลูกศรในหน้าจอเล่นก็สลับได้เหมือนกัน</string>
     <string name="settings_subtitle_discovery">หาซับไทเทิลข้างไฟล์วิดีโอ</string>
     <string name="settings_subtitle_discovery_sub">โหลดไฟล์ .srt, .vtt หรือ .ass ที่ชื่อเดียวกันในโฟลเดอร์เดียวกับวิดีโอให้เอง Android 13 ขึ้นไปจะไม่เห็นไฟล์ที่แอปไม่ได้เป็นเจ้าของ จึงเจอเฉพาะไฟล์ที่อ่านได้ ส่วนปุ่มคำบรรยายยังเลือกไฟล์เองได้เสมอ</string>
     <string name="settings_autoplay_next">เล่นวิดีโอถัดไปอัตโนมัติ</string>

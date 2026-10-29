@@ -206,6 +206,8 @@
     <string name="settings_remember_brightness_sub">Off restores the system brightness when you leave the player</string>
     <string name="settings_seek_preview">Seek preview</string>
     <string name="settings_seek_preview_sub">Decode a frame while you drag, so you can see where the seek is going</string>
+    <string name="settings_controls_on_top">Control bar at the top</string>
+    <string name="settings_controls_on_top_sub">Puts the seek bar and the buttons above the picture, with the title bar on the bottom edge. The arrow button in the player flips it too</string>
     <string name="settings_subtitle_discovery">Find subtitles beside the video</string>
     <string name="settings_subtitle_discovery_sub">Loads a .srt, .vtt or .ass file with the same name from the video\'s own folder. Android 13 and newer hide files this app does not own, so there it only finds subtitles it can read; the subtitle button still takes any file you pick.</string>
     <string name="settings_autoplay_next">Play next video automatically</string>

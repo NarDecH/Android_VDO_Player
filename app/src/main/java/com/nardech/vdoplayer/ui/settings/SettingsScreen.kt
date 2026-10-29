@@ -175,6 +175,20 @@ fun SettingsScreen(
                     checked = settings.seekPreviewEnabled,
                     onChange = { scope.launch { repository.setSeekPreview(it) } },
                 )
+                // The player has the same switch in its title bar; this one exists for
+                // anyone who wants it set before opening a video.
+                SwitchRow(
+                    title = stringResource(R.string.settings_controls_on_top),
+                    subtitle = stringResource(R.string.settings_controls_on_top_sub),
+                    checked = settings.controlsOnTop,
+                    onChange = { onTop ->
+                        LogBus.i(
+                            LogTag.UI,
+                            "Control bar moved to the ${if (onTop) "top" else "bottom"} edge",
+                        )
+                        scope.launch { repository.setControlsOnTop(onTop) }
+                    },
+                )
                 SwitchRow(
                     title = stringResource(R.string.settings_subtitle_discovery),
                     subtitle = stringResource(R.string.settings_subtitle_discovery_sub),
