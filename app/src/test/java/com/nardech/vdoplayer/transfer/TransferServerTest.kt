@@ -139,7 +139,13 @@ class TransferServerTest {
         try {
             val wrong = wrongCodeFor(server.code)
             repeat(TransferProtocol.MAX_CODE_ATTEMPTS) {
-                rawRequest(server.port, uploadHead(wrong, "clip.mp4", 4), testBytes(4, it.toLong()))
+                // No body on purpose. The server decides on the code header and closes
+                // without reading the body, and a body still unread in the socket makes
+                // Windows answer the close with a reset: the client then throws
+                // SocketException instead of reading the 403, which is what used to fail
+                // this test on the Windows runner roughly one run in a few dozen. The
+                // rejection path never looks at the body, so nothing is left untested.
+                rawRequest(server.port, uploadHead(wrong, "clip.mp4", 4))
             }
 
             assertTrue(
