@@ -214,7 +214,7 @@ Two modes, chosen with the chips at the top.
 
 | Control | What it does |
 |---|---|
-| Find phones on this Wi-Fi | Scans with mDNS and lists the receivers that are advertising; tap one to select it |
+| Find phones on this Wi-Fi | Scans with mDNS and lists the receivers that are advertising; the whole row selects one, not only the dot |
 | Code | The digits shown on the receiving phone |
 | Or type the address | `192.168.1.20` or `192.168.1.20:45871`; **Check** says whether a receiver answered |
 | Pick files and send | Chooses one or many files; they are sent one after another |
@@ -242,7 +242,10 @@ clears all history (this also removes resume positions).
 - **About** — version and licence note
 
 Every switch in these cards toggles from its whole row — the title and subtitle as
-well as the control on the right — and a screen reader reads it as one item.
+well as the control on the right — and a screen reader reads it as one item. The card
+titles are headings, so a screen reader can jump from card to card; the speed slider says
+the setting and the speed ("1.5x") rather than a bare number; and each chip says the row
+it answers ("Columns, 3") instead of only its own label.
 
 ## Permissions and privacy
 

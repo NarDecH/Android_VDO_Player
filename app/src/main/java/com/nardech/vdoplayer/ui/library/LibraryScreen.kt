@@ -536,10 +536,13 @@ private fun VideoCard(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Box {
+            // The title is drawn below the picture and the whole card is one clickable
+            // node, so naming the picture after the file would have a screen reader read
+            // every title twice. The thumbnail is decoration here.
             AsyncImage(
                 model = item.uri,
                 imageLoader = VdoPlayerApp.imageLoader,
-                contentDescription = item.title,
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -617,10 +620,11 @@ private fun VideoRow(
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
+            // Same reason as the grid card: the title sits beside the picture.
             AsyncImage(
                 model = item.uri,
                 imageLoader = VdoPlayerApp.imageLoader,
-                contentDescription = item.title,
+                contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .width(120.dp)

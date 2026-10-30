@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -52,6 +53,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -100,6 +104,7 @@ fun TransferScreen(
     var sendMode by rememberSaveable { mutableStateOf(false) }
     var nameDraft by rememberSaveable { mutableStateOf(settings.deviceName) }
     var manualAddress by rememberSaveable { mutableStateOf("") }
+    val manualAddressLabel = stringResource(R.string.transfer_manual_address)
     var code by rememberSaveable { mutableStateOf("") }
     var selectedPeer by rememberSaveable { mutableStateOf<String?>(null) }
     var probeOutcome by remember { mutableStateOf<ProbeOutcome?>(null) }
@@ -490,9 +495,16 @@ fun TransferScreen(
                                 selectedPeer = null
                                 probeOutcome = null
                             },
-                            modifier = Modifier.weight(1f),
+                            // This field has a placeholder instead of a label, and a
+                            // placeholder is not a name: once something is typed it is gone,
+                            // leaving an anonymous edit box.
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics {
+                                    contentDescription = manualAddressLabel
+                                },
                             singleLine = true,
-                            placeholder = { Text(stringResource(R.string.transfer_manual_address)) },
+                            placeholder = { Text(manualAddressLabel) },
                         )
                         Spacer(Modifier.width(8.dp))
                         TextButton(
@@ -682,11 +694,18 @@ private fun PeerRow(peer: DiscoveredPeer, selected: Boolean, onSelect: () -> Uni
             .fillMaxWidth()
             .padding(vertical = 3.dp),
     ) {
+        // The whole row chooses the phone, not just the dot on its left: a radio button
+        // by itself is announced as "radio button, not selected" with no name, because the
+        // device name beside it is a separate node. Selecting the row merges both into one
+        // announcement and gives a thumb the full width to aim at.
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .selectable(selected = selected, onClick = onSelect, role = Role.RadioButton)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
         ) {
-            RadioButton(selected = selected, onClick = onSelect)
+            RadioButton(selected = selected, onClick = null)
             Column(modifier = Modifier.weight(1f)) {
                 Text(text = peer.name, style = MaterialTheme.typography.bodyMedium)
                 Text(

@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
@@ -25,7 +26,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.setProgress
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.BuildConfig
@@ -113,6 +122,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(6.dp))
                 ChipRow(
                     title = "",
+                    spokenName = stringResource(R.string.settings_decoder),
                     options = decoderLabels,
                     selectedIndex = DecoderPreference.entries.indexOf(settings.decoderPreference),
                     onPick = {
@@ -313,7 +323,13 @@ private fun SettingsCard(title: String, content: @Composable () -> Unit) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text(text = title, style = MaterialTheme.typography.titleMedium)
+            // A reading order is not the same as navigation: a screen reader can jump
+            // between headings, and only the titles marked as ones are on that list.
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.semantics { heading() },
+            )
             Spacer(Modifier.height(10.dp))
             content()
         }
@@ -358,18 +374,36 @@ private fun ChipRow(
     options: List<String>,
     selectedIndex: Int,
     onPick: (Int) -> Unit,
+    // The group a chip belongs to, for the row whose heading is drawn by its caller.
+    spokenName: String = title,
 ) {
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         if (title.isNotBlank()) {
-            Text(text = title, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.semantics { heading() },
+            )
             Spacer(Modifier.height(6.dp))
         }
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Column(
+            modifier = Modifier.selectableGroup(),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
             options.forEachIndexed { index, label ->
                 FilterChip(
                     selected = index == selectedIndex,
                     onClick = { onPick(index) },
                     label = { Text(label) },
+                    // "2, selected" means nothing on its own. The chip carries the row it
+                    // answers, because jumping control by control skips the heading above.
+                    modifier = Modifier.semantics {
+                        contentDescription = if (spokenName.isBlank()) {
+                            label
+                        } else {
+                            "$spokenName, $label"
+                        }
+                    },
                 )
             }
         }
@@ -398,11 +432,26 @@ private fun SliderRow(
                 color = MaterialTheme.colorScheme.primary,
             )
         }
+        // A Material slider describes itself with its raw value: "1.25" and nothing else,
+        // which for a speed control is a number with no unit and no name. The label is
+        // written here instead of beside the slider's own semantics, because the same
+        // property cannot be set twice on one node, and this modifier clears the one the
+        // slider brings. The seek action is put back by hand, so the control can still be
+        // adjusted by a screen reader without touching the track.
         Slider(
             value = value,
             onValueChange = onChange,
             valueRange = valueRange,
             steps = steps,
+            modifier = Modifier.clearAndSetSemantics {
+                contentDescription = title
+                stateDescription = label
+                progressBarRangeInfo = ProgressBarRangeInfo(value, valueRange, steps)
+                setProgress { target ->
+                    onChange(target)
+                    true
+                }
+            },
         )
     }
 }

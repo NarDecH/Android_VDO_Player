@@ -4,6 +4,26 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.4] — 2026-10-30
+
+### Changed
+
+- **The rest of the app speaks as clearly as the player** — the audit 1.5.3 gave the
+  player now covers the library, Settings and the transfer screen. A file in the library
+  is no longer read out twice: the thumbnail was named after the file, beside a caption
+  with the same words. The default-speed slider says which setting it is and the speed
+  itself ("1.5x") instead of a bare number, and can still be adjusted by a screen reader's
+  swipe. A chip says the row it answers ("Columns, 3") rather than a bare "3, selected",
+  and the card titles are headings, so heading navigation moves between the cards instead
+  of finding none.
+- **A phone in the transfer list is one tap target** — the whole row selects a peer, and
+  the radio is read with the device name instead of being announced as an unnamed radio
+  button. The manual address field is named for a screen reader too: its placeholder is
+  gone as soon as something is typed.
+- **Covered on the emulator** — a Settings case asserts the slider's name, its spoken value
+  and that it is still adjustable, that the cards are headings, and that each chip carries
+  its row (38 instrumented tests).
+
 ## [1.5.3] — 2026-10-29
 
 ### Changed
@@ -468,7 +488,8 @@ First public release. Everything below is new.
 
 ---
 
-[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.3...HEAD
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.4...HEAD
+[1.5.4]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.4
 [1.5.3]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.3
 [1.5.2]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.2
 [1.5.1]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.1

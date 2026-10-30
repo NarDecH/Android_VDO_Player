@@ -116,6 +116,10 @@
     </table>
     <p>Aspect modes (fit, zoom/crop, stretch, match width) live behind the aspect button; screen
       rotation has its own button and an auto-rotate setting.</p>
+    <p>The same care applies outside the player: a library card says its title once instead of
+      twice, the Settings card titles are headings a screen reader can jump between, the default
+      speed slider names the setting and the speed (“1.5x”), a chip says which row it answers
+      (“Columns, 3”), and a phone in the transfer list is chosen from its whole row.</p>
 
     <figure class="shot" style="text-align:center">
       <img src="assets/screen-player.svg" alt="Player screen mockup" style="max-width:300px" />
@@ -127,7 +131,8 @@
       <li><strong>Receive</strong> — one tap starts a small HTTP server on the phone and shows an
         address plus a four digit code. Nothing is accepted without that code.</li>
       <li><strong>Send</strong> — the other phone finds this one over mDNS (no pairing, no setup),
-        or you type the address the receiving phone shows. <code>192.168.1.20</code> is enough.</li>
+        or you type the address the receiving phone shows. <code>192.168.1.20</code> is enough.
+        A phone in the list is selected by tapping anywhere on its row, not only the dot.</li>
       <li><strong>No router at all?</strong> The receiving phone opens a <strong>Wi-Fi Direct</strong>
         group and the sender joins it directly; the group owner then appears in the same receiver
         list, with the same code and progress. Android asks for the Nearby devices permission the
