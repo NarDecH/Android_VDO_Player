@@ -4,6 +4,40 @@ All notable changes to VDO Player are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [semantic versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.5] — 2026-11-06
+
+### Added
+
+- **A long press starts a selection** — the library can act on several videos at once.
+  The bar that appears counts what is in it ("3 selected") and offers the details of the
+  whole selection, sending it to another phone, and deleting it. Sending fills the
+  Transfer tab's queue instead of starting three jobs from three taps, and deleting
+  names how many files are about to go before it asks, then reports how many went.
+- **A sleep timer** — the player's title bar has a timer that stops playback after 10,
+  20, 30 or 60 minutes, or when the video playing now ends. It says which of those is
+  set, and says when it has fired.
+- **What the file actually is** — the details sheet reads the container and reports the
+  video and audio codec, the bitrate, the frame rate and how many video, audio and
+  subtitle tracks there are, instead of leaving a viewer to guess from the extension.
+  The file is read off the main thread, and the sheet says so while it works.
+- **Favourites** — a video can be starred from its details, the library has a
+  "Favourites" chip beside the folder chips that counts what is in it, and that view
+  opens with a Play all. The list is kept on the device, so it survives a restart.
+
+### Changed
+
+- **The control bar can sit on any of the four edges** — the arrow in the player's
+  title bar used to flip the bar between the top and the bottom; it now offers top,
+  bottom, left and right, and Settings → Playback carries the same four chips. Along a
+  side edge the seek bar stands upright — it fills upwards, like a volume slider — and
+  the buttons form a narrow grid beside it, because a phone held in landscape is not
+  tall enough for one row of ten buttons. The choice made before the update is kept: a
+  bar that sat at the top is still at the top.
+- **The new screens speak** — the selection bar, the details sheet, the sleep-timer
+  choices, the favourites chip and the four-position picker all carry spoken labels, and
+  a recent file's row says what tapping it does ("Resume Movie") rather than reading the
+  title alone.
+
 ## [1.5.4] — 2026-10-30
 
 ### Changed
@@ -488,7 +522,8 @@ First public release. Everything below is new.
 
 ---
 
-[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.4...HEAD
+[Unreleased]: https://github.com/NarDecH/Android_VDO_Player/compare/v1.5.5...HEAD
+[1.5.5]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.5
 [1.5.4]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.4
 [1.5.3]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.3
 [1.5.2]: https://github.com/NarDecH/Android_VDO_Player/releases/tag/v1.5.2
