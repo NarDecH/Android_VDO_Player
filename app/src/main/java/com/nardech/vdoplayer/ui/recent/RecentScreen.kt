@@ -30,6 +30,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nardech.vdoplayer.AppContainer
@@ -64,7 +67,11 @@ fun RecentScreen(
             Text(
                 text = stringResource(R.string.recent_title),
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.weight(1f),
+                // A heading, so heading navigation moves between the screen sections
+                // rather than finding none in a list of cards.
+                modifier = Modifier
+                    .weight(1f)
+                    .semantics { heading() },
             )
             if (history.isNotEmpty()) {
                 IconButton(onClick = {
@@ -135,6 +142,7 @@ fun RecentScreen(
                                 style = MaterialTheme.typography.titleSmall,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.semantics { heading() },
                             )
                             Text(
                                 text = "$positionText · $ageText",
@@ -142,12 +150,25 @@ fun RecentScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(Modifier.height(6.dp))
+                            // A bar on its own says "progress, 42 percent" and never what it
+                            // is progress of; the row's file is named here instead.
+                            val progressLabel = stringResource(
+                                R.string.recent_progress_for,
+                                entry.title,
+                                (entry.progress * 100).toInt(),
+                            )
                             LinearProgressIndicator(
                                 progress = { entry.progress },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .semantics { contentDescription = progressLabel },
                             )
                         }
-                        TextButton(onClick = { onPlay(entry) }) {
+                        val resumeLabel = stringResource(R.string.recent_resume_for, entry.title)
+                        TextButton(
+                            onClick = { onPlay(entry) },
+                            modifier = Modifier.semantics { contentDescription = resumeLabel },
+                        ) {
                             Icon(Icons.Filled.PlayArrow, contentDescription = null)
                             Text(stringResource(R.string.recent_resume))
                         }
@@ -157,7 +178,10 @@ fun RecentScreen(
                         }) {
                             Icon(
                                 Icons.Filled.Delete,
-                                contentDescription = stringResource(R.string.recent_remove),
+                                contentDescription = stringResource(
+                                    R.string.recent_remove_for,
+                                    entry.title,
+                                ),
                             )
                         }
                     }

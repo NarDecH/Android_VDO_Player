@@ -1,13 +1,23 @@
 package com.nardech.vdoplayer.ui.library
 
 import android.Manifest
+import android.app.Activity
+import android.app.RecoverableSecurityException
 import android.content.Context
+import android.content.Intent
+import android.content.IntentSender
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
+import android.provider.MediaStore
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -33,10 +43,14 @@ import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.automirrored.filled.ViewList
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.GridView
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -64,6 +78,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,6 +99,8 @@ import com.nardech.vdoplayer.playback.AudioPreflight
 import com.nardech.vdoplayer.playback.AudioVerdict
 import com.nardech.vdoplayer.playback.AudioVerdictSweep
 import com.nardech.vdoplayer.playback.AudioVerdicts
+import com.nardech.vdoplayer.playback.MediaInfo
+import com.nardech.vdoplayer.playback.MediaInfoProbe
 import com.nardech.vdoplayer.playback.probeKey
 import com.nardech.vdoplayer.ui.folderLabel
 import com.nardech.vdoplayer.ui.sortOrderLabel
@@ -100,8 +117,12 @@ fun LibraryScreen(
     snackbarHost: SnackbarHostState,
     contentPadding: PaddingValues,
     onPlay: (List<VideoItem>, Int, VideoItem) -> Unit,
+    onSendToTransfer: (List<VideoItem>) -> Unit,
 ) {
     val context = LocalContext.current
+    // Configuration-aware, unlike `context.resources`: the delete message is resolved
+    // after the work is done, and a language change must not leave it in the old one.
+    val resources = LocalResources.current
     var hasPermission by remember { mutableStateOf(hasVideoPermission(context)) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
@@ -129,6 +150,93 @@ fun LibraryScreen(
     var groupByFolder by rememberSaveable { mutableStateOf(settings.groupByFolder) }
     val scope = rememberCoroutineScope()
     var detailsFor by remember { mutableStateOf<VideoItem?>(null) }
+
+    // Choosing files is a mode, not a long-press menu: with several files picked the
+    // toolbar speaks for all of them — one delete the system confirms once, or one trip
+    // to the transfer screen with the whole selection.
+    var selecting by remember { mutableStateOf(false) }
+    var selectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    var favouritesOnly by rememberSaveable { mutableStateOf(false) }
+    val favourites by container.favourites.favourites
+        .collectAsStateWithLifecycle(initialValue = emptySet())
+
+    fun toggleSelection(id: Long) {
+        val next = selectedIds.toggle(id)
+        selectedIds = next
+        // An empty selection has nothing to act on, so the mode ends with its last file.
+        if (next.isEmpty()) selecting = false
+    }
+
+    BackHandler(enabled = selecting) {
+        selecting = false
+        selectedIds = emptySet()
+    }
+
+    // Deleting a file is the system's decision, not the app's: from Android 11 the
+    // platform shows its own confirmation sheet and performs the delete itself, and on
+    // Android 10 the refusal comes back as a RecoverableSecurityException carrying a
+    // request of the same kind. Either way the answer arrives in this launcher, so the
+    // library only ever asks for consent and then checks what actually happened.
+    var deleteTargets by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
+    var consentFor by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
+
+    // Runs once the system has answered: its own delete for Android 11+, or a legacy
+    // grant that still expects the app to make the call. The file being gone is the
+    // success, not the row count, because the first case deletes before we get here.
+    suspend fun completeDelete(items: List<VideoItem>) {
+        val deleted = withContext(Dispatchers.IO) {
+            items.filter { item -> deleteNow(context, item) }
+        }
+        deleted.forEach { item ->
+            LogBus.i(LogTag.MEDIA, "Deleted '${item.title}' (${item.uri})")
+            // The recent list would otherwise keep a row for a file that no longer exists.
+            container.history.remove(item.uri.toString())
+        }
+        val failed = items.size - deleted.size
+        val count = if (failed == 0) deleted.size else failed
+        snackbarHost.showSnackbar(
+            resources.getQuantityString(
+                if (failed == 0) R.plurals.library_delete_done else R.plurals.library_delete_failed,
+                count,
+                count,
+            ),
+        )
+    }
+
+    val deleteLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        val items = consentFor
+        consentFor = emptyList()
+        if (items.isEmpty()) return@rememberLauncherForActivityResult
+        if (result.resultCode != Activity.RESULT_OK) {
+            LogBus.i(LogTag.UI, "Delete cancelled for ${items.size} file(s)")
+            return@rememberLauncherForActivityResult
+        }
+        scope.launch { completeDelete(items) }
+    }
+
+    fun startDelete(items: List<VideoItem>) {
+        if (items.isEmpty()) return
+        scope.launch {
+            // Asking the platform and deleting are both binder calls, so they stay off
+            // the main thread; only the consent sheet has to be launched here.
+            when (val attempt = withContext(Dispatchers.IO) { attemptDelete(context, items) }) {
+                is DeleteAttempt.Consent -> {
+                    consentFor = attempt.items
+                    deleteLauncher.launch(IntentSenderRequest.Builder(attempt.sender).build())
+                }
+                DeleteAttempt.Done -> completeDelete(items)
+                DeleteAttempt.Failed -> snackbarHost.showSnackbar(
+                    resources.getQuantityString(
+                        R.plurals.library_delete_failed,
+                        items.size,
+                        items.size,
+                    ),
+                )
+            }
+        }
+    }
 
     // Files whose audio this device is known not to be able to decode — the library's
     // answer to the player's no-sound warning, given before the file is opened.
@@ -193,10 +301,11 @@ fun LibraryScreen(
     LaunchedEffect(settings.groupByFolder) { groupByFolder = settings.groupByFolder }
 
     val folders = remember(videos) { videos.map { it.folder }.distinct().sorted() }
-    val visible = remember(videos, query, folderFilter, sortOrder) {
+    val visible = remember(videos, query, folderFilter, sortOrder, favouritesOnly, favourites) {
         videos
             .filter { item ->
                 (folderFilter == null || item.folder == folderFilter) &&
+                    (!favouritesOnly || item.uri.toString() in favourites) &&
                     (query.isBlank() ||
                         item.title.contains(query, ignoreCase = true) ||
                         item.folder.contains(query, ignoreCase = true))
@@ -209,7 +318,33 @@ fun LibraryScreen(
             .fillMaxSize()
             .padding(contentPadding),
     ) {
-        Row(
+        if (selecting) {
+            SelectionBar(
+                count = selectedIds.size,
+                onClear = {
+                    selecting = false
+                    selectedIds = emptySet()
+                },
+                onDetails = selectedIds.singleOrNull()?.let { id ->
+                    { detailsFor = videos.firstOrNull { it.id == id } }
+                },
+                onSend = {
+                    val chosen = visible.filter { it.id in selectedIds }
+                    selecting = false
+                    selectedIds = emptySet()
+                    onSendToTransfer(chosen)
+                },
+                onDelete = {
+                    deleteTargets = visible.filter { it.id in selectedIds }
+                    selecting = false
+                    selectedIds = emptySet()
+                },
+            )
+        }
+
+        // The search box and its buttons step aside while files are being chosen, because
+        // the selection bar answers for the whole screen then.
+        if (!selecting) Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -266,7 +401,7 @@ fun LibraryScreen(
             }
         }
 
-        if (folders.size > 1) {
+        if (folders.size > 1 || favourites.isNotEmpty()) {
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -278,6 +413,28 @@ fun LibraryScreen(
                         onClick = { folderFilter = null },
                         label = { Text(stringResource(R.string.library_folder_all, videos.size)) },
                     )
+                }
+                if (favourites.isNotEmpty()) {
+                    item {
+                        FilterChip(
+                            selected = favouritesOnly,
+                            onClick = { favouritesOnly = !favouritesOnly },
+                            label = {
+                                Text(stringResource(R.string.library_favourites, favourites.size))
+                            },
+                            leadingIcon = if (favouritesOnly) {
+                                {
+                                    Icon(
+                                        Icons.Filled.Star,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                        )
+                    }
                 }
                 items(folders.size) { index ->
                     val folder = folders[index]
@@ -308,16 +465,52 @@ fun LibraryScreen(
             val playIndex = remember(playOrder) {
                 playOrder.withIndex().associate { (index, item) -> item.id to index }
             }
+            if (favouritesOnly && visible.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = stringResource(R.string.library_favourites_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { onPlay(visible, 0, visible.first()) }) {
+                        Icon(
+                            Icons.Filled.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.library_play_favourites))
+                    }
+                }
+            }
             LibraryGrid(
                 items = visible,
                 sections = sections,
                 gridMode = gridMode,
                 gridColumns = settings.gridColumns,
                 knownSilent = knownSilent,
-                onPlay = { item -> onPlay(playOrder, playIndex.getValue(item.id), item) },
+                favourites = favourites,
+                selected = selectedIds,
+                onPlay = { item ->
+                    if (selecting) {
+                        toggleSelection(item.id)
+                    } else {
+                        onPlay(playOrder, playIndex.getValue(item.id), item)
+                    }
+                },
                 onLongClick = { item ->
-                    detailsFor = item
-                    LogBus.d(LogTag.UI, "Showing details for '${item.title}'")
+                    if (selecting) {
+                        toggleSelection(item.id)
+                    } else {
+                        selecting = true
+                        selectedIds = setOf(item.id)
+                        LogBus.d(LogTag.UI, "Selecting '${item.title}'")
+                    }
                 },
                 // The heading is the same filter the chips set — and the same toggle — so
                 // a section can be narrowed without hunting for its chip.
@@ -354,7 +547,61 @@ fun LibraryScreen(
         VideoDetailsDialog(
             item = item,
             silent = item.uri.toString() in knownSilent,
+            favourite = item.uri.toString() in favourites,
+            onToggleFavourite = {
+                scope.launch { container.favourites.toggle(item.uri.toString()) }
+            },
+            onDelete = {
+                detailsFor = null
+                deleteTargets = listOf(item)
+            },
             onDismiss = { detailsFor = null },
+        )
+    }
+
+    // Deleting the file cannot be undone, so it is asked once more before the system is
+    // asked at all.
+    if (deleteTargets.isNotEmpty()) {
+        val targets = deleteTargets
+        val single = targets.singleOrNull()
+        AlertDialog(
+            onDismissRequest = { deleteTargets = emptyList() },
+            title = {
+                Text(
+                    if (single != null) {
+                        stringResource(R.string.details_delete_title)
+                    } else {
+                        stringResource(R.string.library_delete_many_title, targets.size)
+                    },
+                )
+            },
+            text = {
+                Text(
+                    if (single != null) {
+                        stringResource(R.string.details_delete_body, single.title)
+                    } else {
+                        stringResource(R.string.library_delete_many_body, targets.size)
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        deleteTargets = emptyList()
+                        startDelete(targets)
+                    },
+                ) {
+                    Text(
+                        text = stringResource(R.string.details_delete_confirm),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTargets = emptyList() }) {
+                    Text(stringResource(R.string.dialog_cancel))
+                }
+            },
         )
     }
 }
@@ -380,6 +627,8 @@ internal fun LibraryGrid(
     onLongClick: (VideoItem) -> Unit,
     onFolderPick: (String) -> Unit,
     onPlaySection: (List<VideoItem>) -> Unit,
+    favourites: Set<String> = emptySet(),
+    selected: Set<Long> = emptySet(),
 ) {
     LazyVerticalGrid(
         columns = GridCells.Fixed(if (gridMode) gridColumns.coerceIn(1, 4) else 1),
@@ -392,6 +641,8 @@ internal fun LibraryGrid(
                 LibraryTile(
                     item = item,
                     silent = item.uri.toString() in knownSilent,
+                    favourite = item.uri.toString() in favourites,
+                    selected = item.id in selected,
                     gridMode = gridMode,
                     onClick = { onPlay(item) },
                     onLongClick = { onLongClick(item) },
@@ -414,6 +665,8 @@ internal fun LibraryGrid(
                     LibraryTile(
                         item = item,
                         silent = item.uri.toString() in knownSilent,
+                        favourite = item.uri.toString() in favourites,
+                        selected = item.id in selected,
                         gridMode = gridMode,
                         onClick = { onPlay(item) },
                         onLongClick = { onLongClick(item) },
@@ -485,14 +738,30 @@ private fun FolderHeader(folder: String, count: Int, onPick: () -> Unit, onPlayA
 private fun LibraryTile(
     item: VideoItem,
     silent: Boolean,
+    favourite: Boolean,
+    selected: Boolean,
     gridMode: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     if (gridMode) {
-        VideoCard(item = item, silent = silent, onClick = onClick, onLongClick = onLongClick)
+        VideoCard(
+            item = item,
+            silent = silent,
+            favourite = favourite,
+            selected = selected,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
     } else {
-        VideoRow(item = item, silent = silent, onClick = onClick, onLongClick = onLongClick)
+        VideoRow(
+            item = item,
+            silent = silent,
+            favourite = favourite,
+            selected = selected,
+            onClick = onClick,
+            onLongClick = onLongClick,
+        )
     }
 }
 
@@ -525,14 +794,33 @@ private fun SortMenu(current: SortOrder, onPick: (SortOrder) -> Unit) {
 private fun VideoCard(
     item: VideoItem,
     silent: Boolean,
+    favourite: Boolean,
+    selected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     Card(
         shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
+        ),
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (selected) {
+                    Modifier.border(
+                        2.dp,
+                        MaterialTheme.colorScheme.primary,
+                        RoundedCornerShape(18.dp),
+                    )
+                } else {
+                    Modifier
+                },
+            )
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
     ) {
         Box {
@@ -581,6 +869,19 @@ private fun VideoCard(
                         .size(16.dp),
                 )
             }
+            if (favourite) {
+                Icon(
+                    Icons.Filled.Star,
+                    contentDescription = stringResource(R.string.library_favourite_badge),
+                    tint = Color(0xFFFFC107),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(6.dp)
+                        .background(Color.Black.copy(alpha = 0.6f), RoundedCornerShape(8.dp))
+                        .padding(3.dp)
+                        .size(16.dp),
+                )
+            }
         }
         Column(modifier = Modifier.padding(10.dp)) {
             Text(
@@ -608,13 +909,21 @@ private fun VideoCard(
 private fun VideoRow(
     item: VideoItem,
     silent: Boolean,
+    favourite: Boolean,
+    selected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
     val context = LocalContext.current
     Card(
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        colors = CardDefaults.cardColors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer
+            } else {
+                MaterialTheme.colorScheme.surface
+            },
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
@@ -669,6 +978,14 @@ private fun VideoRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                )
+            }
+            if (favourite) {
+                Icon(
+                    Icons.Filled.Star,
+                    contentDescription = stringResource(R.string.library_favourite_badge),
+                    tint = Color(0xFFFFC107),
+                    modifier = Modifier.padding(end = 12.dp),
                 )
             }
         }
@@ -727,23 +1044,101 @@ private fun EmptyState(loading: Boolean, modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun VideoDetailsDialog(item: VideoItem, silent: Boolean, onDismiss: () -> Unit) {
+private fun VideoDetailsDialog(
+    item: VideoItem,
+    silent: Boolean,
+    favourite: Boolean,
+    onToggleFavourite: () -> Unit,
+    onDelete: () -> Unit,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
+    // The header is read once per file, off the main thread: opening a container is not
+    // something to do while the dialog is being drawn, and a file nobody asks about is
+    // never opened at all.
+    var info by remember(item.id) { mutableStateOf<MediaInfo?>(null) }
+    var reading by remember(item.id) { mutableStateOf(true) }
+    LaunchedEffect(item.id) {
+        info = withContext(Dispatchers.IO) { MediaInfoProbe.read(context, item.uri) }
+        reading = false
+    }
+    val pending = stringResource(R.string.details_reading)
+    val unknown = stringResource(R.string.player_unknown)
+    val read = info
+    fun technical(value: String?): String = value ?: if (reading) pending else unknown
+
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.details_close)) }
+            Row {
+                TextButton(onClick = onDelete) {
+                    Text(
+                        text = stringResource(R.string.details_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.details_close)) }
+            }
         },
         title = { Text(item.title) },
         text = {
             Column {
+                TextButton(onClick = onToggleFavourite) {
+                    Icon(
+                        Icons.Filled.Star,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp),
+                        tint = if (favourite) {
+                            Color(0xFFFFC107)
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        stringResource(
+                            if (favourite) {
+                                R.string.library_favourite_remove
+                            } else {
+                                R.string.library_favourite_add
+                            },
+                        ),
+                    )
+                }
                 DetailRow(stringResource(R.string.details_folder), folderLabel(item.folder))
                 DetailRow(stringResource(R.string.details_resolution), item.resolutionLabel)
+                DetailRow(
+                    stringResource(R.string.details_video_codec),
+                    technical(read?.videoCodec),
+                )
+                DetailRow(
+                    stringResource(R.string.details_audio_codec),
+                    technical(read?.audioCodecs?.takeIf { it.isNotEmpty() }?.joinToString(", ")),
+                )
+                DetailRow(
+                    stringResource(R.string.details_bitrate),
+                    technical(read?.let { Formatters.bitrate(it.bitrateBps) }),
+                )
+                DetailRow(
+                    stringResource(R.string.details_frame_rate),
+                    technical(read?.takeIf { it.frameRate > 0f }?.let { Formatters.frameRate(it.frameRate) }),
+                )
+                DetailRow(
+                    stringResource(R.string.details_tracks),
+                    read?.let {
+                        stringResource(
+                            R.string.details_tracks_value,
+                            it.videoTracks,
+                            it.audioTracks,
+                            it.subtitleTracks,
+                        )
+                    } ?: if (reading) pending else unknown,
+                )
                 DetailRow(stringResource(R.string.details_duration), Formatters.duration(item.durationMs))
                 DetailRow(stringResource(R.string.details_size), Formatters.size(item.sizeBytes))
                 DetailRow(
                     stringResource(R.string.details_type),
-                    item.mimeType ?: stringResource(R.string.player_unknown),
+                    item.mimeType ?: unknown,
                 )
                 DetailRow(
                     stringResource(R.string.details_added),
@@ -782,10 +1177,15 @@ private fun DetailRow(label: String, value: String) {
 }
 
 /** Media permissions differ wildly across API levels; ask for the right ones. */
-fun requiredPermissions(): Array<String> = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-    arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
-} else {
-    arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+fun requiredPermissions(): Array<String> = when {
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
+    // Before Android 10 a file another app created can only be deleted with write access,
+    // which is what the delete action in the details dialog needs.
+    Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q -> arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
+    else -> arrayOf(
+        Manifest.permission.READ_EXTERNAL_STORAGE,
+        Manifest.permission.WRITE_EXTERNAL_STORAGE,
+    )
 }
 
 fun hasVideoPermission(context: Context): Boolean = requiredPermissions().all {
@@ -797,4 +1197,131 @@ fun notificationPermission(): Array<String> = if (Build.VERSION.SDK_INT >= Build
     arrayOf(Manifest.permission.POST_NOTIFICATIONS)
 } else {
     emptyArray()
+}
+
+/** What a delete attempt needs next: the system's consent, work already done, or a refusal. */
+private sealed interface DeleteAttempt {
+    data class Consent(val sender: IntentSender, val items: List<VideoItem>) : DeleteAttempt
+    data object Done : DeleteAttempt
+    data object Failed : DeleteAttempt
+}
+
+/**
+ * Asks the platform for a delete request on Android 11+, where the app may not remove a
+ * MediaStore file on its own. One request carries the whole selection, which is why a
+ * batch delete is a single confirmation instead of one per file. A file that is not in
+ * MediaStore (opened from another app) is deleted directly, and on Android 10 the
+ * refusal arrives as a consent request for that same call.
+ */
+private fun attemptDelete(context: Context, items: List<VideoItem>): DeleteAttempt {
+    if (items.isEmpty()) return DeleteAttempt.Failed
+    val mediaStore = items.filter { it.uri.authority == MediaStore.AUTHORITY }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && mediaStore.isNotEmpty()) {
+        val sender = requestConsent(context, mediaStore.map { it.uri })
+            ?: return DeleteAttempt.Failed
+        return DeleteAttempt.Consent(sender, items)
+    }
+    val consent = mutableListOf<IntentSender>()
+    val deleted = items.filter { item ->
+        runCatching { context.contentResolver.delete(item.uri, null, null) }.fold(
+            onSuccess = { rows -> rows > 0 || !fileExists(context, item.uri) },
+            onFailure = { error ->
+                legacyConsentSender(error)?.let { consent += it }
+                false
+            },
+        )
+    }
+    return when {
+        consent.isNotEmpty() -> DeleteAttempt.Consent(consent.first(), items)
+        deleted.isNotEmpty() -> DeleteAttempt.Done
+        else -> DeleteAttempt.Failed
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.R)
+private fun requestConsent(context: Context, uris: List<Uri>): IntentSender? = runCatching {
+    MediaStore.createDeleteRequest(context.contentResolver, uris).intentSender
+}.getOrElse { error ->
+    LogBus.e(LogTag.MEDIA, "Delete request refused for ${uris.size} file(s)", error)
+    null
+}
+
+/** Deletes one file, or answers whether it is already gone. */
+private fun deleteNow(context: Context, item: VideoItem): Boolean {
+    val rows = runCatching { context.contentResolver.delete(item.uri, null, null) }
+        .getOrElse { error ->
+            LogBus.e(LogTag.MEDIA, "Deleting '${item.title}' failed", error)
+            return false
+        }
+    return rows > 0 || !fileExists(context, item.uri)
+}
+
+private fun legacyConsentSender(error: Throwable): IntentSender? =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) recoverySender(error) else null
+
+@RequiresApi(Build.VERSION_CODES.Q)
+private fun recoverySender(error: Throwable): IntentSender? =
+    (error as? RecoverableSecurityException)?.userAction?.actionIntent?.intentSender
+
+/** Readable again means it survived; a deleted file has nothing to open. */
+private fun fileExists(context: Context, uri: Uri): Boolean =
+    runCatching { context.contentResolver.openFileDescriptor(uri, "r")?.use { true } ?: false }
+        .getOrDefault(false)
+
+/** Adds [id] to the selection, or takes it out when it is already chosen. */
+private fun Set<Long>.toggle(id: Long): Set<Long> = if (id in this) this - id else this + id
+
+/**
+ * The toolbar of the selecting mode: how many files are chosen, and the three things
+ * that can be done with them. Details asks only when exactly one file is chosen, because
+ * the dialog describes one video.
+ */
+@Composable
+private fun SelectionBar(
+    count: Int,
+    onClear: () -> Unit,
+    onDetails: (() -> Unit)?,
+    onSend: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onClear) {
+            Icon(
+                Icons.Filled.Clear,
+                contentDescription = stringResource(R.string.library_selection_clear),
+            )
+        }
+        Text(
+            text = stringResource(R.string.library_selection_count, count),
+            style = MaterialTheme.typography.titleSmall,
+            modifier = Modifier.weight(1f),
+        )
+        if (onDetails != null) {
+            IconButton(onClick = onDetails) {
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = stringResource(R.string.library_selection_details),
+                )
+            }
+        }
+        IconButton(onClick = onSend) {
+            Icon(
+                Icons.Filled.Share,
+                contentDescription = stringResource(R.string.library_selection_send),
+            )
+        }
+        IconButton(onClick = onDelete) {
+            Icon(
+                Icons.Filled.Delete,
+                contentDescription = stringResource(R.string.library_selection_delete),
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
 }

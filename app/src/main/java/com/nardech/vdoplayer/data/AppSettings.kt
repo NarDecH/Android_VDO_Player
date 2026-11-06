@@ -21,6 +21,29 @@ import kotlinx.coroutines.flow.map
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
 /**
+ * Which edge the player's control bar sits on. The title bar always takes another edge,
+ * so the two halves of the overlay never overlap.
+ *
+ * [LEFT] and [RIGHT] turn the seek bar on its side and stack the buttons: a phone in
+ * landscape is not tall enough for the full row, and the panel beside the picture keeps
+ * the middle of the frame clear.
+ */
+enum class ControlsEdge {
+    TOP,
+    BOTTOM,
+    LEFT,
+    RIGHT,
+    ;
+
+    /** A bar along a side edge, drawn as a vertical panel instead of a full-width row. */
+    val isSide: Boolean get() = this == LEFT || this == RIGHT
+
+    companion object {
+        fun fromName(name: String?): ControlsEdge? = entries.firstOrNull { it.name == name }
+    }
+}
+
+/**
  * Decoder priority, in two halves that NextLib keeps apart: which renderers the
  * player is built with ([extensionMode]), and which of those the decoder manager
  * is allowed to select ([videoMode] / [audioMode]).
@@ -70,10 +93,10 @@ data class AppSettings(
     val decoderPreference: DecoderPreference = DecoderPreference.PLATFORM_FIRST,
     val gesturesEnabled: Boolean = true,
     /**
-     * Puts the seek bar and the buttons along the top edge, above the picture, instead
-     * of the bottom one. The title bar takes the other edge, so the two never overlap.
+     * The edge the seek bar and the buttons take. The title bar takes another one, so the
+     * two never overlap.
      */
-    val controlsOnTop: Boolean = false,
+    val controlsEdge: ControlsEdge = ControlsEdge.BOTTOM,
     val seekStepMs: Long = 10_000L,
     val defaultSpeed: Float = 1f,
     val resumePlayback: Boolean = true,
@@ -112,6 +135,9 @@ class SettingsRepository(private val context: Context) {
         val dynamicColor = booleanPreferencesKey("dynamic_color")
         val decoder = stringPreferencesKey("decoder_preference")
         val gestures = booleanPreferencesKey("gestures")
+        val controlsEdge = stringPreferencesKey("controls_edge")
+
+        /** Written by the builds that only knew top and bottom; read once, then ignored. */
         val controlsOnTop = booleanPreferencesKey("controls_on_top")
         val seekStep = longPreferencesKey("seek_step_ms")
         val speed = floatPreferencesKey("default_speed")
@@ -143,7 +169,15 @@ class SettingsRepository(private val context: Context) {
             decoderPreference = DecoderPreference.fromName(prefs[Keys.decoder])
                 ?: defaults.decoderPreference,
             gesturesEnabled = prefs[Keys.gestures] ?: defaults.gesturesEnabled,
-            controlsOnTop = prefs[Keys.controlsOnTop] ?: defaults.controlsOnTop,
+            controlsEdge = prefs[Keys.controlsEdge]
+                ?.let { name -> ControlsEdge.fromName(name) }
+                // The boolean is this setting's whole history: a viewer who moved the bar
+                // to the top keeps it there after updating.
+                ?: if (prefs[Keys.controlsOnTop] == true) {
+                    ControlsEdge.TOP
+                } else {
+                    defaults.controlsEdge
+                },
             seekStepMs = prefs[Keys.seekStep] ?: defaults.seekStepMs,
             defaultSpeed = prefs[Keys.speed] ?: defaults.defaultSpeed,
             resumePlayback = prefs[Keys.resumePlayback] ?: defaults.resumePlayback,
@@ -179,7 +213,7 @@ class SettingsRepository(private val context: Context) {
         edit { it[Keys.decoder] = value.name }
 
     suspend fun setGestures(value: Boolean) = edit { it[Keys.gestures] = value }
-    suspend fun setControlsOnTop(value: Boolean) = edit { it[Keys.controlsOnTop] = value }
+    suspend fun setControlsEdge(value: ControlsEdge) = edit { it[Keys.controlsEdge] = value.name }
     suspend fun setSeekStep(value: Long) = edit { it[Keys.seekStep] = value }
     suspend fun setDefaultSpeed(value: Float) = edit { it[Keys.speed] = value }
     suspend fun setResumePlayback(value: Boolean) = edit { it[Keys.resumePlayback] = value }

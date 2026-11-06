@@ -36,6 +36,28 @@
     <string name="library_scanning_hint">Looking through the device media library.</string>
     <string name="library_empty">No videos matched</string>
     <string name="library_empty_hint">Try a different folder filter or clear the search box.</string>
+    <!-- Choosing files: several at once, for one delete or one transfer. -->
+    <string name="library_selection_count">%1$d selected</string>
+    <string name="library_selection_clear">Clear selection</string>
+    <string name="library_selection_details">Show details</string>
+    <string name="library_selection_send">Send to another phone</string>
+    <string name="library_selection_delete">Delete selected videos</string>
+    <string name="library_delete_many_title">Delete %1$d videos?</string>
+    <string name="library_delete_many_body">%1$d videos will be removed from this device permanently.</string>
+    <plurals name="library_delete_done">
+        <item quantity="one">Deleted %1$d video</item>
+        <item quantity="other">Deleted %1$d videos</item>
+    </plurals>
+    <plurals name="library_delete_failed">
+        <item quantity="one">Could not delete %1$d video</item>
+        <item quantity="other">Could not delete %1$d videos</item>
+    </plurals>
+    <string name="library_favourites">Favourites (%1$d)</string>
+    <string name="library_favourites_title">Favourites</string>
+    <string name="library_play_favourites">Play all</string>
+    <string name="library_favourite_add">Add to favourites</string>
+    <string name="library_favourite_remove">Remove from favourites</string>
+    <string name="library_favourite_badge">Favourite</string>
 
     <!-- Permission gate -->
     <string name="permission_title">Video access needed</string>
@@ -53,6 +75,17 @@
     <string name="details_path">Path</string>
     <string name="details_uri">URI</string>
     <string name="details_close">Close</string>
+    <string name="details_delete">Delete</string>
+    <string name="details_delete_title">Delete this video?</string>
+    <string name="details_delete_body">%1$s will be removed from this device permanently.</string>
+    <string name="details_delete_confirm">Delete</string>
+    <string name="details_video_codec">Video codec</string>
+    <string name="details_audio_codec">Audio codec</string>
+    <string name="details_bitrate">Bitrate</string>
+    <string name="details_frame_rate">Frame rate</string>
+    <string name="details_tracks">Tracks</string>
+    <string name="details_tracks_value">%1$d video · %2$d audio · %3$d subtitles</string>
+    <string name="details_reading">reading the file…</string>
 
     <!-- Sort orders -->
     <string name="sort_date_newest">Newest first</string>
@@ -83,8 +116,8 @@
     <string name="player_seek_preview">Preview frame for the seek position</string>
     <string name="player_seek_state">%1$s of %2$s</string>
     <string name="player_aspect">Aspect ratio</string>
-    <string name="player_controls_move_top">Move the control bar to the top</string>
-    <string name="player_controls_move_bottom">Move the control bar to the bottom</string>
+    <string name="player_controls_place">Control bar at the %1$s edge — tap to change</string>
+    <string name="dialog_controls_edge_title">Control bar position</string>
     <string name="player_rotate">Rotate</string>
     <string name="player_unknown_duration">unknown</string>
     <string name="player_buffered">+%1$s buffered</string>
@@ -121,6 +154,14 @@
     <string name="player_copy_diagnostics">Copy full diagnostics</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
     <string name="player_queued_position">Video %1$d of %2$d</string>
+    <string name="player_sleep">Sleep timer</string>
+    <string name="sleep_minutes">%1$d minutes</string>
+    <string name="sleep_end_of_video">When this video ends</string>
+    <string name="sleep_off">Off</string>
+    <string name="sleep_set_minutes">Playback stops in %1$d minutes</string>
+    <string name="sleep_set_end">Playback stops when this video ends</string>
+    <string name="sleep_set_off">Sleep timer off</string>
+    <string name="sleep_fired">Sleep timer: playback stopped</string>
 
     <string name="dialog_speed_title">Playback speed</string>
     <string name="dialog_aspect_title">Aspect ratio</string>
@@ -152,6 +193,9 @@
     <string name="recent_resume">Resume</string>
     <string name="recent_remove">Remove</string>
     <string name="recent_position">%1$s of %2$s</string>
+    <string name="recent_resume_for">Resume %1$s</string>
+    <string name="recent_remove_for">Remove %1$s from history</string>
+    <string name="recent_progress_for">%1$s: %2$d%% watched</string>
 
     <!-- Logs -->
     <string name="logs_filter_placeholder">Filter log text</string>
@@ -208,8 +252,11 @@
     <string name="settings_remember_brightness_sub">Off restores the system brightness when you leave the player</string>
     <string name="settings_seek_preview">Seek preview</string>
     <string name="settings_seek_preview_sub">Decode a frame while you drag, so you can see where the seek is going</string>
-    <string name="settings_controls_on_top">Control bar at the top</string>
-    <string name="settings_controls_on_top_sub">Puts the seek bar and the buttons above the picture, with the title bar on the bottom edge. The arrow button in the player flips it too</string>
+    <string name="settings_controls_edge">Control bar position</string>
+    <string name="controls_edge_top">top</string>
+    <string name="controls_edge_bottom">bottom</string>
+    <string name="controls_edge_left">left</string>
+    <string name="controls_edge_right">right</string>
     <string name="settings_subtitle_discovery">Find subtitles beside the video</string>
     <string name="settings_subtitle_discovery_sub">Loads a .srt, .vtt or .ass file with the same name from the video\'s own folder. Android 13 and newer hide files this app does not own, so there it only finds subtitles it can read; the subtitle button still takes any file you pick.</string>
     <string name="settings_autoplay_next">Play next video automatically</string>
@@ -266,6 +313,10 @@
     <string name="transfer_peers_empty">No phone found yet. Open the receive tab on the other phone, or type its address below.</string>
     <string name="transfer_selected_peer">Sending to %1$s</string>
     <string name="transfer_pick_files">Pick files and send</string>
+    <string name="transfer_queued_title">From the library</string>
+    <string name="transfer_queued_count">%1$d file(s) chosen in the library</string>
+    <string name="transfer_queued_clear">Clear the list</string>
+    <string name="transfer_send_count">Send %1$d file(s)</string>
     <string name="transfer_manual_title">Or type the address</string>
     <string name="transfer_manual_address">e.g. 192.168.1.20</string>
     <string name="transfer_manual_code">4 digit code</string>

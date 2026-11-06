@@ -3,6 +3,7 @@ package com.nardech.vdoplayer.ui.transfer
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -43,6 +44,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -88,6 +90,9 @@ fun TransferScreen(
     settings: AppSettings,
     snackbarHost: SnackbarHostState,
     contentPadding: PaddingValues,
+    /** Files chosen in the library, which this screen sends once a target and code are set. */
+    queuedUris: List<Uri> = emptyList(),
+    onQueueConsumed: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -156,10 +161,9 @@ fun TransferScreen(
         }
     }
 
-    val filePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenMultipleDocuments(),
-    ) { uris ->
-        // Arriving here means the permission was already granted when the picker opened.
+    // One place decides where a set of files goes, so the picker and the library's own
+    // selection cannot answer the target/code question differently.
+    val sendFiles: (List<Uri>) -> Unit = { uris ->
         localNetworkGranted = manager.hasLocalNetworkPermission()
         val peer = peers.firstOrNull { it.id == selectedPeer }
         val target = peer?.baseUrl ?: TransferProtocol.baseUrlFrom(manualAddress)
@@ -169,6 +173,19 @@ fun TransferScreen(
             code.trim().length != 4 -> scope.launch { snackbarHost.showSnackbar(needCode) }
             else -> manager.upload(target, code.trim(), uris)
         }
+    }
+
+    val filePicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        // Arriving here means the permission was already granted when the picker opened.
+        sendFiles(uris)
+    }
+
+    // Files chosen in the library open the send side, because that is the question the
+    // next screen has to answer.
+    LaunchedEffect(queuedUris) {
+        if (queuedUris.isNotEmpty()) sendMode = true
     }
 
     LazyColumn(
@@ -410,6 +427,36 @@ fun TransferScreen(
                 }
             }
         } else {
+            if (queuedUris.isNotEmpty()) {
+                item {
+                    TransferCard(stringResource(R.string.transfer_queued_title)) {
+                        Text(
+                            text = stringResource(
+                                R.string.transfer_queued_count,
+                                queuedUris.size,
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                sendFiles(queuedUris)
+                                onQueueConsumed()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text(
+                                stringResource(R.string.transfer_send_count, queuedUris.size),
+                            )
+                        }
+                        TextButton(onClick = onQueueConsumed) {
+                            Text(stringResource(R.string.transfer_queued_clear))
+                        }
+                    }
+                }
+            }
+
             item {
                 TransferCard(stringResource(R.string.transfer_send_title)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {

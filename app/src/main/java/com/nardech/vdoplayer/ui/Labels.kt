@@ -3,6 +3,7 @@ package com.nardech.vdoplayer.ui
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.nardech.vdoplayer.R
+import com.nardech.vdoplayer.data.ControlsEdge
 import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.data.SortOrder
 import com.nardech.vdoplayer.data.ThemeMode
@@ -45,6 +46,17 @@ fun decoderChipLabel(preference: DecoderPreference): String = stringResource(
         DecoderPreference.PLATFORM_FIRST -> R.string.decoder_chip_platform_first
         DecoderPreference.FFMPEG_FIRST -> R.string.decoder_chip_ffmpeg
         DecoderPreference.PLATFORM_ONLY -> R.string.decoder_chip_platform_only
+    },
+)
+
+/** The four edges the control bar can sit on, shared by Settings and the player's picker. */
+@Composable
+fun controlsEdgeLabel(edge: ControlsEdge): String = stringResource(
+    when (edge) {
+        ControlsEdge.TOP -> R.string.controls_edge_top
+        ControlsEdge.BOTTOM -> R.string.controls_edge_bottom
+        ControlsEdge.LEFT -> R.string.controls_edge_left
+        ControlsEdge.RIGHT -> R.string.controls_edge_right
     },
 )
 

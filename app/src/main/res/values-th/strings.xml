@@ -35,6 +35,25 @@
     <string name="library_scanning_hint">กำลังค้นหาวิดีโอในคลังสื่อของเครื่อง</string>
     <string name="library_empty">ไม่พบวิดีโอที่ตรงเงื่อนไข</string>
     <string name="library_empty_hint">ลองเปลี่ยนตัวกรองโฟลเดอร์ หรือล้างคำค้นดู</string>
+    <string name="library_selection_count">เลือกไว้ %1$d ไฟล์</string>
+    <string name="library_selection_clear">ล้างการเลือก</string>
+    <string name="library_selection_details">ดูรายละเอียด</string>
+    <string name="library_selection_send">ส่งไปยังมือถืออีกเครื่อง</string>
+    <string name="library_selection_delete">ลบวิดีโอที่เลือก</string>
+    <string name="library_delete_many_title">ลบวิดีโอ %1$d ไฟล์หรือไม่</string>
+    <string name="library_delete_many_body">วิดีโอ %1$d ไฟล์จะถูกลบออกจากเครื่องนี้อย่างถาวร</string>
+    <plurals name="library_delete_done">
+        <item quantity="other">ลบแล้ว %1$d ไฟล์</item>
+    </plurals>
+    <plurals name="library_delete_failed">
+        <item quantity="other">ลบ %1$d ไฟล์ไม่สำเร็จ</item>
+    </plurals>
+    <string name="library_favourites">รายการโปรด (%1$d)</string>
+    <string name="library_favourites_title">รายการโปรด</string>
+    <string name="library_play_favourites">เล่นทั้งหมด</string>
+    <string name="library_favourite_add">เพิ่มในรายการโปรด</string>
+    <string name="library_favourite_remove">นำออกจากรายการโปรด</string>
+    <string name="library_favourite_badge">รายการโปรด</string>
 
     <!-- Permission gate -->
     <string name="permission_title">ต้องได้รับสิทธิ์เข้าถึงวิดีโอ</string>
@@ -52,6 +71,17 @@
     <string name="details_path">ที่เก็บไฟล์</string>
     <string name="details_uri">URI</string>
     <string name="details_close">ปิด</string>
+    <string name="details_delete">ลบ</string>
+    <string name="details_delete_title">ลบวิดีโอนี้หรือไม่</string>
+    <string name="details_delete_body">%1$s จะถูกลบออกจากเครื่องนี้อย่างถาวร</string>
+    <string name="details_delete_confirm">ลบ</string>
+    <string name="details_video_codec">โคเดกวิดีโอ</string>
+    <string name="details_audio_codec">โคเดกเสียง</string>
+    <string name="details_bitrate">บิตเรต</string>
+    <string name="details_frame_rate">อัตราเฟรม</string>
+    <string name="details_tracks">แทร็ก</string>
+    <string name="details_tracks_value">วิดีโอ %1$d · เสียง %2$d · คำบรรยาย %3$d</string>
+    <string name="details_reading">กำลังอ่านไฟล์…</string>
 
     <!-- Sort orders -->
     <string name="sort_date_newest">ใหม่สุดก่อน</string>
@@ -82,8 +112,8 @@
     <string name="player_seek_preview">ภาพตัวอย่างของตำแหน่งที่กำลังเลื่อนไป</string>
     <string name="player_seek_state">%1$s จาก %2$s</string>
     <string name="player_aspect">อัตราส่วนภาพ</string>
-    <string name="player_controls_move_top">ย้ายแถบควบคุมขึ้นด้านบน</string>
-    <string name="player_controls_move_bottom">ย้ายแถบควบคุมลงด้านล่าง</string>
+    <string name="player_controls_place">แถบควบคุมอยู่%1$s แตะเพื่อเปลี่ยน</string>
+    <string name="dialog_controls_edge_title">ตำแหน่งแถบควบคุม</string>
     <string name="player_rotate">หมุนจอ</string>
     <string name="player_unknown_duration">ไม่ทราบ</string>
     <string name="player_buffered">บัฟเฟอร์เพิ่ม %1$s</string>
@@ -120,6 +150,14 @@
     <string name="player_copy_diagnostics">คัดลอกข้อมูลวินิจฉัยทั้งหมด</string>
     <string name="player_queued_counter">%1$d/%2$d</string>
     <string name="player_queued_position">วิดีโอที่ %1$d จาก %2$d</string>
+    <string name="player_sleep">ตัวจับเวลาเข้านอน</string>
+    <string name="sleep_minutes">%1$d นาที</string>
+    <string name="sleep_end_of_video">เมื่อวิดีโอนี้จบ</string>
+    <string name="sleep_off">ปิด</string>
+    <string name="sleep_set_minutes">จะหยุดเล่นใน %1$d นาที</string>
+    <string name="sleep_set_end">จะหยุดเล่นเมื่อวิดีโอนี้จบ</string>
+    <string name="sleep_set_off">ปิดตัวจับเวลาเข้านอนแล้ว</string>
+    <string name="sleep_fired">ตัวจับเวลาเข้านอน: หยุดเล่นแล้ว</string>
 
     <string name="dialog_speed_title">ความเร็วในการเล่น</string>
     <string name="dialog_aspect_title">อัตราส่วนภาพ</string>
@@ -151,6 +189,9 @@
     <string name="recent_resume">เล่นต่อ</string>
     <string name="recent_remove">ลบออก</string>
     <string name="recent_position">%1$s จาก %2$s</string>
+    <string name="recent_resume_for">เล่นต่อ %1$s</string>
+    <string name="recent_remove_for">ลบ %1$s ออกจากประวัติ</string>
+    <string name="recent_progress_for">%1$s: ดูแล้ว %2$d%%</string>
 
     <!-- Logs -->
     <string name="logs_filter_placeholder">กรองข้อความใน log</string>
@@ -205,8 +246,11 @@
     <string name="settings_remember_brightness_sub">ถ้าปิดไว้ จะคืนค่าความสว่างของระบบเมื่อออกจากหน้าจอเล่น</string>
     <string name="settings_seek_preview">พรีวิวตอนเลื่อนหา</string>
     <string name="settings_seek_preview_sub">ถอดภาพตัวอย่างขึ้นมาให้เห็นตอนลากแถบเลื่อน รู้เลยว่าเลื่อนไปตรงไหน</string>
-    <string name="settings_controls_on_top">แถบควบคุมอยู่ด้านบน</string>
-    <string name="settings_controls_on_top_sub">ย้ายแถบเลื่อนกับปุ่มขึ้นไปเหนือภาพ แล้วให้แถบชื่อเรื่องอยู่ขอบล่างแทน กดปุ่มลูกศรในหน้าจอเล่นก็สลับได้เหมือนกัน</string>
+    <string name="settings_controls_edge">ตำแหน่งแถบควบคุม</string>
+    <string name="controls_edge_top">ด้านบน</string>
+    <string name="controls_edge_bottom">ด้านล่าง</string>
+    <string name="controls_edge_left">ด้านซ้าย</string>
+    <string name="controls_edge_right">ด้านขวา</string>
     <string name="settings_subtitle_discovery">หาซับไทเทิลข้างไฟล์วิดีโอ</string>
     <string name="settings_subtitle_discovery_sub">โหลดไฟล์ .srt, .vtt หรือ .ass ที่ชื่อเดียวกันในโฟลเดอร์เดียวกับวิดีโอให้เอง Android 13 ขึ้นไปจะไม่เห็นไฟล์ที่แอปไม่ได้เป็นเจ้าของ จึงเจอเฉพาะไฟล์ที่อ่านได้ ส่วนปุ่มคำบรรยายยังเลือกไฟล์เองได้เสมอ</string>
     <string name="settings_autoplay_next">เล่นวิดีโอถัดไปอัตโนมัติ</string>
@@ -263,6 +307,10 @@
     <string name="transfer_peers_empty">ยังไม่พบเครื่อง — เปิดแท็บรับบนอีกเครื่อง หรือพิมพ์ที่อยู่เองด้านล่าง</string>
     <string name="transfer_selected_peer">จะส่งไปที่ %1$s</string>
     <string name="transfer_pick_files">เลือกไฟล์แล้วส่ง</string>
+    <string name="transfer_queued_title">จากคลังวิดีโอ</string>
+    <string name="transfer_queued_count">เลือกไว้ %1$d ไฟล์จากคลัง</string>
+    <string name="transfer_queued_clear">ล้างรายการ</string>
+    <string name="transfer_send_count">ส่ง %1$d ไฟล์</string>
     <string name="transfer_manual_title">หรือพิมพ์ที่อยู่เอง</string>
     <string name="transfer_manual_address">เช่น 192.168.1.20</string>
     <string name="transfer_manual_code">รหัส 4 หลัก</string>

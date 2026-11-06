@@ -40,6 +40,7 @@ import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.BuildConfig
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
+import com.nardech.vdoplayer.data.ControlsEdge
 import com.nardech.vdoplayer.data.DecoderPreference
 import com.nardech.vdoplayer.data.SortOrder
 import com.nardech.vdoplayer.data.ThemeMode
@@ -187,18 +188,18 @@ fun SettingsScreen(
                     checked = settings.seekPreviewEnabled,
                     onChange = { scope.launch { repository.setSeekPreview(it) } },
                 )
-                // The player has the same switch in its title bar; this one exists for
+                // The player has the same choice in its title bar; this one exists for
                 // anyone who wants it set before opening a video.
-                SwitchRow(
-                    title = stringResource(R.string.settings_controls_on_top),
-                    subtitle = stringResource(R.string.settings_controls_on_top_sub),
-                    checked = settings.controlsOnTop,
-                    onChange = { onTop ->
-                        LogBus.i(
-                            LogTag.UI,
-                            "Control bar moved to the ${if (onTop) "top" else "bottom"} edge",
-                        )
-                        scope.launch { repository.setControlsOnTop(onTop) }
+                ChipRow(
+                    title = stringResource(R.string.settings_controls_edge),
+                    options = ControlsEdge.entries.map {
+                        com.nardech.vdoplayer.ui.controlsEdgeLabel(it)
+                    },
+                    selectedIndex = ControlsEdge.entries.indexOf(settings.controlsEdge),
+                    onPick = { index ->
+                        val edge = ControlsEdge.entries[index]
+                        LogBus.i(LogTag.UI, "Control bar moved to the ${edge.name.lowercase()} edge")
+                        scope.launch { repository.setControlsEdge(edge) }
                     },
                 )
                 SwitchRow(

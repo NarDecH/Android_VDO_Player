@@ -38,6 +38,18 @@ object Formatters {
         }
     }
 
+    /** `4.2 Mbps` for a whole file's worth of data per second, `192 kbps` below that. */
+    fun bitrate(bitsPerSecond: Long): String = when {
+        bitsPerSecond <= 0L -> "-"
+        bitsPerSecond >= 1_000_000L ->
+            String.format(Locale.US, "%.1f Mbps", bitsPerSecond / 1_000_000.0)
+
+        else -> String.format(Locale.US, "%d kbps", bitsPerSecond / 1_000L)
+    }
+
+    fun frameRate(framesPerSecond: Float): String =
+        if (framesPerSecond <= 0f) "-" else String.format(Locale.US, "%.0f fps", framesPerSecond)
+
     fun speed(speed: Float): String =
         if (speed == speed.toInt().toFloat()) {
             "${speed.toInt()}x"

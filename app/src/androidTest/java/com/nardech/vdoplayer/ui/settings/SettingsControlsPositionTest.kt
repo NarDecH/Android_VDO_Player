@@ -5,41 +5,37 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
+import com.nardech.vdoplayer.data.ControlsEdge
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
-import org.junit.Assert.assertTrue
+import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The control bar position is the one setting with two switches — the player's title
- * bar and Settings → Playback — and both write the same stored preference. The DataStore
- * mapping is what makes that true, so it is checked on a device: a value written through
- * the repository has to read back, and the row in Settings has to write that value when
- * it is tapped rather than only changing a local copy.
+ * The control bar position is set in two places — the player's title bar and Settings →
+ * Playback — and both write the same stored preference. The DataStore mapping is what
+ * makes that true, so it is checked on a device: every edge has to read back from the
+ * repository, and the chips in Settings have to write that value when one is tapped
+ * rather than only changing a local copy.
  *
  * The stored value is put back afterwards: these tests run against the app's real
- * settings file, and a left-behind "top" would change how the other player tests lay
+ * settings file, and a left-behind "left" would change how the other player tests lay
  * themselves out.
  */
 @RunWith(AndroidJUnit4::class)
@@ -49,31 +45,34 @@ class SettingsControlsPositionTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     private lateinit var container: AppContainer
-    private var original = false
+    private var original = ControlsEdge.BOTTOM
 
     @Before
     fun setUp() {
         container = AppContainer(ApplicationProvider.getApplicationContext<Application>())
-        original = runBlocking { container.settings.settings.first().controlsOnTop }
-        runBlocking { container.settings.setControlsOnTop(false) }
+        original = runBlocking { container.settings.settings.first().controlsEdge }
+        runBlocking { container.settings.setControlsEdge(ControlsEdge.BOTTOM) }
     }
 
     @After
     fun restoreTheViewersChoice() {
-        runBlocking { container.settings.setControlsOnTop(original) }
+        runBlocking { container.settings.setControlsEdge(original) }
     }
 
     @Test
-    fun whatIsStoredReadsBack() = runBlocking {
-        container.settings.setControlsOnTop(true)
-        assertTrue(
-            "the stored control-bar position did not come back from DataStore",
-            container.settings.settings.first().controlsOnTop,
-        )
+    fun everyEdgeReadsBack() = runBlocking {
+        ControlsEdge.entries.forEach { edge ->
+            container.settings.setControlsEdge(edge)
+            assertEquals(
+                "the stored control-bar edge did not come back from DataStore",
+                edge,
+                container.settings.settings.first().controlsEdge,
+            )
+        }
     }
 
     @Test
-    fun theRowInSettingsWritesTheStoredChoice() {
+    fun thePickerInSettingsWritesTheStoredChoice() {
         compose.setContent {
             val stored by container.settings.settings.collectAsState(initial = AppSettings())
             SettingsScreen(
@@ -83,28 +82,19 @@ class SettingsControlsPositionTest {
             )
         }
 
-        val label = compose.activity.getString(R.string.settings_controls_on_top)
+        val title = compose.activity.getString(R.string.settings_controls_edge)
         // The Playback card is the second in the list, so its rows are not composed until
         // the list scrolls: the scroll happens on the list, to the node, rather than on a
         // node that does not exist yet.
-        compose.onNode(hasScrollAction()).performScrollToNode(hasText(label))
+        compose.onNode(hasScrollAction()).performScrollToNode(hasText(title))
 
-        // The row itself is the toggle: title, subtitle and state on one node.
-        val row = compose.onNode(isToggleable() and hasText(label))
-        row.assertIsOff()
-        row.performClick()
+        val left = compose.activity.getString(R.string.controls_edge_left)
+        compose.onNodeWithText(left).performClick()
 
-        // The tap starts a DataStore write and the switch follows the stored flow, so the
-        // assertion waits for that round trip instead of assuming it finished with the click.
+        // The tap starts a DataStore write and the chips follow the stored flow, so the
+        // assertion waits for that round trip instead of assuming it finished with the tap.
         compose.waitUntil(5_000) {
-            row.fetchSemanticsNode()
-                .config.getOrNull(SemanticsProperties.ToggleableState) == ToggleableState.On
+            runBlocking { container.settings.settings.first().controlsEdge } == ControlsEdge.LEFT
         }
-        row.assertIsOn()
-
-        assertTrue(
-            "the switch moved but the stored preference did not",
-            runBlocking { container.settings.settings.first() }.controlsOnTop,
-        )
     }
 }

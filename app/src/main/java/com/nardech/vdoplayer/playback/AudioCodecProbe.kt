@@ -262,7 +262,15 @@ internal object Media3Tracks {
     /** How many reads the track list may take before the file is treated as trackless. */
     private const val MAX_READS = 64
 
-    fun read(context: Context, uri: Uri): List<String?> {
+    fun read(context: Context, uri: Uri): List<String?> =
+        readFormats(context, uri).map { format -> format.sampleMimeType }
+
+    /**
+     * The same read, keeping the whole [Format] of every track: the details dialog needs
+     * the codec string, the bitrate and the frame rate, which the MIME types alone cannot
+     * say. Nothing else about the read changes.
+     */
+    fun readFormats(context: Context, uri: Uri): List<Format> {
         val dataSource = DefaultDataSource.Factory(context).createDataSource()
         try {
             val length = dataSource.open(DataSpec(uri))
@@ -273,9 +281,9 @@ internal object Media3Tracks {
             try {
                 val position = PositionHolder()
                 repeat(MAX_READS) {
-                    if (output.mimeTypes.isNotEmpty()) return output.mimeTypes
+                    if (output.formats.isNotEmpty()) return output.formats
                     when (extractor.read(input, position)) {
-                        Extractor.RESULT_END_OF_INPUT -> return output.mimeTypes
+                        Extractor.RESULT_END_OF_INPUT -> return output.formats
                         Extractor.RESULT_SEEK -> {
                             // The extractor wants a different part of the file; only a
                             // resumed source can give it one.
@@ -288,7 +296,7 @@ internal object Media3Tracks {
                         else -> Unit
                     }
                 }
-                return output.mimeTypes
+                return output.formats
             } finally {
                 extractor.release()
             }
@@ -310,13 +318,13 @@ internal object Media3Tracks {
         return null
     }
 
-    /** Keeps the MIME type of every track the file declares, and nothing else. */
+    /** Keeps every track the file declares, in the order it declares them. */
     private class CollectingOutput : ExtractorOutput {
-        val mimeTypes = mutableListOf<String?>()
+        val formats = mutableListOf<Format>()
 
         override fun track(id: Int, type: Int): TrackOutput = object : TrackOutput {
             override fun format(format: Format) {
-                mimeTypes += format.sampleMimeType
+                formats += format
             }
 
             override fun sampleData(

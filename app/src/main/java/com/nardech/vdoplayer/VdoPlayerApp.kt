@@ -5,6 +5,7 @@ import android.os.Build
 import coil3.ImageLoader
 import coil3.request.crossfade
 import coil3.video.VideoFrameDecoder
+import com.nardech.vdoplayer.data.Favourites
 import com.nardech.vdoplayer.data.PlayHistory
 import com.nardech.vdoplayer.data.SettingsRepository
 import com.nardech.vdoplayer.data.VideoLibrary
@@ -24,6 +25,7 @@ class AppContainer(application: Application) {
     val settings = SettingsRepository(application)
     val library = VideoLibrary(application)
     val history = PlayHistory(application)
+    val favourites = Favourites(application)
     val transfer = TransferManager(application)
 }
 

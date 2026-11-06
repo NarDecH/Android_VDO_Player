@@ -15,6 +15,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.media3.common.Player
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.nardech.vdoplayer.R
+import com.nardech.vdoplayer.data.ControlsEdge
 import com.nardech.vdoplayer.playback.PlayerUiState
 import com.nardech.vdoplayer.util.Formatters
 import org.junit.Assert.assertTrue
@@ -108,13 +109,13 @@ class PlayerControlLabelsTest {
                 ),
                 title = "Test clip",
                 folder = "",
-                controlsOnTop = false,
+                edge = ControlsEdge.BOTTOM,
                 locked = false,
                 scrubProgress = -1f,
                 onScrub = {},
                 onScrubFinished = {},
                 onToggleLock = {},
-                onToggleControlsPosition = {},
+                onChangeControlsEdge = {},
                 onClose = {},
                 onPlayPause = {},
                 onPrevious = {},

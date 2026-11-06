@@ -80,6 +80,9 @@ fun AppRoot(
     var queue by remember { mutableStateOf<List<VideoItem>>(emptyList()) }
     var startIndex by remember { mutableIntStateOf(0) }
     var playerVisible by remember { mutableStateOf(false) }
+    // Files chosen in the library and handed to the transfer tab, which still asks for a
+    // target and the four digit code before anything leaves the phone.
+    var transferQueue by remember { mutableStateOf<List<Uri>>(emptyList()) }
 
     val history by container.history.recent.collectAsStateWithLifecycle(initialValue = emptyList())
     val resumePositions = remember(history) {
@@ -141,14 +144,11 @@ fun AppRoot(
                     // but the codec stops switching by itself from now on.
                     scope.launch { container.settings.forgetFfmpegCodec(codec) }
                 },
-                onSetControlsOnTop = { onTop ->
+                onSetControlsEdge = { edge ->
                     // Remembered, so a viewer who moved the bar out of the way of their
                     // hand finds it there on the next video too.
-                    LogBus.i(
-                        LogTag.UI,
-                        "Control bar moved to the ${if (onTop) "top" else "bottom"} edge",
-                    )
-                    scope.launch { container.settings.setControlsOnTop(onTop) }
+                    LogBus.i(LogTag.UI, "Control bar moved to the ${edge.name.lowercase()} edge")
+                    scope.launch { container.settings.setControlsEdge(edge) }
                 },
                 onClose = {
                     LogBus.i(LogTag.UI, "Closing player screen")
@@ -184,6 +184,11 @@ fun AppRoot(
                             playerVisible = true
                             LogBus.i(LogTag.UI, "Launching player for '${item.title}' at $index of ${items.size}")
                         },
+                        onSendToTransfer = { items ->
+                            transferQueue = items.map { it.uri }
+                            tab = AppTab.TRANSFER
+                            LogBus.i(LogTag.UI, "Sending ${items.size} library file(s) to the transfer tab")
+                        },
                     )
 
                     AppTab.RECENT -> RecentScreen(
@@ -203,6 +208,8 @@ fun AppRoot(
                         settings = settings,
                         snackbarHost = snackbarHost,
                         contentPadding = padding,
+                        queuedUris = transferQueue,
+                        onQueueConsumed = { transferQueue = emptyList() },
                     )
 
                     AppTab.LOGS -> LogsScreen(

@@ -25,9 +25,12 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -36,6 +39,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.VolumeOff
 import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.AspectRatio
@@ -55,6 +60,7 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Timer
 import androidx.compose.material.icons.filled.VerticalAlignBottom
 import androidx.compose.material.icons.filled.VerticalAlignTop
 import androidx.compose.material3.AlertDialog
@@ -85,8 +91,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
@@ -107,6 +115,8 @@ import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.ui.AspectRatioFrameLayout
+import com.nardech.vdoplayer.data.ControlsEdge
+import com.nardech.vdoplayer.ui.controlsEdgeLabel
 import androidx.media3.ui.PlayerView
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
@@ -124,6 +134,8 @@ import com.nardech.vdoplayer.playback.PlayerUiState
 import com.nardech.vdoplayer.playback.SeekPreview
 import com.nardech.vdoplayer.playback.SeekPreviewPolicy
 import com.nardech.vdoplayer.playback.SeekPreviewSource
+import com.nardech.vdoplayer.playback.SleepTimer
+import com.nardech.vdoplayer.playback.SleepTimerPolicy
 import com.nardech.vdoplayer.playback.UnsupportedAudio
 import com.nardech.vdoplayer.playback.probeKey
 import com.nardech.vdoplayer.ui.decoderChipLabel
@@ -219,7 +231,7 @@ fun PlayerScreen(
     onSetDecoderPreference: (DecoderPreference) -> Unit,
     onRememberAudioCodec: (String) -> Unit,
     onForgetAudioCodec: (String) -> Unit,
-    onSetControlsOnTop: (Boolean) -> Unit,
+    onSetControlsEdge: (ControlsEdge) -> Unit,
     onClose: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -227,7 +239,7 @@ fun PlayerScreen(
     val configuration = LocalConfiguration.current
     val scope = rememberCoroutineScope()
     val state by playback.state.collectAsStateWithLifecycle()
-    val controlsOnTop = settings.controlsOnTop
+    val controlsEdge = settings.controlsEdge
 
     var controlsVisible by remember { mutableStateOf(true) }
     var locked by remember { mutableStateOf(false) }
@@ -235,7 +247,15 @@ fun PlayerScreen(
     var showSpeedDialog by remember { mutableStateOf(false) }
     var showAspectDialog by remember { mutableStateOf(false) }
     var showInfo by remember { mutableStateOf(false) }
+    var showEdgeDialog by remember { mutableStateOf(false) }
     var showAudioDialog by remember { mutableStateOf(false) }
+    var showSleepDialog by remember { mutableStateOf(false) }
+    // The timer itself and the choice that set it, so the dialog can mark the row in use.
+    var sleepTimer by remember { mutableStateOf(SleepTimerPolicy.OFF) }
+    var sleepChoice by remember { mutableStateOf<Int?>(null) }
+    // The file that was playing when "when this video ends" was picked; the timer belongs
+    // to that file, not to whatever auto-advance moves on to.
+    var sleepStartMediaId by remember { mutableStateOf<String?>(null) }
     var hud by remember { mutableStateOf<HudState?>(null) }
     // Media id whose no-sound hint was dismissed or acted on; a new video gets it again.
     var silentHintClosedFor by remember { mutableStateOf<String?>(null) }
@@ -285,6 +305,10 @@ fun PlayerScreen(
     val autoForgottenFormat = stringResource(R.string.player_auto_ffmpeg_forgotten)
     val audioSwitchedLabel = stringResource(R.string.player_audio_decoder_switched)
     val audioRefusedLabel = stringResource(R.string.player_audio_decoder_refused)
+    val sleepSetMinutesFormat = stringResource(R.string.sleep_set_minutes)
+    val sleepSetEndLabel = stringResource(R.string.sleep_set_end)
+    val sleepSetOffLabel = stringResource(R.string.sleep_set_off)
+    val sleepFiredLabel = stringResource(R.string.sleep_fired)
     // The stream panel's chips change the whole decoder pair, because "FFmpeg first"
     // in Settings means exactly that and is stored. Choosing on purpose is not the
     // same as rescuing one silent track, so those chips keep the full switch.
@@ -380,6 +404,16 @@ fun PlayerScreen(
 
                 showAudioDialog -> {
                     showAudioDialog = false
+                    true
+                }
+
+                showSleepDialog -> {
+                    showSleepDialog = false
+                    true
+                }
+
+                showEdgeDialog -> {
+                    showEdgeDialog = false
                     true
                 }
 
@@ -526,6 +560,38 @@ fun PlayerScreen(
             kotlinx.coroutines.delay(900)
             hud = null
         }
+    }
+
+    // A sleep timer runs on wall-clock time, not on playback position: a paused video is
+    // still past bedtime, and the point is to stop a video nobody is watching any more.
+    LaunchedEffect(sleepTimer) {
+        if (sleepTimer.deadlineMs == null) return@LaunchedEffect
+        while (true) {
+            kotlinx.coroutines.delay(1_000)
+            if (SleepTimerPolicy.isDue(sleepTimer, System.currentTimeMillis())) {
+                LogBus.i(LogTag.PLAYER, "Sleep timer reached its deadline, pausing")
+                playback.pause()
+                sleepTimer = SleepTimerPolicy.OFF
+                sleepChoice = null
+                snackbarHost.showSnackbar(sleepFiredLabel)
+                break
+            }
+        }
+    }
+
+    // "When this video ends" belongs to the file that was playing when it was picked, so
+    // the end of that file and the arrival at the next one both count.
+    LaunchedEffect(sleepTimer.endOfVideo, state.mediaId, state.playbackState) {
+        if (!sleepTimer.endOfVideo) return@LaunchedEffect
+        val startedId = sleepStartMediaId
+        val ended = state.playbackState == Player.STATE_ENDED ||
+            (startedId != null && state.mediaId != null && state.mediaId != startedId)
+        if (!ended) return@LaunchedEffect
+        LogBus.i(LogTag.PLAYER, "Sleep timer reached the end of its video, pausing")
+        playback.pause()
+        sleepTimer = SleepTimerPolicy.OFF
+        sleepChoice = null
+        snackbarHost.showSnackbar(sleepFiredLabel)
     }
 
     // A codec the viewer rescued by hand switches without a second tap. The switch is
@@ -821,12 +887,9 @@ fun PlayerScreen(
                     },
                     modifier = Modifier
                         // Opposite the control bar, so a hint never lands under it.
-                        .align(if (controlsOnTop) Alignment.BottomCenter else Alignment.TopCenter)
+                        .align(controlsEdge.hintAlignment())
                         .padding(horizontal = 16.dp)
-                        .padding(
-                            top = if (controlsOnTop) 0.dp else 72.dp,
-                            bottom = if (controlsOnTop) 72.dp else 0.dp,
-                        ),
+                        .padding(controlsEdge.hintPadding()),
                 )
             }
 
@@ -857,12 +920,9 @@ fun PlayerScreen(
                     },
                     modifier = Modifier
                         // Opposite the control bar, so a hint never lands under it.
-                        .align(if (controlsOnTop) Alignment.BottomCenter else Alignment.TopCenter)
+                        .align(controlsEdge.hintAlignment())
                         .padding(horizontal = 16.dp)
-                        .padding(
-                            top = if (controlsOnTop) 0.dp else 72.dp,
-                            bottom = if (controlsOnTop) 72.dp else 0.dp,
-                        ),
+                        .padding(controlsEdge.hintPadding()),
                 )
             }
 
@@ -880,7 +940,7 @@ fun PlayerScreen(
                     state = state,
                     title = currentItem?.title ?: state.title,
                     folder = currentItem?.let { folderLabel(it.folder) }.orEmpty(),
-                    controlsOnTop = controlsOnTop,
+                    edge = controlsEdge,
                     locked = locked,
                     scrubProgress = scrubProgress,
                     onScrub = { fraction ->
@@ -920,7 +980,7 @@ fun PlayerScreen(
                         }
                     },
                     onToggleLock = { locked = !locked },
-                    onToggleControlsPosition = { onSetControlsOnTop(!controlsOnTop) },
+                    onChangeControlsEdge = { showEdgeDialog = true },
                     onClose = onClose,
                     onPlayPause = { playback.togglePlayPause() },
                     onPrevious = {
@@ -955,6 +1015,8 @@ fun PlayerScreen(
                             }
                     },
                     onPip = { enterPip(activity, state) },
+                    sleepActive = sleepTimer.isActive,
+                    onSleep = { showSleepDialog = true },
                 )
             }
 
@@ -966,18 +1028,18 @@ fun PlayerScreen(
                     onPickDecoder = { preference -> applyDecoderChoice(preference) },
                     onCopyDiagnostics = { copyDiagnostics(context, playback) },
                     modifier = Modifier
-                        // Same edge as the control bar: this panel is what replaces it
-                        // while it is open, and the title bar on the other edge stays
-                        // reachable, so the panel can always be closed again.
-                        .align(if (controlsOnTop) Alignment.TopCenter else Alignment.BottomCenter)
-                        .padding(16.dp),
+                        // Same edge as the control bar, wherever that is: this panel is
+                        // what replaces it while it is open, and the title bar on the
+                        // other edge stays reachable, so it can always be closed again.
+                        .align(controlsEdge.infoAlignment())
+                        .padding(controlsEdge.infoPadding()),
                 )
             }
 
             PlayerSnackbarHost(
                 hostState = snackbarHost,
                 showInfo = showInfo,
-                controlsOnTop = controlsOnTop,
+                edge = controlsEdge,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
@@ -1023,6 +1085,66 @@ fun PlayerScreen(
             onDismiss = { showAudioDialog = false },
         )
     }
+
+    if (showSleepDialog) {
+        val minuteChoices = SleepTimerPolicy.MINUTES
+        val options = minuteChoices.map { stringResource(R.string.sleep_minutes, it) } +
+            stringResource(R.string.sleep_end_of_video) +
+            stringResource(R.string.sleep_off)
+        val selected = when (sleepChoice) {
+            null -> stringResource(R.string.sleep_off)
+            SleepTimerPolicy.END_OF_VIDEO -> stringResource(R.string.sleep_end_of_video)
+            else -> stringResource(R.string.sleep_minutes, sleepChoice ?: 0)
+        }
+        ChoiceDialog(
+            title = stringResource(R.string.player_sleep),
+            options = options,
+            selected = selected,
+            onPick = { index ->
+                val message = when {
+                    index < minuteChoices.size -> {
+                        val minutes = minuteChoices[index]
+                        sleepTimer = SleepTimerPolicy.after(minutes, System.currentTimeMillis())
+                        sleepChoice = minutes
+                        sleepStartMediaId = null
+                        sleepSetMinutesFormat.format(minutes)
+                    }
+
+                    index == minuteChoices.size -> {
+                        sleepTimer = SleepTimerPolicy.untilEndOfVideo()
+                        sleepChoice = SleepTimerPolicy.END_OF_VIDEO
+                        sleepStartMediaId = state.mediaId
+                        sleepSetEndLabel
+                    }
+
+                    else -> {
+                        sleepTimer = SleepTimerPolicy.OFF
+                        sleepChoice = null
+                        sleepStartMediaId = null
+                        sleepSetOffLabel
+                    }
+                }
+                showSleepDialog = false
+                LogBus.i(LogTag.PLAYER, "Sleep timer: $message")
+                scope.launch { snackbarHost.showSnackbar(message) }
+            },
+            onDismiss = { showSleepDialog = false },
+        )
+    }
+
+    if (showEdgeDialog) {
+        val edges = ControlsEdge.entries
+        ChoiceDialog(
+            title = stringResource(R.string.dialog_controls_edge_title),
+            options = edges.map { controlsEdgeLabel(it) },
+            selected = controlsEdgeLabel(controlsEdge),
+            onPick = { index ->
+                showEdgeDialog = false
+                onSetControlsEdge(edges[index])
+            },
+            onDismiss = { showEdgeDialog = false },
+        )
+    }
 }
 
 /**
@@ -1046,8 +1168,9 @@ internal fun PlayerBackHandler(onDismiss: () -> Boolean, onClose: () -> Unit) {
 
 /**
  * The overlay above the picture: the title bar on one edge, the seek bar and the
- * buttons on the other. [controlsOnTop] swaps the two places — it is what the button
- * in the title bar changes — so the bar can move out of the way of a hand or a stand.
+ * buttons on another. [edge] says which edge the bar takes — along the top or bottom as
+ * a full-width row, or along a side as a narrow panel — and the title bar moves to the
+ * opposite one, so the bar can get out of the way of a hand or a stand.
  *
  * Not private only so a device test can measure which edge each half lands on; there
  * is no other caller.
@@ -1057,13 +1180,13 @@ internal fun PlayerControls(
     state: PlayerUiState,
     title: String,
     folder: String,
-    controlsOnTop: Boolean,
+    edge: ControlsEdge,
     locked: Boolean,
     scrubProgress: Float,
     onScrub: (Float) -> Unit,
     onScrubFinished: () -> Unit,
     onToggleLock: () -> Unit,
-    onToggleControlsPosition: () -> Unit,
+    onChangeControlsEdge: () -> Unit,
     onClose: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
@@ -1076,9 +1199,96 @@ internal fun PlayerControls(
     onSubtitles: () -> Unit,
     onRotate: () -> Unit,
     onPip: () -> Unit,
+    sleepActive: Boolean = false,
+    onSleep: () -> Unit = {},
 ) {
-    val panelEdge = if (controlsOnTop) Alignment.TopCenter else Alignment.BottomCenter
-    val headerEdge = if (controlsOnTop) Alignment.BottomStart else Alignment.TopStart
+    val panelEdge = edge.panelAlignment()
+    val headerEdge = edge.headerAlignment()
+    // The buttons in one list, because the bar is drawn in two shapes: a row along the
+    // top or bottom edge, and a narrow grid along a side edge. Both take the same set.
+    val actions = listOf(
+        ControlAction(
+            if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen,
+            stringResource(if (locked) R.string.player_unlock else R.string.player_lock),
+            Color.White,
+            onToggleLock,
+        ),
+        ControlAction(
+            Icons.Filled.SkipPrevious,
+            stringResource(R.string.player_previous),
+            Color.White,
+            onPrevious,
+        ),
+        ControlAction(
+            if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+            stringResource(if (state.isPlaying) R.string.player_pause else R.string.player_play),
+            Color.White,
+            onPlayPause,
+            large = true,
+        ),
+        ControlAction(
+            Icons.Filled.SkipNext,
+            stringResource(R.string.player_next),
+            Color.White,
+            onNext,
+        ),
+        ControlAction(
+            Icons.Filled.LibraryMusic,
+            stringResource(R.string.player_audio_tracks),
+            Color.White,
+            onAudio,
+        ),
+        ControlAction(
+            Icons.Filled.Subtitles,
+            stringResource(R.string.player_subtitles),
+            Color.White,
+            onSubtitles,
+        ),
+        ControlAction(
+            if (state.repeatMode == Player.REPEAT_MODE_ONE) {
+                Icons.Filled.RepeatOne
+            } else {
+                Icons.Filled.Repeat
+            },
+            // "Repeat this video" alone is a sentence, not a state: with the mode named
+            // after the colon, the button says which of the three it is in and the
+            // snackbar says the same thing when it moves.
+            stringResource(
+                R.string.player_repeat_announce,
+                stringResource(
+                    when (state.repeatMode) {
+                        Player.REPEAT_MODE_ALL -> R.string.player_repeat_all
+                        Player.REPEAT_MODE_ONE -> R.string.player_repeat_one
+                        else -> R.string.player_repeat_off
+                    },
+                ),
+            ),
+            if (state.repeatMode == Player.REPEAT_MODE_OFF) {
+                Color.White.copy(alpha = 0.55f)
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
+            onRepeat,
+        ),
+        ControlAction(
+            Icons.Filled.Speed,
+            stringResource(R.string.player_speed, Formatters.speed(state.speed)),
+            Color.White,
+            onSpeed,
+        ),
+        ControlAction(
+            Icons.Filled.AspectRatio,
+            stringResource(R.string.player_aspect),
+            Color.White,
+            onAspect,
+        ),
+        ControlAction(
+            Icons.Filled.ScreenRotation,
+            stringResource(R.string.player_rotate),
+            Color.White,
+            onRotate,
+        ),
+    )
 
     // What a screen reader hears for the times on the bar. Left as two loose numbers
     // they arrive as "0:30" and "1:30" with nothing joining them, and the slider itself
@@ -1137,21 +1347,14 @@ internal fun PlayerControls(
                     )
                 }
             }
-            IconButton(onClick = onToggleControlsPosition) {
+            IconButton(onClick = onChangeControlsEdge) {
                 Icon(
-                    // The arrow points at the edge the bar is on now, so the icon is
-                    // the state; the description below says what a tap will do.
-                    if (controlsOnTop) {
-                        Icons.Filled.VerticalAlignBottom
-                    } else {
-                        Icons.Filled.VerticalAlignTop
-                    },
+                    // The arrow points at the edge the bar is on now, so the icon is the
+                    // state; the description says which edge that is and what a tap does.
+                    edge.icon,
                     contentDescription = stringResource(
-                        if (controlsOnTop) {
-                            R.string.player_controls_move_bottom
-                        } else {
-                            R.string.player_controls_move_top
-                        },
+                        R.string.player_controls_place,
+                        controlsEdgeLabel(edge),
                     ),
                     tint = Color.White,
                 )
@@ -1163,6 +1366,15 @@ internal fun PlayerControls(
                     tint = Color.White,
                 )
             }
+            IconButton(onClick = onSleep) {
+                Icon(
+                    Icons.Filled.Timer,
+                    contentDescription = stringResource(R.string.player_sleep),
+                    // Tinted while a timer runs, the way repeat names its mode: the icon
+                    // itself cannot say whether it is set.
+                    tint = if (sleepActive) MaterialTheme.colorScheme.primary else Color.White,
+                )
+            }
             IconButton(onClick = onPip) {
                 Icon(
                     Icons.Filled.PictureInPictureAlt,
@@ -1172,178 +1384,341 @@ internal fun PlayerControls(
             }
         }
 
+        if (edge.isSide) {
+            SideControlsPanel(
+                actions = actions,
+                positionLabel = positionLabel,
+                durationLabel = durationLabel,
+                seekLabel = seekLabel,
+                queueLabel = queueLabel,
+                bufferedLabel = if (state.bufferedMs > state.positionMs) {
+                    stringResource(
+                        R.string.player_buffered,
+                        Formatters.duration(state.bufferedMs - state.positionMs),
+                    )
+                } else {
+                    null
+                },
+                queueCounter = if (state.queueSize > 1) {
+                    stringResource(
+                        R.string.player_queued_counter,
+                        state.queueIndex + 1,
+                        state.queueSize,
+                    )
+                } else {
+                    null
+                },
+                progress = if (scrubProgress >= 0f) scrubProgress else state.progress,
+                hasDuration = state.durationMs > 0L,
+                onScrub = onScrub,
+                onScrubFinished = onScrubFinished,
+                modifier = Modifier.align(panelEdge),
+            )
+        } else {
+            Column(
+                modifier = Modifier
+                    .align(panelEdge)
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.5f))
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                if (state.durationMs > 0L) {
+                    Slider(
+                        value = if (scrubProgress >= 0f) scrubProgress else state.progress,
+                        onValueChange = onScrub,
+                        onValueChangeFinished = onScrubFinished,
+                        modifier = Modifier.semantics { stateDescription = seekLabel },
+                        colors = seekBarColors(),
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        progress = { 0f },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.clearAndSetSemantics {
+                            contentDescription = seekLabel
+                        },
+                    ) {
+                        Text(
+                            text = positionLabel,
+                            color = Color.White,
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = durationLabel,
+                            color = Color.White.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.labelMedium,
+                        )
+                    }
+                    if (state.bufferedMs > state.positionMs) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(
+                                R.string.player_buffered,
+                                Formatters.duration(state.bufferedMs - state.positionMs),
+                            ),
+                            color = Color.White.copy(alpha = 0.5f),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (state.queueSize > 1) {
+                        Text(
+                            text = stringResource(
+                                R.string.player_queued_counter,
+                                state.queueIndex + 1,
+                                state.queueSize,
+                            ),
+                            // Drawn as "1/3"; spoken, that is "one slash three". Replacing
+                            // the text keeps the number from being read twice.
+                            modifier = Modifier.clearAndSetSemantics {
+                                contentDescription = queueLabel
+                            },
+                            color = Color.White.copy(alpha = 0.8f),
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    actions.forEach { action -> ControlButton(action) }
+                }
+            }
+        }
+    }
+}
+
+/** The width of the bar when it stands along the left or right edge. */
+private val SIDE_PANEL_WIDTH = 216.dp
+
+/** Three 48 dp buttons fit the panel beside a seek bar and still leave it readable. */
+private const val SIDE_PANEL_BUTTONS_PER_ROW = 3
+
+private fun ControlsEdge.panelAlignment(): Alignment = when (this) {
+    ControlsEdge.TOP -> Alignment.TopCenter
+    ControlsEdge.BOTTOM -> Alignment.BottomCenter
+    ControlsEdge.LEFT -> Alignment.CenterStart
+    ControlsEdge.RIGHT -> Alignment.CenterEnd
+}
+
+/**
+ * Where the title bar goes. It always takes a different edge from the bar, so the close
+ * button is never behind the seek bar. Both side panels leave the bar along the top,
+ * which is where a title belongs, and start below it.
+ */
+private fun ControlsEdge.headerAlignment(): Alignment = when (this) {
+    ControlsEdge.TOP -> Alignment.BottomStart
+    ControlsEdge.BOTTOM, ControlsEdge.LEFT, ControlsEdge.RIGHT -> Alignment.TopStart
+}
+
+/** Opposite the bar, so a hint card never lands under it. */
+private fun ControlsEdge.hintAlignment(): Alignment = when (this) {
+    ControlsEdge.TOP -> Alignment.BottomCenter
+    ControlsEdge.BOTTOM -> Alignment.TopCenter
+    ControlsEdge.LEFT -> Alignment.CenterEnd
+    ControlsEdge.RIGHT -> Alignment.CenterStart
+}
+
+private fun ControlsEdge.hintPadding(): PaddingValues = when (this) {
+    ControlsEdge.TOP -> PaddingValues(bottom = 72.dp)
+    ControlsEdge.BOTTOM -> PaddingValues(top = 72.dp)
+    ControlsEdge.LEFT, ControlsEdge.RIGHT -> PaddingValues(vertical = 16.dp)
+}
+
+/** The stream panel replaces the bar while it is open, so it takes the same edge. */
+private fun ControlsEdge.infoAlignment(): Alignment = when (this) {
+    ControlsEdge.TOP -> Alignment.TopCenter
+    ControlsEdge.BOTTOM -> Alignment.BottomCenter
+    ControlsEdge.LEFT, ControlsEdge.RIGHT -> Alignment.Center
+}
+
+private fun ControlsEdge.infoPadding(): PaddingValues = when (this) {
+    ControlsEdge.LEFT -> PaddingValues(
+        start = SIDE_PANEL_WIDTH + 16.dp,
+        top = 16.dp,
+        end = 16.dp,
+        bottom = 16.dp,
+    )
+
+    ControlsEdge.RIGHT -> PaddingValues(
+        start = 16.dp,
+        top = 16.dp,
+        end = SIDE_PANEL_WIDTH + 16.dp,
+        bottom = 16.dp,
+    )
+
+    else -> PaddingValues(16.dp)
+}
+
+/** The arrow on the button points at the edge the bar is on now. */
+private val ControlsEdge.icon: ImageVector
+    get() = when (this) {
+        ControlsEdge.TOP -> Icons.Filled.VerticalAlignTop
+        ControlsEdge.BOTTOM -> Icons.Filled.VerticalAlignBottom
+        ControlsEdge.LEFT -> Icons.AutoMirrored.Filled.KeyboardArrowLeft
+        ControlsEdge.RIGHT -> Icons.AutoMirrored.Filled.KeyboardArrowRight
+    }
+
+/** One button of the control bar, so the row and the side grid draw the same set. */
+private data class ControlAction(
+    val icon: ImageVector,
+    val label: String,
+    val tint: Color,
+    val onClick: () -> Unit,
+    val large: Boolean = false,
+)
+
+@Composable
+private fun ControlButton(action: ControlAction) {
+    IconButton(onClick = action.onClick) {
+        Icon(
+            action.icon,
+            contentDescription = action.label,
+            tint = action.tint,
+            modifier = if (action.large) Modifier.size(42.dp) else Modifier,
+        )
+    }
+}
+
+@Composable
+private fun seekBarColors() = SliderDefaults.colors(
+    thumbColor = MaterialTheme.colorScheme.primary,
+    activeTrackColor = MaterialTheme.colorScheme.primary,
+    inactiveTrackColor = Color.White.copy(alpha = 0.3f),
+)
+
+/**
+ * The bar standing along the left or right edge.
+ *
+ * A phone in landscape is not tall enough for the full row of buttons, so the seek bar is
+ * turned upright and the buttons stack in a narrow grid beside it. The panel starts below
+ * the title bar and stops short of the bottom edge, which keeps both of them reachable
+ * and the middle of the picture clear.
+ */
+@Composable
+private fun SideControlsPanel(
+    actions: List<ControlAction>,
+    positionLabel: String,
+    durationLabel: String,
+    seekLabel: String,
+    queueLabel: String,
+    bufferedLabel: String?,
+    queueCounter: String?,
+    progress: Float,
+    hasDuration: Boolean,
+    onScrub: (Float) -> Unit,
+    onScrubFinished: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxHeight()
+            .width(SIDE_PANEL_WIDTH)
+            .padding(top = HEADER_CLEARANCE, bottom = 8.dp)
+            .background(Color.Black.copy(alpha = 0.5f))
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (hasDuration) {
+            VerticalSeekBar(
+                value = progress,
+                onValueChange = onScrub,
+                onValueChangeFinished = onScrubFinished,
+                seekLabel = seekLabel,
+                modifier = Modifier
+                    .width(40.dp)
+                    .fillMaxHeight(),
+            )
+        }
         Column(
             modifier = Modifier
-                .align(panelEdge)
-                .fillMaxWidth()
-                .background(Color.Black.copy(alpha = 0.5f))
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .weight(1f)
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            if (state.durationMs > 0L) {
-                Slider(
-                    value = if (scrubProgress >= 0f) scrubProgress else state.progress,
-                    onValueChange = onScrub,
-                    onValueChangeFinished = onScrubFinished,
-                    modifier = Modifier.semantics { stateDescription = seekLabel },
-                    colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
-                        inactiveTrackColor = Color.White.copy(alpha = 0.3f),
-                    ),
+            Row(modifier = Modifier.clearAndSetSemantics { contentDescription = seekLabel }) {
+                Text(
+                    text = positionLabel,
+                    color = Color.White,
+                    style = MaterialTheme.typography.labelMedium,
                 )
-            } else {
-                LinearProgressIndicator(
-                    progress = { 0f },
-                    modifier = Modifier.fillMaxWidth(),
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = durationLabel,
+                    color = Color.White.copy(alpha = 0.7f),
+                    style = MaterialTheme.typography.labelMedium,
                 )
             }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Row(modifier = Modifier.clearAndSetSemantics { contentDescription = seekLabel }) {
-                    Text(
-                        text = positionLabel,
-                        color = Color.White,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = durationLabel,
-                        color = Color.White.copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                }
-                if (state.bufferedMs > state.positionMs) {
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(
-                            R.string.player_buffered,
-                            Formatters.duration(state.bufferedMs - state.positionMs),
-                        ),
-                        color = Color.White.copy(alpha = 0.5f),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                }
-                Spacer(Modifier.weight(1f))
-                if (state.queueSize > 1) {
-                    Text(
-                        text = stringResource(
-                            R.string.player_queued_counter,
-                            state.queueIndex + 1,
-                            state.queueSize,
-                        ),
-                        // Drawn as "1/3"; spoken, that is "one slash three". Replacing
-                        // the text keeps the number from being read twice.
-                        modifier = Modifier.clearAndSetSemantics { contentDescription = queueLabel },
-                        color = Color.White.copy(alpha = 0.8f),
-                        style = MaterialTheme.typography.labelSmall,
-                    )
+            bufferedLabel?.let { label ->
+                Text(
+                    text = label,
+                    color = Color.White.copy(alpha = 0.5f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            queueCounter?.let { counter ->
+                Text(
+                    text = counter,
+                    modifier = Modifier.clearAndSetSemantics {
+                        contentDescription = queueLabel
+                    },
+                    color = Color.White.copy(alpha = 0.8f),
+                    style = MaterialTheme.typography.labelSmall,
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            actions.chunked(SIDE_PANEL_BUTTONS_PER_ROW).forEach { row ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    row.forEach { action -> ControlButton(action) }
                 }
             }
+        }
+    }
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onToggleLock) {
-                    Icon(
-                        if (locked) Icons.Filled.Lock else Icons.Filled.LockOpen,
-                        contentDescription = stringResource(
-                            if (locked) R.string.player_unlock else R.string.player_lock,
-                        ),
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onPrevious) {
-                    Icon(
-                        Icons.Filled.SkipPrevious,
-                        contentDescription = stringResource(R.string.player_previous),
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onPlayPause) {
-                    Icon(
-                        if (state.isPlaying) Icons.Filled.Pause else Icons.Filled.PlayArrow,
-                        contentDescription = stringResource(
-                            if (state.isPlaying) R.string.player_pause else R.string.player_play,
-                        ),
-                        tint = Color.White,
-                        modifier = Modifier.size(42.dp),
-                    )
-                }
-                IconButton(onClick = onNext) {
-                    Icon(
-                        Icons.Filled.SkipNext,
-                        contentDescription = stringResource(R.string.player_next),
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onAudio) {
-                    Icon(
-                        Icons.Filled.LibraryMusic,
-                        contentDescription = stringResource(R.string.player_audio_tracks),
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onSubtitles) {
-                    Icon(
-                        Icons.Filled.Subtitles,
-                        contentDescription = stringResource(R.string.player_subtitles),
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onRepeat) {
-                    Icon(
-                        if (state.repeatMode == Player.REPEAT_MODE_ONE) {
-                            Icons.Filled.RepeatOne
-                        } else {
-                            Icons.Filled.Repeat
-                        },
-                        // "Repeat this video" alone is a sentence, not a state: with the
-                        // mode named after the colon, the button says which of the three
-                        // it is in and the snackbar says the same thing when it moves.
-                        contentDescription = stringResource(
-                            R.string.player_repeat_announce,
-                            stringResource(
-                                when (state.repeatMode) {
-                                    Player.REPEAT_MODE_ALL -> R.string.player_repeat_all
-                                    Player.REPEAT_MODE_ONE -> R.string.player_repeat_one
-                                    else -> R.string.player_repeat_off
-                                },
-                            ),
-                        ),
-                        tint = if (state.repeatMode == Player.REPEAT_MODE_OFF) {
-                            Color.White.copy(alpha = 0.55f)
-                        } else {
-                            MaterialTheme.colorScheme.primary
-                        },
-                    )
-                }
-                IconButton(onClick = onSpeed) {
-                    Icon(
-                        Icons.Filled.Speed,
-                        contentDescription = stringResource(
-                            R.string.player_speed,
-                            Formatters.speed(state.speed),
-                        ),
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onAspect) {
-                    Icon(
-                        Icons.Filled.AspectRatio,
-                        contentDescription = stringResource(R.string.player_aspect),
-                        tint = Color.White,
-                    )
-                }
-                IconButton(onClick = onRotate) {
-                    Icon(
-                        Icons.Filled.ScreenRotation,
-                        contentDescription = stringResource(R.string.player_rotate),
-                        tint = Color.White,
-                    )
-                }
-            }
+/**
+ * The seek bar laid on its side.
+ *
+ * A Slider measures itself horizontally, so it is given the panel's height as its width
+ * and then turned a quarter turn counter-clockwise: the start of the track ends up at the
+ * bottom, and the video plays upwards the way a volume slider does. The rotation is a
+ * graphics-layer transform, so touches are turned with the picture.
+ */
+@Composable
+private fun VerticalSeekBar(
+    value: Float,
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit,
+    seekLabel: String,
+    modifier: Modifier = Modifier,
+) {
+    BoxWithConstraints(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.Center)
+                .size(width = maxHeight, height = 56.dp)
+                .rotate(-90f),
+        ) {
+            Slider(
+                value = value,
+                onValueChange = onValueChange,
+                onValueChangeFinished = onValueChangeFinished,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .semantics { stateDescription = seekLabel },
+                colors = seekBarColors(),
+            )
         }
     }
 }
@@ -1510,7 +1885,7 @@ private fun InfoLine(label: String, value: String) {
 fun PlayerSnackbarHost(
     hostState: SnackbarHostState,
     showInfo: Boolean,
-    controlsOnTop: Boolean = false,
+    edge: ControlsEdge = ControlsEdge.BOTTOM,
     modifier: Modifier = Modifier,
 ) {
     SnackbarHost(
@@ -1519,9 +1894,12 @@ fun PlayerSnackbarHost(
             .padding(horizontal = 16.dp)
             .padding(
                 bottom = when {
+                    // A bar on a side edge leaves the bottom free, unless the stream
+                    // panel is open, which sits beside the picture.
+                    edge.isSide -> if (showInfo) STREAM_PANEL_CLEARANCE else 16.dp
                     // With the bar at the top the stream panel follows it there, so the
                     // only thing left at this edge is the title bar.
-                    controlsOnTop -> HEADER_CLEARANCE
+                    edge == ControlsEdge.TOP -> HEADER_CLEARANCE
                     showInfo -> STREAM_PANEL_CLEARANCE
                     else -> CONTROL_BAR_CLEARANCE
                 },

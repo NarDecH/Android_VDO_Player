@@ -213,6 +213,14 @@ class PlaybackViewModel(private val app: Application) {
         refresh()
     }
 
+    /** Pauses without ever starting playback, which is what a sleep timer needs. */
+    fun pause() {
+        val player = controller ?: return
+        if (player.isPlaying) player.pause()
+        LogBus.d(LogTag.PLAYER, "Playback paused on request")
+        refresh()
+    }
+
     fun seekTo(positionMs: Long) {
         val player = controller ?: return
         player.seekTo(positionMs.coerceAtLeast(0L))
