@@ -18,14 +18,13 @@ import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.ControlsEdge
-import java.util.concurrent.atomic.AtomicReference
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -93,22 +92,19 @@ class SettingsControlsPositionTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasText(title))
 
         val left = compose.activity.getString(R.string.controls_edge_left)
+        compose.onNodeWithText(left).performClick()
 
-        // The tap starts a DataStore write on the composition's own dispatcher, and the
-        // condition handed to waitUntil runs on the main thread: reading the repository
-        // from inside that condition blocks the coroutine that is doing the writing, so
-        // the write never lands and the wait times out on a value that was never stored.
-        // The stored flow is collected on a background thread instead, and the condition
-        // only compares what that collector last saw.
-        val seen = AtomicReference(ControlsEdge.BOTTOM)
-        val collector = CoroutineScope(Dispatchers.IO).launch {
-            container.settings.settings.collect { seen.set(it.controlsEdge) }
+        // The tap starts a DataStore write from the composition's own scope, which resumes
+        // on the main thread — and waitUntil polls its condition on that same thread, so
+        // waiting that way starves the write it is waiting for and times out on a value
+        // that was never stored. The wait runs on this thread instead, one thread away
+        // from the main thread that has to finish the write, and completes as soon as the
+        // stored flow reports the new edge.
+        val stored = runBlocking(Dispatchers.IO) {
+            withTimeoutOrNull(5_000) {
+                container.settings.settings.first { it.controlsEdge == ControlsEdge.LEFT }
+            }
         }
-        try {
-            compose.onNodeWithText(left).performClick()
-            compose.waitUntil(5_000) { seen.get() == ControlsEdge.LEFT }
-        } finally {
-            collector.cancel()
-        }
+        assertNotNull("tapping the chip did not store the edge", stored)
     }
 }
