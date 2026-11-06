@@ -5,12 +5,13 @@ import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -92,7 +93,10 @@ class SettingsControlsPositionTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasText(title))
 
         val left = compose.activity.getString(R.string.controls_edge_left)
-        compose.onNodeWithText(left).performClick()
+        // The click action is taken from the node rather than a touch at its centre: this
+        // row is the last one the scroll brought into view, and a tap that lands on the
+        // edge of the window can be swallowed before the chip sees it.
+        compose.onNodeWithText(left).performSemanticsAction(SemanticsActions.OnClick)
 
         // The tap starts a DataStore write from the composition's own scope, which resumes
         // on the main thread — and waitUntil polls its condition on that same thread, so
