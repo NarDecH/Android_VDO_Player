@@ -1500,6 +1500,17 @@ internal fun PlayerControls(
 /** The width of the bar when it stands along the left or right edge. */
 private val SIDE_PANEL_WIDTH = 216.dp
 
+/**
+ * The most of the width the panel may take. In landscape 216 dp is about a third of the
+ * picture, but a phone held upright is only around 360 dp wide, and a fixed panel would
+ * cover most of it — the bar would stop reading as an edge and start reading as a screen
+ * of its own.
+ */
+private const val SIDE_PANEL_WIDTH_SHARE = 0.45f
+
+/** Below this the panel cannot hold three buttons beside the seek bar, so it holds two. */
+private val SIDE_PANEL_NARROW_WIDTH = 200.dp
+
 /** Three 48 dp buttons fit the panel beside a seek bar and still leave it readable. */
 private const val SIDE_PANEL_BUTTONS_PER_ROW = 3
 
@@ -1619,67 +1630,74 @@ private fun SideControlsPanel(
     onScrubFinished: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier
-            .fillMaxHeight()
-            .width(SIDE_PANEL_WIDTH)
-            .padding(top = HEADER_CLEARANCE, bottom = 8.dp)
-            .background(Color.Black.copy(alpha = 0.5f))
-            .padding(horizontal = 8.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        if (hasDuration) {
-            VerticalSeekBar(
-                value = progress,
-                onValueChange = onScrub,
-                onValueChangeFinished = onScrubFinished,
-                seekLabel = seekLabel,
-                modifier = Modifier
-                    .width(40.dp)
-                    .fillMaxHeight(),
-            )
-        }
-        Column(
+    BoxWithConstraints(modifier = modifier.fillMaxHeight()) {
+        // Narrowed to the share above: a panel that covers half the picture in portrait is
+        // no longer an edge. Two buttons a row keep the controls inside what is left, and
+        // the seek bar gives up a little room to make it fit.
+        val panelWidth = minOf(SIDE_PANEL_WIDTH, maxWidth * SIDE_PANEL_WIDTH_SHARE)
+        val narrow = panelWidth < SIDE_PANEL_NARROW_WIDTH
+        Row(
             modifier = Modifier
-                .weight(1f)
-                .fillMaxHeight(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .fillMaxHeight()
+                .width(panelWidth)
+                .padding(top = HEADER_CLEARANCE, bottom = 8.dp)
+                .background(Color.Black.copy(alpha = 0.5f))
+                .padding(horizontal = 8.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(modifier = Modifier.clearAndSetSemantics { contentDescription = seekLabel }) {
-                Text(
-                    text = positionLabel,
-                    color = Color.White,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = durationLabel,
-                    color = Color.White.copy(alpha = 0.7f),
-                    style = MaterialTheme.typography.labelMedium,
+            if (hasDuration) {
+                VerticalSeekBar(
+                    value = progress,
+                    onValueChange = onScrub,
+                    onValueChangeFinished = onScrubFinished,
+                    seekLabel = seekLabel,
+                    modifier = Modifier
+                        .width(if (narrow) 32.dp else 40.dp)
+                        .fillMaxHeight(),
                 )
             }
-            bufferedLabel?.let { label ->
-                Text(
-                    text = label,
-                    color = Color.White.copy(alpha = 0.5f),
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
-            queueCounter?.let { counter ->
-                Text(
-                    text = counter,
-                    modifier = Modifier.clearAndSetSemantics {
-                        contentDescription = queueLabel
-                    },
-                    color = Color.White.copy(alpha = 0.8f),
-                    style = MaterialTheme.typography.labelSmall,
-                )
-            }
-            Spacer(Modifier.height(4.dp))
-            actions.chunked(SIDE_PANEL_BUTTONS_PER_ROW).forEach { row ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    row.forEach { action -> ControlButton(action) }
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight(),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(modifier = Modifier.clearAndSetSemantics { contentDescription = seekLabel }) {
+                    Text(
+                        text = positionLabel,
+                        color = Color.White,
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = durationLabel,
+                        color = Color.White.copy(alpha = 0.7f),
+                        style = MaterialTheme.typography.labelMedium,
+                    )
+                }
+                bufferedLabel?.let { label ->
+                    Text(
+                        text = label,
+                        color = Color.White.copy(alpha = 0.5f),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                queueCounter?.let { counter ->
+                    Text(
+                        text = counter,
+                        modifier = Modifier.clearAndSetSemantics {
+                            contentDescription = queueLabel
+                        },
+                        color = Color.White.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                actions.chunked(if (narrow) 2 else SIDE_PANEL_BUTTONS_PER_ROW).forEach { row ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        row.forEach { action -> ControlButton(action) }
+                    }
                 }
             }
         }

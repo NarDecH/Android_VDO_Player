@@ -18,7 +18,11 @@ import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.ControlsEdge
+import java.util.concurrent.atomic.AtomicReference
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -89,12 +93,22 @@ class SettingsControlsPositionTest {
         compose.onNode(hasScrollAction()).performScrollToNode(hasText(title))
 
         val left = compose.activity.getString(R.string.controls_edge_left)
-        compose.onNodeWithText(left).performClick()
 
-        // The tap starts a DataStore write and the chips follow the stored flow, so the
-        // assertion waits for that round trip instead of assuming it finished with the tap.
-        compose.waitUntil(5_000) {
-            runBlocking { container.settings.settings.first().controlsEdge } == ControlsEdge.LEFT
+        // The tap starts a DataStore write on the composition's own dispatcher, and the
+        // condition handed to waitUntil runs on the main thread: reading the repository
+        // from inside that condition blocks the coroutine that is doing the writing, so
+        // the write never lands and the wait times out on a value that was never stored.
+        // The stored flow is collected on a background thread instead, and the condition
+        // only compares what that collector last saw.
+        val seen = AtomicReference(ControlsEdge.BOTTOM)
+        val collector = CoroutineScope(Dispatchers.IO).launch {
+            container.settings.settings.collect { seen.set(it.controlsEdge) }
+        }
+        try {
+            compose.onNodeWithText(left).performClick()
+            compose.waitUntil(5_000) { seen.get() == ControlsEdge.LEFT }
+        } finally {
+            collector.cancel()
         }
     }
 }
