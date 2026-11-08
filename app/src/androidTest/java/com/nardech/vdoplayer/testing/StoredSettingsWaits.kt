@@ -23,10 +23,6 @@ const val STORED_SETTINGS_TIMEOUT_MS = 5_000L
  * This suspends on [Dispatchers.IO] instead, leaving the main thread free to finish the
  * write, and returns the settings once they match, or `null` when [timeoutMs] passes —
  * which the caller asserts on, so a write that really did not happen still fails.
- *
- * On the `junit4.v2` rules the tap's coroutine is queued on a `StandardTestDispatcher`, so
- * the caller has to let it run first: `compose.waitForIdle()` after the interaction and
- * before this call. Waiting here cannot do that itself — this function has no rule.
  */
 fun SettingsRepository.awaitStored(
     timeoutMs: Long = STORED_SETTINGS_TIMEOUT_MS,

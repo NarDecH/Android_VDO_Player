@@ -8,7 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
@@ -97,19 +97,12 @@ class SettingsControlsPositionTest {
         // edge of the window can be swallowed before the chip sees it.
         compose.onNodeWithText(left).performSemanticsAction(SemanticsActions.OnClick)
 
-        // The chip launches the write on the composition's own scope, and the v2 rule
-        // dispatches that back to its StandardTestDispatcher: a queued task runs only when
-        // the test advances the scheduler. `waitForIdle` settles the composition the click
-        // changed, and the scheduler is advanced on its own afterwards — the write is queued
-        // by the click that drain is draining, so it may not be reached by it.
-        compose.waitForIdle()
-        compose.mainClock.scheduler.advanceUntilIdle()
-
-        // The wait then happens one thread away from the UI: `awaitStored` suspends on
-        // Dispatchers.IO and returns as soon as the stored flow reports the new edge, or null
-        // if nothing was written. A `compose.waitUntil` would poll the UI thread, which is
-        // the thread the write resumes on — `.github/scripts/check-instrumented-waits.sh`
-        // refuses it.
+        // The tap starts a DataStore write from the composition's own scope, which resumes
+        // on the main thread, so the wait happens one thread away from it: `awaitStored`
+        // suspends on Dispatchers.IO and returns as soon as the stored flow reports the new
+        // edge, or null if nothing was written. A `compose.waitUntil` here would poll that
+        // same main thread and starve the write it is waiting for —
+        // `.github/scripts/check-instrumented-waits.sh` refuses it.
         val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
         assertNotNull("tapping the chip did not store the edge", stored)
     }

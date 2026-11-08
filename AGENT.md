@@ -190,26 +190,20 @@ Verification rules that apply to this repository:
   snapshot carries the guest's CPU state and this job does not always land on a host
   with the same CPU, which turns a saved boot into a boot failure. Judge a change like
   that one by the step timings in the run, not by the shape of the diff.
-* Instrumented Compose tests wait for a DataStore write **off the main thread**, and
-  the Compose rules are the `androidx.compose.ui.test.junit4.v2` ones (their
-  `StandardTestDispatcher` queues composition instead of running it eagerly; every
-  `onNode…` query synchronises before it reads, which is why no test here touches a
-  node straight after `setContent`, and why a tap that stores something drains that
-  scheduler (`compose.mainClock.scheduler.advanceUntilIdle()`) before the wait: the write
-  it starts is queued there too). A `waitUntil` runs its condition on the UI thread,
-  which is the thread the write started by a tap has to resume on, so the wait starves
-  the write it is waiting for and times out on a value that was never stored — 1.5.5's
-  control-bar test failed that way and read like a broken settings screen.
-  `settings.awaitStored { … }` (`app/src/androidTest/…/testing/StoredSettingsWaits.kt`)
-  suspends on `Dispatchers.IO` and returns null on timeout, so a write that really did
-  not happen still fails the test. `.github/scripts/check-instrumented-waits.sh` refuses
-  the `waitUntil` family in any file that reaches the store (`AppContainer`,
-  `SettingsRepository`, `settingsDataStore`, `container.settings`);
-  `.github/scripts/test-check-instrumented-waits.sh` feeds it one fixture per rule, both
-  steps run before the emulator in the `playback-on-an-emulator` job, and
-  `./gradlew :app:check` runs the guard locally (a machine with no bash skips it and says
-  so). The scripts are pinned to LF by `.gitattributes`: a CRLF `set -euo pipefail` is
-  not a valid option name in bash.
+* Instrumented Compose tests wait for a DataStore write **off the main thread**. A
+  `waitUntil` runs its condition on the UI thread, which is the thread the write started
+  by a tap has to resume on, so the wait starves the write it is waiting for and times out
+  on a value that was never stored — 1.5.5's control-bar test failed that way and read like
+  a broken settings screen. `settings.awaitStored { … }`
+  (`app/src/androidTest/…/testing/StoredSettingsWaits.kt`) suspends on `Dispatchers.IO` and
+  returns null on timeout, so a write that really did not happen still fails the test.
+  `.github/scripts/check-instrumented-waits.sh` refuses the `waitUntil` family in any file
+  that reaches the store (`AppContainer`, `SettingsRepository`, `settingsDataStore`,
+  `container.settings`); `.github/scripts/test-check-instrumented-waits.sh` feeds it one
+  fixture per rule, both steps run before the emulator in the `playback-on-an-emulator`
+  job, and `./gradlew :app:check` runs the guard locally (a machine with no bash skips it
+  and says so). The scripts are pinned to LF by `.gitattributes`: a CRLF
+  `set -euo pipefail` is not a valid option name in bash.
 * There is still **no physical device in the loop**, and the development machine
   cannot start an emulator (no hypervisor driver), so the only place the app really
   runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A
