@@ -1,0 +1,7 @@
+# The shell scripts run on Linux in CI and in Git Bash on Windows, and a CRLF line
+# ending breaks both: `set -euo pipefail\r` is not a valid option name. With
+# core.autocrlf=true every checkout would hand Windows a CRLF copy, so the checkout is
+# pinned to LF here regardless of that setting. The index already holds these files
+# with LF, so this changes nothing about what is committed — only what a checkout
+# writes back out.
+*.sh text eol=lf
