@@ -99,9 +99,11 @@ class SettingsControlsPositionTest {
 
         // The chip launches the write on the composition's own scope, and the v2 rule
         // dispatches that back to its StandardTestDispatcher: a queued task runs only when
-        // the test lets it, so `waitForIdle` is what starts the write at all. Without it the
-        // test waits on a coroutine that has not been dispatched yet.
+        // the test advances the scheduler. `waitForIdle` settles the composition the click
+        // changed, and the scheduler is advanced on its own afterwards — the write is queued
+        // by the click that drain is draining, so it may not be reached by it.
         compose.waitForIdle()
+        compose.mainClock.scheduler.advanceUntilIdle()
 
         // The wait then happens one thread away from the UI: `awaitStored` suspends on
         // Dispatchers.IO and returns as soon as the stored flow reports the new edge, or null

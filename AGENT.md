@@ -194,8 +194,9 @@ Verification rules that apply to this repository:
   the Compose rules are the `androidx.compose.ui.test.junit4.v2` ones (their
   `StandardTestDispatcher` queues composition instead of running it eagerly; every
   `onNode…` query synchronises before it reads, which is why no test here touches a
-  node straight after `setContent`, and why a tap that stores something calls
-  `compose.waitForIdle()` before the wait: the write it starts is queued there too). A `waitUntil` runs its condition on the UI thread,
+  node straight after `setContent`, and why a tap that stores something drains that
+  scheduler (`compose.mainClock.scheduler.advanceUntilIdle()`) before the wait: the write
+  it starts is queued there too). A `waitUntil` runs its condition on the UI thread,
   which is the thread the write started by a tap has to resume on, so the wait starves
   the write it is waiting for and times out on a value that was never stored — 1.5.5's
   control-bar test failed that way and read like a broken settings screen.
