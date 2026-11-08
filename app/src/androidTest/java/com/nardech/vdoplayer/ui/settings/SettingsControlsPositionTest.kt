@@ -97,12 +97,17 @@ class SettingsControlsPositionTest {
         // edge of the window can be swallowed before the chip sees it.
         compose.onNodeWithText(left).performSemanticsAction(SemanticsActions.OnClick)
 
-        // The tap starts a DataStore write from the composition's own scope, which resumes
-        // on the main thread, so the wait happens one thread away from it: `awaitStored`
-        // suspends on Dispatchers.IO and returns as soon as the stored flow reports the new
-        // edge, or null if nothing was written. A `compose.waitUntil` here would poll that
-        // same main thread and starve the write it is waiting for —
-        // `.github/scripts/check-instrumented-waits.sh` refuses it.
+        // The chip launches the write on the composition's own scope, and the v2 rule
+        // dispatches that back to its StandardTestDispatcher: a queued task runs only when
+        // the test lets it, so `waitForIdle` is what starts the write at all. Without it the
+        // test waits on a coroutine that has not been dispatched yet.
+        compose.waitForIdle()
+
+        // The wait then happens one thread away from the UI: `awaitStored` suspends on
+        // Dispatchers.IO and returns as soon as the stored flow reports the new edge, or null
+        // if nothing was written. A `compose.waitUntil` would poll the UI thread, which is
+        // the thread the write resumes on — `.github/scripts/check-instrumented-waits.sh`
+        // refuses it.
         val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
         assertNotNull("tapping the chip did not store the edge", stored)
     }
