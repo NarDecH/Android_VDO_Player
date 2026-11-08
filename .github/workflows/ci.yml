@@ -177,6 +177,19 @@ jobs:
       - name: Check out the revision
         uses: actions/checkout@v7
 
+      # These tests write through DataStore and then wait for the write, and a
+      # `waitUntil` polls that on the UI thread — the thread the write has to resume on.
+      # 1.5.5 shipped a test like that, which timed out on a value that was never stored
+      # and read as a broken settings screen. The guard runs first because it costs a
+      # second and the emulator below costs forty minutes.
+      - name: Prove the instrumented-wait guard still fires
+        shell: bash
+        run: bash .github/scripts/test-check-instrumented-waits.sh
+
+      - name: Check the instrumented tests do not wait on the main thread
+        shell: bash
+        run: bash .github/scripts/check-instrumented-waits.sh
+
       - name: Set up JDK 17
         uses: actions/setup-java@v6
         with:

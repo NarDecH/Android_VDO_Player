@@ -1,3 +1,4 @@
+import java.io.File
 import java.util.Properties
 
 plugins {
@@ -168,3 +169,66 @@ dependencies {
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.test.manifest)
 }
+
+/**
+ * `bash` on PATH, or null. Windows gets Git Bash's copy, which is the shell this
+ * repository's scripts are written for.
+ */
+fun bashOnPath(): String? {
+    val dirs = System.getenv("PATH").orEmpty().split(File.pathSeparator).filter { it.isNotBlank() }
+    for (dir in dirs) {
+        for (name in listOf("bash", "bash.exe")) {
+            val candidate = File(dir, name)
+            if (candidate.isFile) return candidate.absolutePath
+        }
+    }
+    return null
+}
+
+/**
+ * The instrumented tests write real preferences through DataStore and then wait for the
+ * write to land. `ComposeTestRule.waitUntil` runs its condition on the UI thread, which
+ * is the thread that write has to resume on, so waiting that way starves the write and
+ * times out on a value that was never stored — 1.5.5's control-bar test did exactly
+ * that and read as a broken settings screen. The guard in
+ * `.github/scripts/check-instrumented-waits.sh` refuses the pattern, and it is wired to
+ * `check` so a local build fails on the commit that introduced it rather than on an
+ * emulator run forty minutes later.
+ *
+ * The guard's own self-test (test-check-instrumented-waits.sh) stays in CI: it proves the
+ * rules still fire, which is not this module's business on every build. A machine with no
+ * bash skips this task and says so — CI runs it on every push, so nothing goes unwatched.
+ */
+val instrumentedWaitGuard = rootProject.layout.projectDirectory
+    .file(".github/scripts/check-instrumented-waits.sh")
+val bash = bashOnPath()
+
+if (bash != null) {
+    tasks.register<Exec>("checkInstrumentedWaits") {
+        group = "verification"
+        description =
+            "Refuses an instrumented test that polls the stored settings through compose.waitUntil."
+
+        inputs.files(fileTree("src/androidTest") { include("**/*.kt") })
+            .withPropertyName("instrumentedSources")
+        inputs.file(instrumentedWaitGuard).withPropertyName("guard")
+
+        workingDir(projectDir)
+        commandLine(bash, instrumentedWaitGuard.asFile.absolutePath, "src/androidTest")
+    }
+} else {
+    tasks.register("checkInstrumentedWaits") {
+        group = "verification"
+        description =
+            "Refuses an instrumented test that polls the stored settings through compose.waitUntil."
+
+        doLast {
+            logger.warn(
+                "checkInstrumentedWaits skipped: no bash on PATH. The guard is a shell " +
+                    "script and CI runs it on every push.",
+            )
+        }
+    }
+}
+
+tasks.named("check") { dependsOn("checkInstrumentedWaits") }

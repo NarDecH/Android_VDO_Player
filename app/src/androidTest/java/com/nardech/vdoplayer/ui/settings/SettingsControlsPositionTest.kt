@@ -19,10 +19,9 @@ import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.ControlsEdge
-import kotlinx.coroutines.Dispatchers
+import com.nardech.vdoplayer.testing.awaitStored
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -99,16 +98,12 @@ class SettingsControlsPositionTest {
         compose.onNodeWithText(left).performSemanticsAction(SemanticsActions.OnClick)
 
         // The tap starts a DataStore write from the composition's own scope, which resumes
-        // on the main thread — and waitUntil polls its condition on that same thread, so
-        // waiting that way starves the write it is waiting for and times out on a value
-        // that was never stored. The wait runs on this thread instead, one thread away
-        // from the main thread that has to finish the write, and completes as soon as the
-        // stored flow reports the new edge.
-        val stored = runBlocking(Dispatchers.IO) {
-            withTimeoutOrNull(5_000) {
-                container.settings.settings.first { it.controlsEdge == ControlsEdge.LEFT }
-            }
-        }
+        // on the main thread, so the wait happens one thread away from it: `awaitStored`
+        // suspends on Dispatchers.IO and returns as soon as the stored flow reports the new
+        // edge, or null if nothing was written. A `compose.waitUntil` here would poll that
+        // same main thread and starve the write it is waiting for —
+        // `.github/scripts/check-instrumented-waits.sh` refuses it.
+        val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
         assertNotNull("tapping the chip did not store the edge", stored)
     }
 }
