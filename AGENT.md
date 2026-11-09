@@ -204,6 +204,10 @@ Verification rules that apply to this repository:
   job, and `./gradlew :app:check` runs the guard locally (a machine with no bash skips it
   and says so). The scripts are pinned to LF by `.gitattributes`: a CRLF
   `set -euo pipefail` is not a valid option name in bash.
+  The emulator job also caps that run with `timeout` — twelve minutes, or
+  `PLAYBACK_TEST_TIMEOUT` — and prints the runner's `TestRunner: started` lines when the
+  cap fires, so a wait that never finishes fails the job in minutes and names the test,
+  instead of spending the job's whole 45-minute budget learning nothing.
 * There is still **no physical device in the loop**, and the development machine
   cannot start an emulator (no hypervisor driver), so the only place the app really
   runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A

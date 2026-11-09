@@ -27,8 +27,29 @@ if [ ! -x "$adb_bin" ]; then
   adb_bin=adb
 fi
 
+# A test that waits for something that never happens does not fail, it stops. The v2
+# Compose rules once left this step running for over half an hour where the same suite
+# finishes in about two minutes, and the only way to read its log was to sit through it.
+# The wall clock is capped here instead: `timeout` stops the run while the emulator is
+# still up, so the diagnostics below still explain what it was doing.
+#
+# The cap is on the whole run rather than on one test, and that is deliberate: JUnit's
+# `Timeout` rule runs its test on a second thread, which an instrumentation test cannot
+# do, and the runner's own `timeout_msec` argument is deprecated. The started/finished
+# lines collected below name the test that was running when the cap hit.
+playback_timeout="${PLAYBACK_TEST_TIMEOUT:-12m}"
 status=0
-./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || status=$?
+if command -v timeout >/dev/null 2>&1; then
+  timeout --signal=INT --kill-after=60s "$playback_timeout"     ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || status=$?
+else
+  # macOS has no coreutils `timeout` unless one is installed by hand, and a developer
+  # running this by hand should get the run rather than an error about the cap.
+  ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || status=$?
+fi
+
+if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+  echo "=== the run was still going after $playback_timeout and was stopped"
+fi
 
 if [ "$status" -ne 0 ]; then
   mkdir -p "$diagnostics_dir"
@@ -43,6 +64,12 @@ if [ "$status" -ne 0 ]; then
     "$diagnostics_dir/logcat.txt" > "$diagnostics_dir/logcat-playback.txt" || true
   echo '=== player and test-runner lines from logcat'
   tail -200 "$diagnostics_dir/logcat-playback.txt" || true
+
+  # A run that was stopped has no stack trace — nothing failed on its own — so the
+  # runner's own lines are what names the test it was sitting in.
+  grep -E 'TestRunner: (started|finished|failed)' "$diagnostics_dir/logcat.txt" | tail -60     > "$diagnostics_dir/test-runner.txt" || true
+  echo '=== the tests the runner started and finished'
+  tail -20 "$diagnostics_dir/test-runner.txt" || true
 
   # A device that died mid-run says so here and nowhere else.
   timeout 60 "$adb_bin" shell dmesg > "$diagnostics_dir/dmesg.txt" 2>&1 || true
