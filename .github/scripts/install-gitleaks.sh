@@ -58,8 +58,27 @@ work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
 mkdir -p "$work/bin"
 
-curl -fsSLo "$work/$asset" "$base/$asset"
-curl -fsSLo "$work/checksums.txt" "$base/gitleaks_${version}_checksums.txt"
+# The release host answers the odd 429 or 5xx under load, and a job that dies on one of
+# those teaches people to re-run CI instead of reading the result. Retries are safe here
+# because the checksum below, not the download, is what decides whether the bytes are
+# right: a truncated or swapped asset still fails the check.
+fetch() {
+  url=$1
+  out=$2
+  attempt=1
+  while ! curl -fsSLo "$out" "$url"; do
+    if [ "$attempt" -ge 5 ]; then
+      echo "could not download $url after $attempt attempts" >&2
+      return 1
+    fi
+    echo "download of $url failed, retrying in $((attempt * 5))s" >&2
+    sleep $((attempt * 5))
+    attempt=$((attempt + 1))
+  done
+}
+
+fetch "$base/$asset" "$work/$asset"
+fetch "$base/gitleaks_${version}_checksums.txt" "$work/checksums.txt"
 # The checksum file lists one line per asset; only this platform's line is checked,
 # and `--check` fails the script if the digest does not match.
 (cd "$work" && grep -F "  $asset" checksums.txt | sha256sum --check -)

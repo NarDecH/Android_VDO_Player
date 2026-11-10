@@ -138,8 +138,10 @@ Verification rules that apply to this repository:
   `.github/scripts/tracked-secret-files.sh` fails on a tracked file whose name
   matches the "never commit these" list in `.gitignore` (keystores, `*.pem` and
   `*.key`, `.env` but not `.env.example`, `google-services.json`,
-  `.git-credentials*`); `.github/scripts/install-gitleaks.sh` pins gitleaks 8.30.1
-  and verifies the download against the release's SHA-256 list; and
+  `.git-credentials*`); `.github/scripts/install-gitleaks.sh` pins gitleaks 8.30.1,
+  retries a failed download with a widening pause and verifies the bytes against the
+  release's SHA-256 list, so a 5xx from the release host is a retry rather than a red
+  check; and
   `.github/scripts/scan-commits-for-secrets.sh` owns the range rule — the commits a
   change adds, `origin/<base>..HEAD` on a pull request, the pushed range or the
   tagged commit otherwise — then runs gitleaks with `--redact`, so a failure names
