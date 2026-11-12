@@ -139,7 +139,8 @@ Verification rules that apply to this repository:
   matches the "never commit these" list in `.gitignore` (keystores, `*.pem` and
   `*.key`, `.env` but not `.env.example`, `google-services.json`,
   `.git-credentials*`); `.github/scripts/install-gitleaks.sh` pins gitleaks 8.30.1,
-  retries a failed download with a widening pause and verifies the bytes against the
+  retries a failed download with a widening pause — a 404 or 410 fails at once, since a
+  missing asset does not come back — and verifies the bytes against the
   release's SHA-256 list, so a 5xx from the release host is a retry rather than a red
   check; and
   `.github/scripts/scan-commits-for-secrets.sh` owns the range rule — the commits a

@@ -62,16 +62,30 @@ mkdir -p "$work/bin"
 # those teaches people to re-run CI instead of reading the result. Retries are safe here
 # because the checksum below, not the download, is what decides whether the bytes are
 # right: a truncated or swapped asset still fails the check.
+#
+# A 404 or 410 is the exception. The pinned asset belongs to a release that is either
+# published or not, so the next attempt finds it just as missing — waiting out the backoff
+# only delays the report. To tell those apart from a 5xx, the status is read rather than
+# curl's exit code: `-f` would flatten a missing asset and a busy host into the same
+# failure, which is why the download is fetched without it and the code inspected here.
 fetch() {
   url=$1
   out=$2
   attempt=1
-  while ! curl -fsSLo "$out" "$url"; do
+  while :; do
+    code=$(curl -sSLo "$out" -w '%{http_code}' "$url") || code=${code:-000}
+    case "$code" in
+      2??) return 0 ;;
+      404 | 410)
+        echo "$url is gone (HTTP $code); the pinned release no longer publishes it" >&2
+        return 1
+        ;;
+    esac
     if [ "$attempt" -ge 5 ]; then
-      echo "could not download $url after $attempt attempts" >&2
+      echo "could not download $url after $attempt attempts (last HTTP $code)" >&2
       return 1
     fi
-    echo "download of $url failed, retrying in $((attempt * 5))s" >&2
+    echo "download of $url failed (HTTP $code), retrying in $((attempt * 5))s" >&2
     sleep $((attempt * 5))
     attempt=$((attempt + 1))
   done
