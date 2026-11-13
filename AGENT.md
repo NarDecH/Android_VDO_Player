@@ -142,7 +142,10 @@ Verification rules that apply to this repository:
   retries a failed download with a widening pause — a 404 or 410 fails at once, since a
   missing asset does not come back — and verifies the bytes against the
   release's SHA-256 list, so a 5xx from the release host is a retry rather than a red
-  check; and
+  check; `.github/scripts/test-install-gitleaks.sh` holds that behaviour still
+  without the network by stubbing `curl` and `sleep` — the shipped 5/10/15/20
+  backoff, a 410 that must not be retried, a 503 that must be, a connection that
+  never happened, and a 200 that must go on to the checksum file; and
   `.github/scripts/scan-commits-for-secrets.sh` owns the range rule — the commits a
   change adds, `origin/<base>..HEAD` on a pull request, the pushed range or the
   tagged commit otherwise — then runs gitleaks with `--redact`, so a failure names

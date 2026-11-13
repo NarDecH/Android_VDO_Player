@@ -46,6 +46,15 @@ jobs:
       # against the release's own SHA-256 list: a scanner whose rules float starts
       # failing commits that changed nothing. The version lives in that script so the
       # release workflow cannot drift from this one.
+      #
+      # That installer is what stands between a bad download and a scanner that quietly
+      # matches nothing, and every branch in it is one CI only reaches on a bad day. The
+      # self-test answers for the release host, so proving the retry, the immediate
+      # 404/410 and the checksum stage costs a second and no network.
+      - name: Prove the installer survives a broken download
+        shell: bash
+        run: bash .github/scripts/test-install-gitleaks.sh
+
       - name: Install gitleaks
         shell: bash
         run: bash .github/scripts/install-gitleaks.sh
