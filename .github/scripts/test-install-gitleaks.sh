@@ -6,7 +6,8 @@
 # branch CI only reaches when the release host misbehaves — the one moment nobody wants
 # to be reading the script for the first time. `curl` is stubbed so the answers are
 # scripted: a 410 and a 404 that must not be retried, a 503 and a connection that never
-# happened, which must be, and a 200 that must go straight on to the checksum file.
+# happened, which must be, a 302 that must be followed to the CDN, and a 200 that must
+# go straight on to the checksum file.
 #
 # `sleep` is stubbed too, and that is the point of the arrangement: the shipped backoff
 # is asserted exactly (5, 10, 15, 20) without the test waiting a minute for it, so
@@ -39,11 +40,19 @@ cat >"$stub/curl" <<'STUB'
 #!/usr/bin/env bash
 out=''
 url=''
+follow=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -w) shift 2 ;;
-    -o | -sSLo | --output) out=$2; shift 2 ;;
-    -*) shift ;;
+    -o | -sSLo | --output)
+      # -L is what reaches a release asset at all, since the host redirects to its CDN,
+      # so it is recorded rather than assumed: a call without it is answered the way curl
+      # answers one.
+      case "$1" in *L*) follow=1 ;; esac
+      out=$2
+      shift 2
+      ;;
+    -*) case "$1" in *L*) follow=1 ;; esac; shift ;;
     *) url=$1; shift ;;
   esac
 done
@@ -54,13 +63,27 @@ if [ -z "$url" ] || [ -z "$out" ]; then
   exit 99
 fi
 
+# Hands out the next scripted status; the last line repeats, so one entry means "forever".
+next_code() {
+  n=$(cat "$STUB_INDEX" 2>/dev/null || printf 0)
+  code=$(sed -n "$((n + 1))p" "$STUB_CODES")
+  if [ -z "$code" ]; then
+    code=$(tail -n 1 "$STUB_CODES")
+  fi
+  printf '%s\n' "$((n + 1))" >"$STUB_INDEX"
+  printf '%s' "$code"
+}
+
 printf '%s\n' "$url" >>"$STUB_LOG"
-n=$(cat "$STUB_INDEX" 2>/dev/null || printf 0)
-code=$(sed -n "$((n + 1))p" "$STUB_CODES")
-if [ -z "$code" ]; then
-  code=$(tail -n 1 "$STUB_CODES")
+code=$(next_code)
+# GitHub does not serve a release asset itself: it answers 302 and points at its CDN, and
+# real curl follows that inside the one call and reports the last hop. Only a call that
+# carried -L follows it, which is what makes the redirect case about the install rather
+# than about this stub.
+if [ "$code" != 000 ] && [ "${code#3}" != "$code" ] && [ "$follow" = 1 ]; then
+  printf '%s\n' "https://objects.example.invalid/asset/$(basename "$url")" >>"$STUB_LOG"
+  code=$(next_code)
 fi
-printf '%s\n' "$((n + 1))" >"$STUB_INDEX"
 
 # Real curl writes the body before reporting the status, so the file exists even on a
 # failure; the installer must not trust it, and the checksum stage is what catches it.
@@ -203,6 +226,20 @@ case "$(tail -n 1 "$STUB_LOG")" in
   *) fail 'the third request is the checksum file' "$(cat "$STUB_LOG")" ;;
 esac
 expect_no_text 'a recovery is not reported as a missing asset' 'is gone'
+
+# The normal day: GitHub answers a release asset with a 302 to its CDN, so the install
+# has to follow it inside the same call. If it stopped asking curl to do that, a working
+# download would look like a busy host: four pauses, then "last HTTP 302".
+run redirected 302 200
+expect_status 'a redirected download still fails at the checksum stage' 1
+expect_calls 'a redirect is followed, not retried' 3
+expect_pauses 'a redirect waits for nothing' ''
+expect_no_text 'a redirect is not retried' 'retrying'
+expect_no_text 'a redirect is not reported as a busy host' 'last HTTP 302'
+case "$(sed -n 2p "$STUB_LOG")" in
+  *objects.example.invalid*) pass 'the second request goes to the redirected host' ;;
+  *) fail 'the second request goes to the redirected host' "$(cat "$STUB_LOG")" ;;
+esac
 
 # A good answer: two requests (asset, checksums), no pause, and the empty stub checksum
 # file is what stops it — which is the stage that exists so a swapped asset cannot be

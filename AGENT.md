@@ -145,7 +145,8 @@ Verification rules that apply to this repository:
   check; `.github/scripts/test-install-gitleaks.sh` holds that behaviour still
   without the network by stubbing `curl` and `sleep` — the shipped 5/10/15/20
   backoff, a 410 that must not be retried, a 503 that must be, a connection that
-  never happened, and a 200 that must go on to the checksum file; and
+  never happened, a 302 that must be followed to the CDN, and a 200 that must go on
+  to the checksum file; and
   `.github/scripts/scan-commits-for-secrets.sh` owns the range rule — the commits a
   change adds, `origin/<base>..HEAD` on a pull request, the pushed range or the
   tagged commit otherwise — then runs gitleaks with `--redact`, so a failure names
