@@ -6,8 +6,8 @@
 # branch CI only reaches when the release host misbehaves — the one moment nobody wants
 # to be reading the script for the first time. `curl` is stubbed so the answers are
 # scripted: a 410 and a 404 that must not be retried, a 503 and a connection that never
-# happened, which must be, a 302 that must be followed to the CDN, and a 200 that must
-# go straight on to the checksum file.
+# happened, which must be, a 302 that must be followed to the CDN, a redirect loop that
+# must end after the retries, and a 200 that must go straight on to the checksum file.
 #
 # `sleep` is stubbed too, and that is the point of the arrangement: the shipped backoff
 # is asserted exactly (5, 10, 15, 20) without the test waiting a minute for it, so
@@ -75,15 +75,22 @@ next_code() {
 }
 
 printf '%s\n' "$url" >>"$STUB_LOG"
+printf '%s\n' "$url" >>"$STUB_CALLS"
 code=$(next_code)
 # GitHub does not serve a release asset itself: it answers 302 and points at its CDN, and
 # real curl follows that inside the one call and reports the last hop. Only a call that
-# carried -L follows it, which is what makes the redirect case about the install rather
-# than about this stub.
-if [ "$code" != 000 ] && [ "${code#3}" != "$code" ] && [ "$follow" = 1 ]; then
+# carried -L follows. A host that redirects to itself is where real curl gives up: exit 47
+# after its own limit, still printing the status it ended on.
+hops=0
+while [ "$code" != 000 ] && [ "${code#3}" != "$code" ] && [ "$follow" = 1 ]; do
+  if [ "$hops" -ge 3 ]; then
+    printf '%s' "$code"
+    exit 47
+  fi
+  hops=$((hops + 1))
   printf '%s\n' "https://objects.example.invalid/asset/$(basename "$url")" >>"$STUB_LOG"
   code=$(next_code)
-fi
+done
 
 # Real curl writes the body before reporting the status, so the file exists even on a
 # failure; the installer must not trust it, and the checksum stage is what catches it.
@@ -102,21 +109,25 @@ STUB
 
 chmod +x "$stub/curl" "$stub/sleep"
 
-# run <name> <codes...>; leaves the installer's $status and $output, plus $calls (the
-# urls curl was asked for) and $pauses (the sleeps the installer asked for).
+# run <name> <codes...>; leaves the installer's $status and $output, plus $requests (how
+# often curl ran), $calls (the urls it was asked for, redirects included) and $pauses
+# (the sleeps the installer asked for).
 run() {
   local name=$1
   shift
   export STUB_CODES="$work/$name.codes" STUB_INDEX="$work/$name.index"
   export STUB_LOG="$work/$name.calls" STUB_SLEEP_LOG="$work/$name.sleeps"
+  export STUB_CALLS="$work/$name.requests"
   printf '%s\n' "$@" >"$STUB_CODES"
   : >"$STUB_LOG"
+  : >"$STUB_CALLS"
   : >"$STUB_SLEEP_LOG"
   rm -f "$STUB_INDEX"
 
   status=0
   output=$(PATH="$stub:$PATH" bash "$script" "$work/$name.bin" 2>&1) || status=$?
   calls=$(wc -l <"$STUB_LOG" | tr -d ' ')
+  requests=$(wc -l <"$STUB_CALLS" | tr -d ' ')
   pauses=$(tr '\n' ' ' <"$STUB_SLEEP_LOG")
   pauses=${pauses% }
 }
@@ -160,6 +171,15 @@ expect_calls() { # <label> <count>
   fi
 }
 
+expect_requests() { # <label> <count>
+  if [ "$requests" -eq "$2" ]; then
+    pass "$1"
+  else
+    fail "$1 — curl ran $requests time(s), wanted $2" \
+      "$(cat "$STUB_CALLS" 2>/dev/null)"
+  fi
+}
+
 expect_pauses() { # <label> <space separated seconds>
   if [ "$pauses" = "$2" ]; then
     pass "$1"
@@ -200,6 +220,7 @@ expect_nothing_installed 'a 404 installs nothing' "$work/missing.bin"
 run busy 503
 expect_status 'a 5xx eventually fails the install' 1
 expect_calls 'a 5xx is tried five times' 5
+expect_requests 'a 5xx costs five curl calls' 5
 expect_pauses 'the pauses widen on a 5xx' '5 10 15 20'
 expect_text 'a 5xx reports how many attempts and the last status' \
   'after 5 attempts (last HTTP 503)'
@@ -220,6 +241,7 @@ expect_nothing_installed 'a dead connection installs nothing' "$work/offline.bin
 run recovered 503 200
 expect_status 'a recovered host still fails at the checksum stage' 1
 expect_calls 'a recovered download moves on to the checksum file' 3
+expect_requests 'a recovery costs three curl calls' 3
 expect_pauses 'a recovery waits once, then stops' '5'
 case "$(tail -n 1 "$STUB_LOG")" in
   *gitleaks_*_checksums.txt) pass 'the third request is the checksum file' ;;
@@ -227,12 +249,13 @@ case "$(tail -n 1 "$STUB_LOG")" in
 esac
 expect_no_text 'a recovery is not reported as a missing asset' 'is gone'
 
-# The normal day: GitHub answers a release asset with a 302 to its CDN, so the install
-# has to follow it inside the same call. If it stopped asking curl to do that, a working
+# The normal day: GitHub answers a release asset with a 302 to its CDN, so the install has
+# to follow it inside the same call. If it stopped asking curl to do that, a working
 # download would look like a busy host: four pauses, then "last HTTP 302".
 run redirected 302 200
 expect_status 'a redirected download still fails at the checksum stage' 1
 expect_calls 'a redirect is followed, not retried' 3
+expect_requests 'a redirect is followed inside one curl call' 2
 expect_pauses 'a redirect waits for nothing' ''
 expect_no_text 'a redirect is not retried' 'retrying'
 expect_no_text 'a redirect is not reported as a busy host' 'last HTTP 302'
@@ -240,6 +263,19 @@ case "$(sed -n 2p "$STUB_LOG")" in
   *objects.example.invalid*) pass 'the second request goes to the redirected host' ;;
   *) fail 'the second request goes to the redirected host' "$(cat "$STUB_LOG")" ;;
 esac
+
+# A host that redirects to itself. curl gives up on its own after its limit and still
+# reports 302, so the install must not spin: five attempts, the same widening pauses as
+# any other failure, and a last line naming the status it kept getting — which is what
+# tells "the redirect target is wrong" from "the network is down".
+run loop 302
+expect_status 'a redirect loop fails the install' 1
+expect_requests 'a redirect loop stops after five curl calls' 5
+expect_calls 'each attempt follows three redirects' 20
+expect_pauses 'a redirect loop keeps the widening pauses' '5 10 15 20'
+expect_text 'a redirect loop names the status it ended on' \
+  'after 5 attempts (last HTTP 302)'
+expect_nothing_installed 'a redirect loop installs nothing' "$work/loop.bin"
 
 # A good answer: two requests (asset, checksums), no pause, and the empty stub checksum
 # file is what stops it — which is the stage that exists so a swapped asset cannot be
