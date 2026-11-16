@@ -204,6 +204,10 @@ Verification rules that apply to this repository:
   a broken settings screen. `settings.awaitStored { … }`
   (`app/src/androidTest/…/testing/StoredSettingsWaits.kt`) suspends on `Dispatchers.IO` and
   returns null on timeout, so a write that really did not happen still fails the test.
+  A tap hands its write to the composition's own scope, so `compose.waitForIdle()` comes
+  before `awaitStored`: without it the five-second clock can start before the write has
+  been dispatched, which is how that assertion failed three times on a loaded emulator
+  while the feature worked.
   `.github/scripts/check-instrumented-waits.sh` refuses the `waitUntil` family in any file
   that reaches the store (`AppContainer`, `SettingsRepository`, `settingsDataStore`,
   `container.settings`); `.github/scripts/test-check-instrumented-waits.sh` feeds it one

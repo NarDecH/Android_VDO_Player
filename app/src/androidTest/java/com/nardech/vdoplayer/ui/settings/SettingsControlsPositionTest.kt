@@ -24,7 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.fail
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -97,13 +97,26 @@ class SettingsControlsPositionTest {
         // edge of the window can be swallowed before the chip sees it.
         compose.onNodeWithText(left).performSemanticsAction(SemanticsActions.OnClick)
 
-        // The tap starts a DataStore write from the composition's own scope, which resumes
-        // on the main thread, so the wait happens one thread away from it: `awaitStored`
+        // The click hands the write to the composition's scope and returns, so the tap is
+        // proof that the chip was hit and nothing more. Idling here runs whatever the tap
+        // posted before the clock below starts: the emulator stalls frames under load — the
+        // run that failed logged "Skipped 42 frames" a third of a second before the tap —
+        // and starting the five-second clock before the write had even been dispatched is
+        // what made this test fail three times while the feature worked.
+        compose.waitForIdle()
+
+        // The wait itself happens one thread away from the composition: `awaitStored`
         // suspends on Dispatchers.IO and returns as soon as the stored flow reports the new
         // edge, or null if nothing was written. A `compose.waitUntil` here would poll that
         // same main thread and starve the write it is waiting for —
         // `.github/scripts/check-instrumented-waits.sh` refuses it.
         val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
-        assertNotNull("tapping the chip did not store the edge", stored)
+        if (stored == null) {
+            // What the store holds separates the two ways this fails: a value that is still
+            // BOTTOM means the tap never reached the write, and a value of LEFT read now
+            // means the write landed after the wait had already given up.
+            val actual = runBlocking { container.settings.settings.first().controlsEdge }
+            fail("tapping the chip did not store the edge: the store says $actual")
+        }
     }
 }
