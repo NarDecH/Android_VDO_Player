@@ -17,6 +17,14 @@
 # printed, because the workflow uploads that directory as an artifact — the console
 # only keeps an excerpt, and the line that explains a decoder problem is often the
 # one the filter dropped.
+#
+# Why the suite runs more than once: one instrumented test in this project writes through
+# DataStore and then waits for the write, which is a race against whatever else the
+# emulator is doing, and it failed on one run in three while the feature worked. A single
+# green run cannot tell "fixed" from "did not happen to lose the race this time", so the
+# run repeats — twice by default, `PLAYBACK_TEST_ROUNDS` to change it — and every round's
+# report is copied out before the next round overwrites it. `emulator-diagnostics/round-N`
+# is what the summary in ci.yml reads to say which round did what.
 set -u
 
 # Where the workflow looks for what a failure left behind (see ci.yml).
@@ -37,23 +45,104 @@ fi
 # `Timeout` rule runs its test on a second thread, which an instrumentation test cannot
 # do, and the runner's own `timeout_msec` argument is deprecated. The started/finished
 # lines collected below name the test that was running when the cap hit.
+#
+# The cap is per round: a round that hangs still fails the job in minutes, and a slow but
+# working pair of rounds is not cut off by the first one having used most of the budget.
 playback_timeout="${PLAYBACK_TEST_TIMEOUT:-12m}"
-status=0
+rounds="${PLAYBACK_TEST_ROUNDS:-2}"
+
+# The test this repetition exists for. Its name is reported per round, so "passed twice"
+# is something the run says out loud instead of something a reader has to infer.
+repeated_test="thePickerInSettingsWritesTheStoredChoice"
+results_dir="app/build/outputs/androidTest-results"
+
 if command -v timeout >/dev/null 2>&1; then
-  timeout --signal=INT --kill-after=60s "$playback_timeout"     ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || status=$?
+  have_timeout=1
 else
-  # macOS has no coreutils `timeout` unless one is installed by hand, and a developer
-  # running this by hand should get the run rather than an error about the cap.
-  ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || status=$?
+  have_timeout=0
 fi
 
-if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
-  echo "=== the run was still going after $playback_timeout and was stopped"
-fi
+run_round() {
+  gradle_status=0
+  if [ "$have_timeout" -eq 1 ]; then
+    timeout --signal=INT --kill-after=60s "$playback_timeout"       ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || gradle_status=$?
+  else
+    # macOS has no coreutils `timeout` unless one is installed by hand, and a developer
+    # running this by hand should get the run rather than an error about the cap.
+    ./gradlew :app:connectedDebugAndroidTest --no-daemon --stacktrace || gradle_status=$?
+  fi
+}
 
+snapshot_round() { # <round> — keeps the report the next round is about to overwrite
+  round=$1
+  mkdir -p "$diagnostics_dir/round-$round"
+  # The report sits two directories down (`connected/debug/TEST-test(AVD) - 14.xml`) and
+  # its name contains spaces and parentheses, so `find -print0` rather than a glob: a
+  # one-level glob here silently copied nothing, which the stub test caught.
+  find "$results_dir" -name 'TEST-*.xml' -print0 2>/dev/null |
+    while IFS= read -r -d '' report; do
+      cp "$report" "$diagnostics_dir/round-$round/"
+    done
+}
+
+report_round() { # <round> — one line the log can be read from
+  round=$1
+  directory="$diagnostics_dir/round-$round"
+  total=0
+  failed=0
+  for report in "$directory"/*.xml; do
+    [ -f "$report" ] || continue
+    total=$((total + $(grep -c '<testcase' "$report" || true)))
+    failed=$((failed + $(grep -c '<failure\|<error' "$report" || true)))
+  done
+
+  # A passing case in this report is a self-closing tag; a failing one is followed by its
+  # `<failure>`, which is why the line's ending is what separates them.
+  outcome=missing
+  for report in "$directory"/*.xml; do
+    [ -f "$report" ] || continue
+    line=$(grep -m1 "name=\"$repeated_test\"" "$report" || true)
+    [ -n "$line" ] || continue
+    case "$line" in
+      *'/>'*) outcome=passed ;;
+      *) outcome=failed ;;
+    esac
+    break
+  done
+
+  echo "=== round $round: $total test(s), $failed failed; $repeated_test $outcome"
+}
+
+overall=0
+round=1
+while [ "$round" -le "$rounds" ]; do
+  echo "=== instrumented round $round of $rounds"
+  # Each round writes over the last one's report, so the old one goes first: a round that
+  # dies before producing a report must not leave the previous round's green report behind
+  # to be counted as if it were this round's.
+  rm -rf "$results_dir" app/build/reports/androidTests
+  run_round
+  status=$gradle_status
+
+  if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+    echo "=== round $round was still going after $playback_timeout and was stopped"
+  fi
+  if [ "$status" -ne 0 ]; then
+    echo "=== round $round: gradle exited with $status"
+    # The first failure decides the job, but the loop keeps going: a second data point is
+    # the reason this runs twice, and a failing first round is exactly when it is wanted.
+    [ "$overall" -eq 0 ] && overall=$status
+  fi
+
+  snapshot_round "$round"
+  report_round "$round"
+  round=$((round + 1))
+done
+
+status=$overall
 if [ "$status" -ne 0 ]; then
   mkdir -p "$diagnostics_dir"
-  echo "=== gradle exited with $status"
+  echo "=== a round failed (status $status)"
 
   # `VDO/` is the app's own log tag, covering the player, the decoder manager and
   # NextLib's adapter; the rest is what the platform decoder and FFmpeg print while

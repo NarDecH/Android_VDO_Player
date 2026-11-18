@@ -275,42 +275,68 @@ jobs:
       # run, so the counts are readable from the checks API without downloading
       # anything — the FFmpeg-only case is worth this much because it is the one test
       # that skips itself when its premise stops holding.
+      #
+      # The emulator job runs the suite more than once, so each round is summarised on
+      # its own: one annotation per round, plus one naming the test the repetition exists
+      # for. "Passed in both rounds" is then a fact in the checks API rather than a
+      # conclusion drawn from reading two interleaved logs.
       - name: Summarise the instrumented run
         if: always()
         shell: bash
         run: |
           python3 - <<'PY'
           import glob
+          import os
           import xml.etree.ElementTree as ET
 
-          results = []
-          for path in glob.glob('app/build/outputs/androidTest-results/**/TEST-*.xml', recursive=True):
-              for case in ET.parse(path).getroot().iter('testcase'):
-                  outcome = 'passed'
-                  if case.find('skipped') is not None:
-                      outcome = 'SKIPPED'
-                  elif case.find('failure') is not None:
-                      outcome = 'FAILED'
-                  elif case.find('error') is not None:
-                      outcome = 'ERROR'
-                  results.append((outcome, f"{case.get('classname', '').split('.')[-1]}.{case.get('name')}"))
+          def results_for(paths):
+              results = []
+              for path in paths:
+                  for case in ET.parse(path).getroot().iter('testcase'):
+                      outcome = 'passed'
+                      if case.find('skipped') is not None:
+                          outcome = 'SKIPPED'
+                      elif case.find('failure') is not None:
+                          outcome = 'FAILED'
+                      elif case.find('error') is not None:
+                          outcome = 'ERROR'
+                      results.append((outcome, f"{case.get('classname', '').split('.')[-1]}.{case.get('name')}"))
+              return results
 
-          for outcome, name in results:
-              print(f'{outcome:>8}  {name}')
+          def report(label, results):
+              for outcome, name in results:
+                  print(f'{outcome:>8}  {name}')
+              if not results:
+                  print(f'::warning title=Instrumented results::{label}: no results on disk')
+                  return
+              counts = {}
+              for outcome, _ in results:
+                  counts[outcome] = counts.get(outcome, 0) + 1
+              skipped = [name for outcome, name in results if outcome == 'SKIPPED']
+              summary = ', '.join(f'{count} {outcome.lower()}' for outcome, count in sorted(counts.items()))
+              note = f'{label}: {len(results)} instrumented test(s): {summary}'
+              if skipped:
+                  note += ' (skipped: ' + ', '.join(skipped) + ')'
+              print(f'::notice title=Instrumented results::{note}')
 
-          if not results:
-              print('::warning title=Instrumented results::no results on disk')
-              raise SystemExit(0)
-
-          counts = {}
-          for outcome, _ in results:
-              counts[outcome] = counts.get(outcome, 0) + 1
-          skipped = [name for outcome, name in results if outcome == 'SKIPPED']
-          summary = ', '.join(f'{count} {outcome.lower()}' for outcome, count in sorted(counts.items()))
-          note = f'{len(results)} instrumented test(s): {summary}'
-          if skipped:
-              note += ' (skipped: ' + ', '.join(skipped) + ')'
-          print(f'::notice title=Instrumented results::{note}')
+          # The test the repeat exists for. Naming it per round is the difference between a
+          # reader inferring "it passed twice" and the run saying so.
+          watched = 'thePickerInSettingsWritesTheStoredChoice'
+          rounds = sorted(d for d in glob.glob('emulator-diagnostics/round-*') if os.path.isdir(d))
+          if rounds:
+              for index, directory in enumerate(rounds, start=1):
+                  label = f'round {index} of {len(rounds)}'
+                  results = results_for(sorted(glob.glob(os.path.join(directory, 'TEST-*.xml'))))
+                  report(label, results)
+                  seen = [outcome for outcome, name in results if name.endswith('.' + watched)]
+                  if not seen:
+                      print(f'::warning title=Repeated test::{label}: {watched} did not run')
+                  for outcome in seen:
+                      print(f'::notice title=Repeated test::{label}: {watched} {outcome.lower()}')
+                  if len(seen) > 1:
+                      print(f'::warning title=Repeated test::{watched} ran {len(seen)} times in {label}')
+          else:
+              report('instrumented run', results_for(sorted(glob.glob('app/build/outputs/androidTest-results/**/TEST-*.xml', recursive=True))))
           PY
 
       # The steps above print an excerpt into the console, which is enough to see
