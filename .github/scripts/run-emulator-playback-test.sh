@@ -53,8 +53,15 @@ rounds="${PLAYBACK_TEST_ROUNDS:-2}"
 
 # The test this repetition exists for. Its name is reported per round, so "passed twice"
 # is something the run says out loud instead of something a reader has to infer.
+#
+# The name is written out as well as used: the summary step in ci.yml names the same test
+# in its annotations, and it reads the name from this file rather than keeping a second
+# copy of it. One name, one place to change when the guarded test is renamed.
 repeated_test="thePickerInSettingsWritesTheStoredChoice"
 results_dir="app/build/outputs/androidTest-results"
+
+mkdir -p "$diagnostics_dir"
+printf '%s\n' "$repeated_test" > "$diagnostics_dir/repeated-test.txt"
 
 if command -v timeout >/dev/null 2>&1; then
   have_timeout=1
@@ -78,7 +85,9 @@ snapshot_round() { # <round> — keeps the report the next round is about to ove
   mkdir -p "$diagnostics_dir/round-$round"
   # The report sits two directories down (`connected/debug/TEST-test(AVD) - 14.xml`) and
   # its name contains spaces and parentheses, so `find -print0` rather than a glob: a
-  # one-level glob here silently copied nothing, which the stub test caught.
+  # one-level glob here silently copied nothing, which the stub test caught. `-exec cp … +`
+  # cannot replace this loop — find wants `{}` immediately before the `+`, so the target
+  # directory cannot follow it, and `cp -t` does not exist on macOS.
   find "$results_dir" -name 'TEST-*.xml' -print0 2>/dev/null |
     while IFS= read -r -d '' report; do
       cp "$report" "$diagnostics_dir/round-$round/"
@@ -141,7 +150,7 @@ done
 
 status=$overall
 if [ "$status" -ne 0 ]; then
-  mkdir -p "$diagnostics_dir"
+  # The directory was made before the first round, so the files below always have a home.
   echo "=== a round failed (status $status)"
 
   # `VDO/` is the app's own log tag, covering the player, the decoder manager and

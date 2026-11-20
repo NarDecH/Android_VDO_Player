@@ -253,14 +253,24 @@ jobs:
       # The instrumented report says which assertion failed, and unlike logcat it is
       # still on disk once the emulator is gone, so it is printed here as well: this
       # step survives a script that never got as far as its own diagnostics.
+      #
+      # The suite runs more than once, and gradle's own directory keeps only the last
+      # round; the copies the script takes are read instead when they are there, so a
+      # failure that only the first round had still reaches this step's output.
       - name: Show the failing instrumented tests
         if: failure()
         shell: bash
         run: |
+          if compgen -G 'emulator-diagnostics/round-*/*.xml' > /dev/null; then
+            reports=(emulator-diagnostics/round-*)
+          else
+            # The script died before it copied anything, so gradle's directory is all there is.
+            reports=(app/build/outputs/androidTest-results app/build/reports/androidTests)
+          fi
+
           # Report names contain spaces and parentheses ("TEST-test(AVD) - 14.xml"), so
           # the paths are read NUL-separated instead of word-split.
-          find app/build/outputs/androidTest-results app/build/reports/androidTests \
-            -name '*.xml' -print0 2>/dev/null |
+          find "${reports[@]}" -name '*.xml' -print0 2>/dev/null |
           while IFS= read -r -d '' report; do
             if grep -q '<failure\|<error' "$report"; then
               echo "=== $report"
@@ -320,14 +330,26 @@ jobs:
               print(f'::notice title=Instrumented results::{note}')
 
           # The test the repeat exists for. Naming it per round is the difference between a
-          # reader inferring "it passed twice" and the run saying so.
-          watched = 'thePickerInSettingsWritesTheStoredChoice'
+          # reader inferring "it passed twice" and the run saying so. The script owns the
+          # name and writes it beside the reports; a copy here would be a second copy to
+          # keep in step with that one.
+          watched = ''
+          try:
+              with open('emulator-diagnostics/repeated-test.txt') as recorded:
+                  watched = recorded.read().strip()
+          except OSError:
+              pass
+          if not watched:
+              print('::warning title=Repeated test::the run did not record which test it watches')
+
           rounds = sorted(d for d in glob.glob('emulator-diagnostics/round-*') if os.path.isdir(d))
           if rounds:
               for index, directory in enumerate(rounds, start=1):
                   label = f'round {index} of {len(rounds)}'
                   results = results_for(sorted(glob.glob(os.path.join(directory, 'TEST-*.xml'))))
                   report(label, results)
+                  if not watched:
+                      continue
                   seen = [outcome for outcome, name in results if name.endswith('.' + watched)]
                   if not seen:
                       print(f'::warning title=Repeated test::{label}: {watched} did not run')

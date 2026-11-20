@@ -223,7 +223,9 @@ Verification rules that apply to this repository:
   races the emulator and a single green run cannot tell "fixed" from "did not lose the
   race this time": each round's JUnit report is copied to `emulator-diagnostics/round-N`
   before the next round overwrites it, and the summary step annotates every round plus
-  `thePickerInSettingsWritesTheStoredChoice`'s outcome in it.
+  the watched test's outcome in it. The name lives in the script, which writes it to
+  `emulator-diagnostics/repeated-test.txt`; the workflow reads that file, so renaming the
+  guarded test is a one-line change.
 * There is still **no physical device in the loop**, and the development machine
   cannot start an emulator (no hypervisor driver), so the only place the app really
   runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A
