@@ -270,6 +270,10 @@ jobs:
 
           # Report names contain spaces and parentheses ("TEST-test(AVD) - 14.xml"), so
           # the paths are read NUL-separated instead of word-split.
+          #
+          # `find` exits non-zero for a directory that is not there, and a run can die
+          # before gradle writes any report; nothing to show is then a fact about that
+          # other failure, not a second failure for this step to report.
           find "${reports[@]}" -name '*.xml' -print0 2>/dev/null |
           while IFS= read -r -d '' report; do
             if grep -q '<failure\|<error' "$report"; then
@@ -277,7 +281,7 @@ jobs:
               head -c 8000 "$report"
               printf '\n'
             fi
-          done
+          done || true
 
       # Which test failed is in the report; what the run *did* is not: a green report
       # and a report with three of five tests skipped look identical in the console.
