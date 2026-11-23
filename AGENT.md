@@ -218,8 +218,8 @@ Verification rules that apply to this repository:
   The emulator job also caps each round of that run with `timeout` — twelve minutes, or
   `PLAYBACK_TEST_TIMEOUT` — and prints the runner's `TestRunner: started` lines when the
   cap fires, so a wait that never finishes fails the job in minutes and names the test,
-  instead of spending the job's whole 45-minute budget learning nothing.
-  The suite itself runs twice (`PLAYBACK_TEST_ROUNDS`), because the settings-chip test
+  instead of spending the job's whole 60-minute budget learning nothing.
+  The suite itself runs three times (`PLAYBACK_TEST_ROUNDS`), because the settings-chip test
   races the emulator and a single green run cannot tell "fixed" from "did not lose the
   race this time": each round's JUnit report is copied to `emulator-diagnostics/round-N`
   before the next round overwrites it, and the summary step annotates every round plus

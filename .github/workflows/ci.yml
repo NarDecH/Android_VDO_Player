@@ -181,7 +181,7 @@ jobs:
   playback-on-an-emulator:
     name: playback on an emulator
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - name: Check out the revision
         uses: actions/checkout@v7
@@ -292,8 +292,8 @@ jobs:
       #
       # The emulator job runs the suite more than once, so each round is summarised on
       # its own: one annotation per round, plus one naming the test the repetition exists
-      # for. "Passed in both rounds" is then a fact in the checks API rather than a
-      # conclusion drawn from reading two interleaved logs.
+      # for. "Passed in every round" is then a fact in the checks API rather than a
+      # conclusion drawn from reading interleaved rounds' logs.
       - name: Summarise the instrumented run
         if: always()
         shell: bash
@@ -334,9 +334,9 @@ jobs:
               print(f'::notice title=Instrumented results::{note}')
 
           # The test the repeat exists for. Naming it per round is the difference between a
-          # reader inferring "it passed twice" and the run saying so. The script owns the
-          # name and writes it beside the reports; a copy here would be a second copy to
-          # keep in step with that one.
+          # reader inferring "it passed every round" and the run saying so. The script owns
+          # the name and writes it beside the reports; a copy here would be a second copy
+          # to keep in step with that one.
           watched = ''
           try:
               with open('emulator-diagnostics/repeated-test.txt') as recorded:

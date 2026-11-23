@@ -22,9 +22,10 @@
 # DataStore and then waits for the write, which is a race against whatever else the
 # emulator is doing, and it failed on one run in three while the feature worked. A single
 # green run cannot tell "fixed" from "did not happen to lose the race this time", so the
-# run repeats — twice by default, `PLAYBACK_TEST_ROUNDS` to change it — and every round's
-# report is copied out before the next round overwrites it. `emulator-diagnostics/round-N`
-# is what the summary in ci.yml reads to say which round did what.
+# run repeats — three times by default, `PLAYBACK_TEST_ROUNDS` to change it — and every
+# round's report is copied out before the next round overwrites it.
+# `emulator-diagnostics/round-N` is what the summary in ci.yml reads to say which round
+# did what.
 set -u
 
 # Where the workflow looks for what a failure left behind (see ci.yml).
@@ -47,12 +48,13 @@ fi
 # lines collected below name the test that was running when the cap hit.
 #
 # The cap is per round: a round that hangs still fails the job in minutes, and a slow but
-# working pair of rounds is not cut off by the first one having used most of the budget.
+# working set of rounds is not cut off by the first one having used most of the budget.
 playback_timeout="${PLAYBACK_TEST_TIMEOUT:-12m}"
-rounds="${PLAYBACK_TEST_ROUNDS:-2}"
+rounds="${PLAYBACK_TEST_ROUNDS:-3}"
 
-# The test this repetition exists for. Its name is reported per round, so "passed twice"
-# is something the run says out loud instead of something a reader has to infer.
+# The test this repetition exists for. Its name is reported per round, so "passed in
+# every round" is something the run says out loud instead of something a reader has to
+# infer.
 #
 # The name is written out as well as used: the summary step in ci.yml names the same test
 # in its annotations, and it reads the name from this file rather than keeping a second
@@ -139,7 +141,7 @@ while [ "$round" -le "$rounds" ]; do
   if [ "$status" -ne 0 ]; then
     echo "=== round $round: gradle exited with $status"
     # The first failure decides the job, but the loop keeps going: a second data point is
-    # the reason this runs twice, and a failing first round is exactly when it is wanted.
+    # the reason this repeats, and a failing first round is exactly when it is wanted.
     [ "$overall" -eq 0 ] && overall=$status
   fi
 
