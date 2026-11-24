@@ -199,6 +199,31 @@ jobs:
         shell: bash
         run: bash .github/scripts/check-instrumented-waits.sh
 
+      # The runner decides what this job says, and it cannot be run anywhere but on a
+      # device: the stub test runs it against a `gradlew` that writes the report a round
+      # would leave behind and an `adb` that answers like a device, so the rounds, the
+      # copied reports and the failure path are covered here in a second.
+      - name: Prove the emulator run's rounds and reports
+        shell: bash
+        run: bash .github/scripts/test-run-emulator-playback-test.sh
+
+      # The repetition is only worth its minutes if the test it watches still exists.
+      # A rename that updates the test but not the name in the runner leaves the rounds
+      # reporting on a name nothing produces; asking the source tree first costs a second
+      # instead of a failed job five minutes later.
+      - name: Prove the repeated run watches a test that exists
+        shell: bash
+        run: bash .github/scripts/check-repeated-test.sh
+
+      # Rounds, the cap on one round and this job's own limit are three numbers in two
+      # files. Three rounds of twelve minutes plus the boot fit inside 60; a fourth round
+      # would be killed mid-round by the timeout, and the diagnostics that explain a stall
+      # are collected inside the emulator's window, so that is the one run that would have
+      # none.
+      - name: Check the emulator job can afford its rounds
+        shell: bash
+        run: bash .github/scripts/check-emulator-budget.sh
+
       - name: Set up JDK 17
         uses: actions/setup-java@v6
         with:
@@ -301,6 +326,7 @@ jobs:
           python3 - <<'PY'
           import glob
           import os
+          import sys
           import xml.etree.ElementTree as ET
 
           def results_for(paths):
@@ -343,26 +369,44 @@ jobs:
                   watched = recorded.read().strip()
           except OSError:
               pass
-          if not watched:
-              print('::warning title=Repeated test::the run did not record which test it watches')
+
+          # A round that does not report the watched test has not checked the thing this
+          # repetition exists for, so it fails the job: a `::warning` here would leave the
+          # checks green on a run that watched nothing, which is the opposite of what the
+          # three rounds are for.
+          problems = []
+
+          def missing(message):
+              print(f'::error title=Repeated test::{message}')
+              problems.append(message)
 
           rounds = sorted(d for d in glob.glob('emulator-diagnostics/round-*') if os.path.isdir(d))
           if rounds:
+              if not watched:
+                  missing('the run did not record which test it watches, so no round was checked for it')
               for index, directory in enumerate(rounds, start=1):
                   label = f'round {index} of {len(rounds)}'
                   results = results_for(sorted(glob.glob(os.path.join(directory, 'TEST-*.xml'))))
                   report(label, results)
                   if not watched:
                       continue
+                  if not results:
+                      missing(f'{label}: no report on disk, so {watched} was not run')
+                      continue
                   seen = [outcome for outcome, name in results if name.endswith('.' + watched)]
                   if not seen:
-                      print(f'::warning title=Repeated test::{label}: {watched} did not run')
+                      missing(f'{label}: {watched} did not run')
                   for outcome in seen:
                       print(f'::notice title=Repeated test::{label}: {watched} {outcome.lower()}')
                   if len(seen) > 1:
                       print(f'::warning title=Repeated test::{watched} ran {len(seen)} times in {label}')
           else:
               report('instrumented run', results_for(sorted(glob.glob('app/build/outputs/androidTest-results/**/TEST-*.xml', recursive=True))))
+              missing('no round directory was left behind, so the watched test was never reported on')
+
+          if problems:
+              print(f'::error title=Repeated test::no round confirmed {watched or "the watched test"}: the repetition checked nothing')
+              sys.exit(1)
           PY
 
       # The steps above print an excerpt into the console, which is enough to see

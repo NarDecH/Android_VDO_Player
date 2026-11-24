@@ -225,7 +225,19 @@ Verification rules that apply to this repository:
   before the next round overwrites it, and the summary step annotates every round plus
   the watched test's outcome in it. The name lives in the script, which writes it to
   `emulator-diagnostics/repeated-test.txt`; the workflow reads that file, so renaming the
-  guarded test is a one-line change.
+  guarded test is a one-line change. A round that does not report that name fails the
+  job rather than warning, because three green rounds that watched nothing would say
+  the opposite of what the repetition is for;
+  `.github/scripts/check-repeated-test.sh` runs before the emulator and refuses a name
+  that no `@Test` under `app/src/androidTest` declares, so a rename that forgot the
+  script fails in a second instead of after the rounds.
+  `.github/scripts/check-emulator-budget.sh` compares rounds x per-round cap + boot +
+  setup with the job's `timeout-minutes`: three rounds of twelve minutes fit inside 60,
+  and a fourth round or a longer cap fails the job instead of being killed by it
+  mid-round, where the diagnostics are lost. Both guards, and the runner itself, are
+  tested by `.github/scripts/test-run-emulator-playback-test.sh`, which runs the real
+  script against a stub `gradlew` and `adb` — so the rounds, the copied reports and the
+  failure path are checked without an emulator.
 * There is still **no physical device in the loop**, and the development machine
   cannot start an emulator (no hypervisor driver), so the only place the app really
   runs is the `playback-on-an-emulator` job in `.github/workflows/ci.yml`. A
