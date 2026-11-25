@@ -326,6 +326,7 @@ jobs:
           python3 - <<'PY'
           import glob
           import os
+          import re
           import sys
           import xml.etree.ElementTree as ET
 
@@ -343,7 +344,43 @@ jobs:
                       results.append((outcome, f"{case.get('classname', '').split('.')[-1]}.{case.get('name')}"))
               return results
 
-          def report(label, results):
+          def test_seconds(paths):
+              # The report's own clock: every case's `time`, added up. A round's wall
+              # clock also covers the install and the runner starting, which no report
+              # holds, so this is the instrumented work of the round — the number to
+              # watch as it grows towards the cap below.
+              total = 0.0
+              for path in paths:
+                  for case in ET.parse(path).getroot().iter('testcase'):
+                      try:
+                          total += float(case.get('time') or 0)
+                      except ValueError:
+                          pass
+              return total
+
+          def clock(seconds):
+              if seconds < 60:
+                  return f'{seconds:.1f}s'
+              minutes, rest = divmod(seconds, 60)
+              return f'{int(minutes)}m {rest:04.1f}s'
+
+          # The cap the script gives each round (PLAYBACK_TEST_TIMEOUT, twelve minutes
+          # by default). Read from the script rather than repeated here, so a changed
+          # cap reaches the annotation; the default stands in when the script cannot be
+          # read, which happens on a run that died before it was written out.
+          cap = '12m'
+          try:
+              with open('.github/scripts/run-emulator-playback-test.sh') as script:
+                  found = re.search(
+                      r'playback_timeout="\$\{PLAYBACK_TEST_TIMEOUT:-([0-9]+[smh]?)\}"',
+                      script.read(),
+                  )
+              if found:
+                  cap = found.group(1)
+          except OSError:
+              pass
+
+          def report(label, results, seconds, cap_note=''):
               for outcome, name in results:
                   print(f'{outcome:>8}  {name}')
               if not results:
@@ -357,6 +394,10 @@ jobs:
               note = f'{label}: {len(results)} instrumented test(s): {summary}'
               if skipped:
                   note += ' (skipped: ' + ', '.join(skipped) + ')'
+              # How long the round's tests took, against the cap the round is killed
+              # at: a round that is creeping towards twelve minutes is visible here
+              # long before the cap turns it into a failure with no explanation.
+              note += f'; test time {clock(seconds)}' + cap_note
               print(f'::notice title=Instrumented results::{note}')
 
           # The test the repeat exists for. Naming it per round is the difference between a
@@ -386,8 +427,9 @@ jobs:
                   missing('the run did not record which test it watches, so no round was checked for it')
               for index, directory in enumerate(rounds, start=1):
                   label = f'round {index} of {len(rounds)}'
-                  results = results_for(sorted(glob.glob(os.path.join(directory, 'TEST-*.xml'))))
-                  report(label, results)
+                  paths = sorted(glob.glob(os.path.join(directory, 'TEST-*.xml')))
+                  results = results_for(paths)
+                  report(label, results, test_seconds(paths), f' of the {cap} round cap')
                   if not watched:
                       continue
                   if not results:
@@ -401,7 +443,8 @@ jobs:
                   if len(seen) > 1:
                       print(f'::warning title=Repeated test::{watched} ran {len(seen)} times in {label}')
           else:
-              report('instrumented run', results_for(sorted(glob.glob('app/build/outputs/androidTest-results/**/TEST-*.xml', recursive=True))))
+              paths = sorted(glob.glob('app/build/outputs/androidTest-results/**/TEST-*.xml', recursive=True))
+              report('instrumented run', results_for(paths), test_seconds(paths))
               missing('no round directory was left behind, so the watched test was never reported on')
 
           if problems:
