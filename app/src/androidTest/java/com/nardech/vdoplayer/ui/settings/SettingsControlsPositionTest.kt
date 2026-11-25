@@ -19,7 +19,7 @@ import com.nardech.vdoplayer.AppContainer
 import com.nardech.vdoplayer.R
 import com.nardech.vdoplayer.data.AppSettings
 import com.nardech.vdoplayer.data.ControlsEdge
-import com.nardech.vdoplayer.testing.awaitStored
+import com.nardech.vdoplayer.testing.awaitStoredSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -100,21 +100,26 @@ class SettingsControlsPositionTest {
         // The click hands the write to the composition's scope and returns, so the tap is
         // proof that the chip was hit and nothing more. Idling here runs whatever the tap
         // posted before the clock below starts: the emulator stalls frames under load — the
-        // run that failed logged "Skipped 42 frames" a third of a second before the tap —
-        // and starting the five-second clock before the write had even been dispatched is
-        // what made this test fail three times while the feature worked.
+        // run that failed logged "Skipped 42 frames" a third of a second before the tap.
         compose.waitForIdle()
 
-        // The wait itself happens one thread away from the composition: `awaitStored`
-        // suspends on Dispatchers.IO and returns as soon as the stored flow reports the new
-        // edge, or null if nothing was written. A `compose.waitUntil` here would poll that
-        // same main thread and starve the write it is waiting for —
+        // The composition's scope is driven from this thread, so the wait hands the thread
+        // back to it between reads instead of parking it for the whole window:
+        // `awaitStoredSettings` reads on Dispatchers.IO in short slices and lets the
+        // composition run in between, and still returns null when nothing matched inside
+        // the window — a write that really does not happen still fails the test. A
+        // `compose.waitUntil` here would run its condition on the UI thread, and
         // `.github/scripts/check-instrumented-waits.sh` refuses it.
-        val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
+        val stored = compose.awaitStoredSettings(container.settings) {
+            it.controlsEdge == ControlsEdge.LEFT
+        }
         if (stored == null) {
             // What the store holds separates the two ways this fails: a value that is still
             // BOTTOM means the tap never reached the write, and a value of LEFT read now
-            // means the write landed after the wait had already given up.
+            // means the write landed after the wait had already given up. One more turn for
+            // the composition, so a write queued as the window closed counts as late rather
+            // than as never having happened.
+            compose.waitForIdle()
             val actual = runBlocking { container.settings.settings.first().controlsEdge }
             fail("tapping the chip did not store the edge: the store says $actual")
         }

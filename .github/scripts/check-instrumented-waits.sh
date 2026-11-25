@@ -9,11 +9,12 @@
 # run to exactly that — "tapping the chip did not store the edge" was read as a broken
 # settings screen and was not one.
 #
-# The press-in fix is `awaitStored` in
-# app/src/androidTest/java/com/nardech/vdoplayer/testing/StoredSettingsWaits.kt: it
-# suspends on Dispatchers.IO, one thread away from the main thread that has to finish
-# the write, and returns null on timeout so a write that really did not happen still
-# fails the test.
+# The fix is `awaitStoredSettings` in
+# app/src/androidTest/java/com/nardech/vdoplayer/testing/StoredSettingsWaits.kt: it reads
+# the store on Dispatchers.IO in short slices and gives the test thread back to the
+# composition in between, because the composition's scope — which a tap hands its write
+# to — is driven from that thread. It still returns null when nothing matched inside the
+# window, so a write that really did not happen still fails the test.
 #
 # So the rule is narrow and total: a file that reaches the real store (AppContainer,
 # SettingsRepository, settingsDataStore, container.settings) may not use the waitUntil
@@ -69,14 +70,16 @@ done < <(find "$target" -type f -name '*.kt' -print0)
 if ((offenders)); then
   cat >&2 <<'EOF'
 
-Wait for the stored value off the main thread instead:
+Wait for the stored value with the helper that keeps the composition running:
 
-    val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
+    val stored = compose.awaitStoredSettings(container.settings) {
+        it.controlsEdge == ControlsEdge.LEFT
+    }
     assertNotNull("tapping the chip did not store the edge", stored)
 
-`awaitStored` lives in app/src/androidTest/java/com/nardech/vdoplayer/testing/. A
-`waitUntil` runs its condition on the UI thread, which is the thread the DataStore write
-has to resume on, so it times out on a value that never landed and makes a working
+`awaitStoredSettings` lives in app/src/androidTest/java/com/nardech/vdoplayer/testing/.
+A `waitUntil` runs its condition on the UI thread, which is where the composition runs
+the write a tap handed it, so it blocks the write it waits for and makes a working
 feature look broken. Waiting for a node is still fine in a file that does not read the
 store.
 EOF

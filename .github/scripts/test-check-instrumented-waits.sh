@@ -127,7 +127,9 @@ class SettingsEdgeTest {
     @Test
     fun theChipStoresTheEdge() {
         compose.onNodeWithText("Left").performSemanticsAction(SemanticsActions.OnClick)
-        val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
+        val stored = compose.awaitStoredSettings(container.settings) {
+            it.controlsEdge == ControlsEdge.LEFT
+        }
         assertNotNull(stored)
     }
 }
@@ -159,7 +161,9 @@ class SettingsEdgeTest {
     @Test
     fun theChipStoresTheEdge() {
         // Not this: compose.waitUntil(5_000) { container.settings.first().edge == LEFT }
-        val stored = container.settings.awaitStored { it.controlsEdge == ControlsEdge.LEFT }
+        val stored = compose.awaitStoredSettings(container.settings) {
+            it.controlsEdge == ControlsEdge.LEFT
+        }
         assertNotNull(stored)
     }
 }
@@ -175,7 +179,7 @@ expect_refusal 'the store is recognised through the repository' "$want" \
   "$work/polled-repository"
 expect_refusal 'the rest of the wait family is refused too' "$want" "$work/polled-node-count"
 expect_pass 'waiting for a node without the store passes' "$work/waiting-on-a-node"
-expect_pass 'awaitStored in a store-backed file passes' "$work/awaited"
+expect_pass 'the pumping helper in a store-backed file passes' "$work/awaited"
 expect_pass 'waitForIdle in a store-backed file passes' "$work/waited-for-idle"
 expect_pass 'a commented-out wait passes' "$work/commented"
 

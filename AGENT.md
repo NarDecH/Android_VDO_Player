@@ -197,17 +197,18 @@ Verification rules that apply to this repository:
   snapshot carries the guest's CPU state and this job does not always land on a host
   with the same CPU, which turns a saved boot into a boot failure. Judge a change like
   that one by the step timings in the run, not by the shape of the diff.
-* Instrumented Compose tests wait for a DataStore write **off the main thread**. A
-  `waitUntil` runs its condition on the UI thread, which is the thread the write started
-  by a tap has to resume on, so the wait starves the write it is waiting for and times out
-  on a value that was never stored — 1.5.5's control-bar test failed that way and read like
-  a broken settings screen. `settings.awaitStored { … }`
-  (`app/src/androidTest/…/testing/StoredSettingsWaits.kt`) suspends on `Dispatchers.IO` and
-  returns null on timeout, so a write that really did not happen still fails the test.
-  A tap hands its write to the composition's own scope, so `compose.waitForIdle()` comes
-  before `awaitStored`: without it the five-second clock can start before the write has
-  been dispatched, which is how that assertion failed three times on a loaded emulator
-  while the feature worked.
+* Instrumented Compose tests wait for a DataStore write **without parking the thread that
+  drives the composition**. A `waitUntil` runs its condition on the UI thread, and a
+  `runBlocking` wait blocks the test thread the composition's scope is driven from, so
+  either way the wait freezes the write a tap handed to that scope and expires on a value
+  that lands the moment it lets go. That is why the settings chip failed three times while
+  the feature worked, and why round 2 of the 2026-11-24 run failed at exactly five seconds
+  in a round where this repository committed three direct writes in 0.536s: a longer
+  window only moves the expiry, it does not watch the write. `compose.awaitStoredSettings(
+  container.settings) { … }` (`app/src/androidTest/…/testing/StoredSettingsWaits.kt`) reads
+  the store on `Dispatchers.IO` in 100ms slices and calls `compose.waitForIdle()` in
+  between, so the composition runs the write inside the window; it still returns null on
+  timeout, so a write that really did not happen still fails the test.
   `.github/scripts/check-instrumented-waits.sh` refuses the `waitUntil` family in any file
   that reaches the store (`AppContainer`, `SettingsRepository`, `settingsDataStore`,
   `container.settings`); `.github/scripts/test-check-instrumented-waits.sh` feeds it one
