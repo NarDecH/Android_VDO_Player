@@ -23,7 +23,9 @@
 # emulator is doing, and it failed on one run in three while the feature worked. A single
 # green run cannot tell "fixed" from "did not happen to lose the race this time", so the
 # run repeats — three times by default, `PLAYBACK_TEST_ROUNDS` to change it — and every
-# round's report is copied out before the next round overwrites it.
+# round's report is copied out before the next round overwrites it, with the round's wall
+# clock and the device log as it stood then: logcat is a ring buffer, so the round that
+# failed is the one whose lines the next round pushes out first.
 # `emulator-diagnostics/round-N` is what the summary in ci.yml reads to say which round
 # did what.
 set -u
@@ -82,9 +84,10 @@ run_round() {
   fi
 }
 
-snapshot_round() { # <round> — keeps the report the next round is about to overwrite
+snapshot_round() { # <round> — keeps what the next round is about to overwrite
   round=$1
-  mkdir -p "$diagnostics_dir/round-$round"
+  directory="$diagnostics_dir/round-$round"
+  mkdir -p "$directory"
   # The report sits two directories down (`connected/debug/TEST-test(AVD) - 14.xml`) and
   # its name contains spaces and parentheses, so `find -print0` rather than a glob: a
   # one-level glob here silently copied nothing, which the stub test caught. `-exec cp … +`
@@ -92,12 +95,21 @@ snapshot_round() { # <round> — keeps the report the next round is about to ove
   # directory cannot follow it, and `cp -t` does not exist on macOS.
   find "$results_dir" -name 'TEST-*.xml' -print0 2>/dev/null |
     while IFS= read -r -d '' report; do
-      cp "$report" "$diagnostics_dir/round-$round/"
+      cp "$report" "$directory/"
     done
+
+  # The device log from the round that just ran, not from the end of the run: logcat keeps
+  # a fixed number of lines, so round 3 has already pushed round 1's lines out by the time
+  # the end-of-run block below reads the buffer — and a round that failed early is exactly
+  # the one whose evidence has to survive the rounds after it.
+  timeout 120 "$adb_bin" logcat -d -t 4000 > "$directory/logcat.txt" 2>&1 || true
+  grep -E 'TestRunner: (started|finished|failed)' "$directory/logcat.txt" |
+    tail -60 > "$directory/test-runner.txt" || true
 }
 
-report_round() { # <round> — one line the log can be read from
+report_round() { # <round> <seconds> — one line the log can be read from
   round=$1
+  elapsed=$2
   directory="$diagnostics_dir/round-$round"
   total=0
   failed=0
@@ -121,7 +133,10 @@ report_round() { # <round> — one line the log can be read from
     break
   done
 
-  echo "=== round $round: $total test(s), $failed failed; $repeated_test $outcome"
+  # The wall clock is what the cap measures; the JUnit times counted above are the tests
+  # alone, so a round killed at twelve minutes can have spent most of them on the install
+  # and the runner starting, where no report looks.
+  echo "=== round $round: $total test(s), $failed failed; $repeated_test $outcome; ${elapsed}s wall clock"
 }
 
 overall=0
@@ -132,8 +147,12 @@ while [ "$round" -le "$rounds" ]; do
   # dies before producing a report must not leave the previous round's green report behind
   # to be counted as if it were this round's.
   rm -rf "$results_dir" app/build/reports/androidTests
+  # `SECONDS` is bash's own counter, read on either side of the call the cap wraps: the
+  # report copy and the logcat snapshot that follow are diagnostics, not the round.
+  round_started=$SECONDS
   run_round
   status=$gradle_status
+  elapsed=$((SECONDS - round_started))
 
   if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
     echo "=== round $round was still going after $playback_timeout and was stopped"
@@ -146,7 +165,8 @@ while [ "$round" -le "$rounds" ]; do
   fi
 
   snapshot_round "$round"
-  report_round "$round"
+  echo "$elapsed" > "$diagnostics_dir/round-$round/elapsed.txt"
+  report_round "$round" "$elapsed"
   round=$((round + 1))
 done
 

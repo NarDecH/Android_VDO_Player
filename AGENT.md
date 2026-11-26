@@ -223,8 +223,12 @@ Verification rules that apply to this repository:
   The suite itself runs three times (`PLAYBACK_TEST_ROUNDS`), because the settings-chip test
   races the emulator and a single green run cannot tell "fixed" from "did not lose the
   race this time": each round's JUnit report is copied to `emulator-diagnostics/round-N`
-  before the next round overwrites it, and the summary step annotates every round plus
-  the watched test's outcome in it. The name lives in the script, which writes it to
+  before the next round overwrites it, with the round's wall clock (`elapsed.txt`, read on
+  either side of the capped gradle call) and its own logcat and `TestRunner:` lines,
+  because the buffer is a ring and the failing round's lines are the first the next one
+  pushes out. The summary step annotates every round plus the watched test's outcome in
+  it, with the report's test seconds and the round's wall clock, the latter against the
+  cap the round is killed at. The name lives in the script, which writes it to
   `emulator-diagnostics/repeated-test.txt`; the workflow reads that file, so renaming the
   guarded test is a one-line change. A round that does not report that name fails the
   job rather than warning, because three green rounds that watched nothing would say

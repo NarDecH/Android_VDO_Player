@@ -345,10 +345,9 @@ jobs:
               return results
 
           def test_seconds(paths):
-              # The report's own clock: every case's `time`, added up. A round's wall
-              # clock also covers the install and the runner starting, which no report
-              # holds, so this is the instrumented work of the round — the number to
-              # watch as it grows towards the cap below.
+              # The report's own clock: every case's `time`, added up. It leaves out the
+              # install and the runner starting, which the cap does cover, so the round's
+              # own wall clock is read from beside the report and reported next to this.
               total = 0.0
               for path in paths:
                   for case in ET.parse(path).getroot().iter('testcase'):
@@ -363,6 +362,16 @@ jobs:
                   return f'{seconds:.1f}s'
               minutes, rest = divmod(seconds, 60)
               return f'{int(minutes)}m {rest:04.1f}s'
+
+          def elapsed_seconds(directory):
+              # The runner's own clock for the round, written beside its report: it starts
+              # where the cap starts, so the install and the runner starting are inside it
+              # and it is the number that says how much of the cap a round really used.
+              try:
+                  with open(os.path.join(directory, 'elapsed.txt')) as recorded:
+                      return float(recorded.read().strip())
+              except (OSError, ValueError):
+                  return None
 
           # The cap the script gives each round (PLAYBACK_TEST_TIMEOUT, twelve minutes
           # by default). Read from the script rather than repeated here, so a changed
@@ -380,7 +389,7 @@ jobs:
           except OSError:
               pass
 
-          def report(label, results, seconds, cap_note=''):
+          def report(label, results, seconds, wall=None, cap_note=''):
               for outcome, name in results:
                   print(f'{outcome:>8}  {name}')
               if not results:
@@ -394,10 +403,13 @@ jobs:
               note = f'{label}: {len(results)} instrumented test(s): {summary}'
               if skipped:
                   note += ' (skipped: ' + ', '.join(skipped) + ')'
-              # How long the round's tests took, against the cap the round is killed
-              # at: a round that is creeping towards twelve minutes is visible here
-              # long before the cap turns it into a failure with no explanation.
-              note += f'; test time {clock(seconds)}' + cap_note
+              # How long the round took, against the cap the round is killed at: the
+              # report's sum is the tests alone, the wall clock is the round as the cap
+              # measures it, and a round creeping towards the cap is visible here long
+              # before the cap turns it into a failure with no explanation.
+              note += f'; test time {clock(seconds)}'
+              if wall is not None:
+                  note += f'; wall clock {clock(wall)}' + cap_note
               print(f'::notice title=Instrumented results::{note}')
 
           # The test the repeat exists for. Naming it per round is the difference between a
@@ -429,7 +441,13 @@ jobs:
                   label = f'round {index} of {len(rounds)}'
                   paths = sorted(glob.glob(os.path.join(directory, 'TEST-*.xml')))
                   results = results_for(paths)
-                  report(label, results, test_seconds(paths), f' of the {cap} round cap')
+                  report(
+                      label,
+                      results,
+                      test_seconds(paths),
+                      elapsed_seconds(directory),
+                      f' of the {cap} round cap',
+                  )
                   if not watched:
                       continue
                   if not results:

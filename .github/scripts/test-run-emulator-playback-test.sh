@@ -207,8 +207,23 @@ expect_file 'the watched test is written down for the summary' \
 for round in 1 2 3; do
   expect_file "round $round keeps its own copy of the report" \
     "$unit/emulator-diagnostics/round-$round/TEST-test(AVD) - 14.xml"
+  # The device log is taken inside each round, because the next round's lines push this
+  # round's out of logcat's ring buffer.
+  expect_file "round $round keeps the log it ran against" \
+    "$unit/emulator-diagnostics/round-$round/logcat.txt" 'I/TestRunner: started'
+  expect_file "round $round keeps the runner lines on their own" \
+    "$unit/emulator-diagnostics/round-$round/test-runner.txt" "started: $name"
+  expect_file "round $round keeps its wall clock" \
+    "$unit/emulator-diagnostics/round-$round/elapsed.txt"
 done
-expect_no_file 'a green run collects no device diagnostics' "$unit/emulator-diagnostics/logcat.txt"
+round_seconds=$(tr -d '[:space:]' <"$unit/emulator-diagnostics/round-2/elapsed.txt" || true)
+if [[ ${round_seconds:-x} =~ ^[0-9]+$ ]]; then
+  pass 'a round writes its wall clock as whole seconds'
+else
+  fail "a round writes its wall clock as whole seconds — read '${round_seconds:-}'"
+fi
+expect_no_file 'a green run writes no end-of-run device diagnostics' \
+  "$unit/emulator-diagnostics/logcat.txt"
 
 # --- the runner: a failing round in the middle ----------------------------------------
 new_case
@@ -223,6 +238,8 @@ expect_output 'the failure is announced once' '=== a round failed (status 1)'
 expect_output 'the round after the failure still runs' '=== instrumented round 3 of 3'
 expect_calls 'gradle runs every round, not only up to the failure' "$unit/gradle-calls" 3
 expect_file 'the whole logcat is kept' "$unit/emulator-diagnostics/logcat.txt"
+expect_file 'the failing round kept the log it ran against' \
+  "$unit/emulator-diagnostics/round-2/logcat.txt" 'I/TestRunner: started'
 expect_file 'the filtered logcat keeps the player lines' \
   "$unit/emulator-diagnostics/logcat-playback.txt" 'VDO/'
 if grep -qF 'Unrelated' "$unit/emulator-diagnostics/logcat-playback.txt"; then
