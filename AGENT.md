@@ -228,7 +228,11 @@ Verification rules that apply to this repository:
   because the buffer is a ring and the failing round's lines are the first the next one
   pushes out. The summary step annotates every round plus the watched test's outcome in
   it, with the report's test seconds and the round's wall clock, the latter against the
-  cap the round is killed at. The name lives in the script, which writes it to
+  cap the round is killed at. A round that has spent 80% of that cap is annotated as a
+  `::warning` as well, so a run creeping towards the cap says so in the checks API
+  instead of only as a figure in a notice; `.github/scripts/test-instrumented-summary.sh`
+  lifts the summary out of the workflow and runs it against fixture rounds, on both
+  sides of that share, so the flag cannot quietly stop firing. The name lives in the script, which writes it to
   `emulator-diagnostics/repeated-test.txt`; the workflow reads that file, so renaming the
   guarded test is a one-line change. A round that does not report that name fails the
   job rather than warning, because three green rounds that watched nothing would say

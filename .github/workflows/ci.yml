@@ -224,6 +224,13 @@ jobs:
         shell: bash
         run: bash .github/scripts/check-emulator-budget.sh
 
+      # The summary is all a reader gets of the forty-minute run, and it is a python
+      # heredoc in this file. It is lifted out and run against fixture rounds here, so a
+      # round creeping towards its cap is known to say so before the next slow run does.
+      - name: Prove the summary flags a round that is slow
+        shell: bash
+        run: bash .github/scripts/test-instrumented-summary.sh
+
       - name: Set up JDK 17
         uses: actions/setup-java@v6
         with:
@@ -389,6 +396,26 @@ jobs:
           except OSError:
               pass
 
+          # The cap in seconds, so a round can be measured against it rather than against
+          # the string it is printed as. A cap with no unit is seconds, the way `timeout`
+          # reads it, and a shape that is not a duration leaves the round unjudged.
+          def cap_seconds(duration):
+              units = {'s': 1, 'm': 60, 'h': 3600}
+              try:
+                  if duration and duration[-1] in units:
+                      return int(duration[:-1]) * units[duration[-1]]
+                  return int(duration)
+              except ValueError:
+                  return None
+
+          # A round that has used this much of its cap raises a warning: the notice always
+          # carries the figure, but a round creeping towards the cap is the one thing worth
+          # being told before the cap turns it into a failure that explains nothing. The
+          # share is of the round's own cap, not of twelve minutes, so changing
+          # PLAYBACK_TEST_TIMEOUT moves the flag with it.
+          slow_round_share = 0.8
+          cap_total = cap_seconds(cap)
+
           def report(label, results, seconds, wall=None, cap_note=''):
               for outcome, name in results:
                   print(f'{outcome:>8}  {name}')
@@ -411,6 +438,13 @@ jobs:
               if wall is not None:
                   note += f'; wall clock {clock(wall)}' + cap_note
               print(f'::notice title=Instrumented results::{note}')
+              if wall is not None and cap_total and wall >= cap_total * slow_round_share:
+                  print(
+                      f'::warning title=Slow round::{label} used {clock(wall)} of its {cap} '
+                      f'cap, {100 * wall / cap_total:.0f}% of it; rounds are flagged at '
+                      f'{slow_round_share * 100:.0f}% because one this slow is close to '
+                      f'being stopped'
+                  )
 
           # The test the repeat exists for. Naming it per round is the difference between a
           # reader inferring "it passed every round" and the run saying so. The script owns
