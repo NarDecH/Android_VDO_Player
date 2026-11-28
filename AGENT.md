@@ -209,13 +209,17 @@ Verification rules that apply to this repository:
   the store on `Dispatchers.IO` in 100ms slices and calls `compose.waitForIdle()` in
   between, so the composition runs the write inside the window; it still returns null on
   timeout, so a write that really did not happen still fails the test.
-  `.github/scripts/check-instrumented-waits.sh` refuses the `waitUntil` family in any file
-  that reaches the store (`AppContainer`, `SettingsRepository`, `settingsDataStore`,
-  `container.settings`); `.github/scripts/test-check-instrumented-waits.sh` feeds it one
-  fixture per rule, both steps run before the emulator in the `playback-on-an-emulator`
-  job, and `./gradlew :app:check` runs the guard locally (a machine with no bash skips it
-  and says so). The scripts are pinned to LF by `.gitattributes`: a CRLF
-  `set -euo pipefail` is not a valid option name in bash.
+  `.github/scripts/check-instrumented-waits.sh` refuses the `waitUntil` family, and a
+  `runBlocking`/`runBlockingTest` that waits for a value the store writes (`first { … }`,
+  `first(predicate)`, `filter`, `collect`, a `delay` poll) on the thread the composition
+  runs on, in any file that reaches the store (`AppContainer`, `SettingsRepository`,
+  `settingsDataStore`, `container.settings`); a block dispatched elsewhere
+  (`runBlocking(Dispatchers.IO)`) and one that only writes or reads `first()` — the value
+  stored now — stay allowed. `.github/scripts/test-check-instrumented-waits.sh` feeds it
+  one fixture per rule, both steps run before the emulator in the
+  `playback-on-an-emulator` job, and `./gradlew :app:check` runs the guard locally (a
+  machine with no bash skips it and says so). The scripts are pinned to LF by
+  `.gitattributes`: a CRLF `set -euo pipefail` is not a valid option name in bash.
   The emulator job also caps each round of that run with `timeout` — twelve minutes, or
   `PLAYBACK_TEST_TIMEOUT` — and prints the runner's `TestRunner: started` lines when the
   cap fires, so a wait that never finishes fails the job in minutes and names the test,

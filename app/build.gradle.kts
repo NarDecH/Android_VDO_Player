@@ -190,7 +190,8 @@ fun bashOnPath(): String? {
  * write to land. `ComposeTestRule.waitUntil` runs its condition on the UI thread, which
  * is the thread that write has to resume on, so waiting that way starves the write and
  * times out on a value that was never stored — 1.5.5's control-bar test did exactly
- * that and read as a broken settings screen. The guard in
+ * that and read as a broken settings screen. A `runBlocking` that waits parks the same
+ * thread, so the guard refuses that shape too. The guard in
  * `.github/scripts/check-instrumented-waits.sh` refuses the pattern, and it is wired to
  * `check` so a local build fails on the commit that introduced it rather than on an
  * emulator run forty minutes later.
@@ -207,7 +208,7 @@ if (bash != null) {
     tasks.register<Exec>("checkInstrumentedWaits") {
         group = "verification"
         description =
-            "Refuses an instrumented test that polls the stored settings through compose.waitUntil."
+            "Refuses an instrumented test that waits on the stored settings from the test thread."
 
         inputs.files(fileTree("src/androidTest") { include("**/*.kt") })
             .withPropertyName("instrumentedSources")
@@ -220,7 +221,7 @@ if (bash != null) {
     tasks.register("checkInstrumentedWaits") {
         group = "verification"
         description =
-            "Refuses an instrumented test that polls the stored settings through compose.waitUntil."
+            "Refuses an instrumented test that waits on the stored settings from the test thread."
 
         doLast {
             logger.warn(

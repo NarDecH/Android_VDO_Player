@@ -136,7 +136,8 @@ class SettingsEdgeTest {
 EOF
 
 # Idle waits run no condition of the test's own, so they cannot hold the thread a write
-# needs; a store-backed file that uses one is fine.
+# needs; a store-backed file that uses one is fine, and the `first()` beside it reads the
+# value stored now rather than waiting for one.
 mkdir -p "$work/waited-for-idle"
 cat >"$work/waited-for-idle/SettingsEdgeTest.kt" <<'EOF'
 class SettingsEdgeTest {
@@ -146,6 +147,97 @@ class SettingsEdgeTest {
     fun theScreenSettles() {
         compose.waitForIdle()
         assertEquals(ControlsEdge.LEFT, runBlocking { container.settings.settings.first() }.controlsEdge)
+    }
+}
+EOF
+
+# The second shape: the same wait written without a test rule. `runBlocking` parks the
+# test thread — the one the composition's scope runs on — so a block that waits for the
+# stored value freezes the write it is waiting for, exactly as `waitUntil` did.
+mkdir -p "$work/blocking"
+cat >"$work/blocking/SettingsEdgeTest.kt" <<'EOF'
+class SettingsEdgeTest {
+    private val container = AppContainer(context)
+
+    @Test
+    fun theChipStoresTheEdge() {
+        compose.onNodeWithText("Left").performClick()
+        val stored = runBlocking {
+            container.settings.settings.first { it.controlsEdge == ControlsEdge.LEFT }
+        }
+        assertNotNull(stored)
+    }
+}
+EOF
+
+# `runBlockingTest` is the same block with a test dispatcher, and it has to be refused too:
+# a ban that names one spelling is one rename away from being silent.
+mkdir -p "$work/blocking-test"
+cat >"$work/blocking-test/SettingsEdgeTest.kt" <<'EOF'
+class SettingsEdgeTest {
+    private val container = AppContainer(context)
+
+    @Test
+    fun theChipStoresTheEdge() = runBlockingTest {
+        compose.onNodeWithText("Left").performClick()
+        val stored = container.settings.settings.first { it.controlsEdge == ControlsEdge.LEFT }
+        assertNotNull(stored)
+    }
+}
+EOF
+
+# A hand-written poll is the same wait in a loop, and `delay` is what tells it apart from
+# a block that only reads the value stored now.
+mkdir -p "$work/blocking-poll"
+cat >"$work/blocking-poll/SettingsEdgeTest.kt" <<'EOF'
+class SettingsEdgeTest {
+    private val container = AppContainer(context)
+
+    @Test
+    fun theChipStoresTheEdge() = runBlocking {
+        compose.onNodeWithText("Left").performClick()
+        repeat(50) {
+            val stored = container.settings.settings.first()
+            if (stored.controlsEdge == ControlsEdge.LEFT) return@runBlocking
+            compose.waitForIdle()
+            delay(100)
+        }
+    }
+}
+EOF
+
+# Reading on another thread is what `awaitStoredSettings` itself does, so it must stay
+# allowed even though it waits: it cannot starve the thread the composition runs on.
+mkdir -p "$work/blocking-off-thread"
+cat >"$work/blocking-off-thread/SettingsEdgeTest.kt" <<'EOF'
+class SettingsEdgeTest {
+    private val container = AppContainer(context)
+
+    @Test
+    fun theChipStoresTheEdge() {
+        compose.onNodeWithText("Left").performClick()
+        val stored = runBlocking(Dispatchers.IO) {
+            container.settings.settings.first { it.controlsEdge == ControlsEdge.LEFT }
+        }
+        assertNotNull(stored)
+    }
+}
+EOF
+
+# Setup and assertions are not waits: a block that writes, or one that reads the value
+# stored now with `first()`, leaves the composition nothing to be starved of.
+mkdir -p "$work/blocking-setup"
+cat >"$work/blocking-setup/SettingsEdgeTest.kt" <<'EOF'
+class SettingsEdgeTest {
+    private val container = AppContainer(context)
+
+    @Test
+    fun theChipStoresTheEdge() {
+        runBlocking { container.settings.setControlsEdge(ControlsEdge.BOTTOM) }
+        compose.onNodeWithText("Left").performClick()
+        compose.waitForIdle()
+        val stored = runBlocking { container.settings.settings.first() }
+        assertEquals(ControlsEdge.LEFT, stored.controlsEdge)
     }
 }
 EOF
@@ -173,6 +265,7 @@ EOF
 mkdir -p "$work/empty"
 
 want='waits with compose.waitUntil on a test that reads the stored settings'
+want_run='waits inside runBlocking for a value the stored settings write'
 
 expect_refusal 'a store-backed waitUntil is refused' "$want" "$work/polled"
 expect_refusal 'the store is recognised through the repository' "$want" \
@@ -181,6 +274,11 @@ expect_refusal 'the rest of the wait family is refused too' "$want" "$work/polle
 expect_pass 'waiting for a node without the store passes' "$work/waiting-on-a-node"
 expect_pass 'the pumping helper in a store-backed file passes' "$work/awaited"
 expect_pass 'waitForIdle in a store-backed file passes' "$work/waited-for-idle"
+expect_refusal 'a runBlocking wait for the store is refused' "$want_run" "$work/blocking"
+expect_refusal 'runBlockingTest is refused too' "$want_run" "$work/blocking-test"
+expect_refusal 'a delay poll inside runBlocking is refused' "$want_run" "$work/blocking-poll"
+expect_pass 'a runBlocking handed to another thread passes' "$work/blocking-off-thread"
+expect_pass 'runBlocking in setup and assertion passes' "$work/blocking-setup"
 expect_pass 'a commented-out wait passes' "$work/commented"
 
 if expect_pass 'a directory with no tests passes' "$work/empty"; then
